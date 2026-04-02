@@ -1,0 +1,79 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --color-bg: #0a120a;
+  --color-surface: #152315;
+  --color-surface-hover: #1e331e;
+  --color-border: #263826;
+  --color-accent: #4ade80;
+  --color-accent-dim: #166534;
+  --color-text-primary: #f0fdf4;
+  --color-text-secondary: #94a3b8;
+  --color-text-dim: #64748b;
+  --color-alert-red: #fb7185;
+  --color-alert-amber: #fbbf24;
+  --radius-main: 1.5rem;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-accent);
+  border-radius: 3px;
+}
+
+/* Animations */
+@keyframes pulse-green {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+@keyframes slide-in-right {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes alert-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+  50% { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+}
+
+.animate-pulse-green { animation: pulse-green 2s ease-in-out infinite; }
+.animate-slide-in { animation: slide-in-right 0.3s ease-out; }
+.animate-fade-in { animation: fade-in 0.4s ease-out; }
+.animate-alert-pulse { animation: alert-pulse 1.5s ease-in-out infinite; }
+
+/* Leaflet fixes */
+.leaflet-container {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.75rem;
+}

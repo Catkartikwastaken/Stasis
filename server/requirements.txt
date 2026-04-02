@@ -1,0 +1,10 @@
+flask==3.0.0
+flask-socketio==5.3.6
+flask-cors==4.0.0
+pyserial==3.5
+RPi.GPIO==0.7.1
+fpdf2==2.7.6
+python-dotenv==1.0.0
+schedule==1.2.1
+eventlet==0.35.1
+Pillow==10.2.0

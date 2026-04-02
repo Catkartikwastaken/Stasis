@@ -1,0 +1,922 @@
+=======================================================================
+  STASIS — AUTONOMOUS FOREST PATROL ROVER
+  MASTER ENGINEERING PROMPT v2.0
+  For use with: Claude / GPT-4o / Gemini Advanced / Cursor AI
+=======================================================================
+
+You are a senior embedded systems and full-stack engineer with deep
+expertise in ESP32 firmware (Arduino/ESP-IDF), Python Flask backends,
+React web applications, and Raspberry Pi Linux systems. You are tasked
+with building the complete codebase for a project called STASIS —
+an autonomous forest patrol rover designed to detect unauthorized human
+presence within a geofenced area.
+
+Read this entire prompt before writing a single line of code.
+Follow every section precisely. Ask no clarifying questions — all
+decisions are defined below.
+
+=======================================================================
+  SECTION 1 — PROJECT OVERVIEW
+=======================================================================
+
+STASIS is a 4-wheeled autonomous rover that:
+  - Accepts a GPS geofence boundary set via a web dashboard
+  - Navigates autonomously within that boundary using obstacle
+    avoidance, and stores learned paths in flash memory for
+    efficient re-use on repeat visits
+  - Detects humans using a two-stage computer vision pipeline
+    (motion detection + ML person confirmation)
+  - Reports detections in real time with GPS coordinates, snapshots,
+    audible alerts, and visual alerts on the dashboard
+  - Returns to a custom charging station automatically when
+    battery is low or when scheduled
+  - Is managed entirely via a lightweight web app hosted on the
+    Raspberry Pi Zero W at the charging station, accessible from
+    any browser on the local network
+
+The system has three physical nodes:
+  [A] ROVER UNIT         — ESP32-S3 + ESP32-CAM + sensors + motors
+  [B] CHARGING STATION   — Raspberry Pi Zero W + ESP32-C3 Mini
+  [C] DASHBOARD          — React web app served from the Pi,
+                           accessed via any LAN browser
+
+=======================================================================
+  SECTION 2 — HARDWARE MANIFEST & PIN ROLES
+=======================================================================
+
+--- ROVER (Node A) ---
+
+ESP32-S3 (Main Controller):
+  - Controls all 4 motors via L298N or L293D motor driver
+    Motor A (Left Front)  — IN1=GPIO4,  IN2=GPIO5,  ENA=GPIO6
+    Motor B (Left Rear)   — IN3=GPIO7,  IN4=GPIO8,  ENB=GPIO9
+    Motor C (Right Front) — IN1=GPIO10, IN2=GPIO11, ENA=GPIO12
+    Motor D (Right Rear)  — IN3=GPIO13, IN4=GPIO14, ENB=GPIO15
+  - Reads DS18B20 temperature sensor on GPIO16 (OneWire)
+  - Reads MPU6050 (I2C): SDA=GPIO21, SCL=GPIO22
+  - Reads NEO-6M GPS via UART2: RX2=GPIO17, TX2=GPIO18
+  - Drives 16x2 or 20x4 I2C LCD (address 0x27) on same I2C bus
+  - Communicates with ESP32-CAM via UART1: RX1=GPIO19, TX1=GPIO20
+  - Communicates with ESP32-C3 Mini via ESP-NOW (primary),
+    BLE (fallback)
+  - Passive buzzer on GPIO2
+
+ESP32-CAM (AI-Thinker module):
+  - Connects to ESP32-S3 via UART (TX=U0TXD, RX=U0RXD, 115200 baud)
+  - Runs two-stage detection pipeline:
+      Stage 1: Frame differencing motion detection
+               (pixel delta threshold > 3% of frame)
+      Stage 2: If motion confirmed, run lightweight MobileNet-based
+               person classifier (ESP-WHO or TFLite Micro)
+               Confidence threshold: > 0.72 to fire alert
+  - On confirmed detection:
+      Capture 640x480 JPEG snapshot, base64 encode it, send JSON
+      over UART to ESP32-S3:
+      {"event":"human_detected","confidence":0.91,
+       "timestamp":<ms>,"image":"<base64>"}
+  - Streams MJPEG video over HTTP on port 81:
+      GET /stream  → MJPEG feed
+      GET /capture → single JPEG
+      GET /status  → JSON health
+  - Max stream framerate: 15fps
+  - Detection cooldown: 30 seconds after each alert
+
+--- CHARGING STATION (Node B) ---
+
+Raspberry Pi Zero W:
+  - ARM11, 512MB RAM — treat as resource-constrained Linux
+  - Runs Python Flask + Flask-SocketIO backend (lightweight,
+    appropriate for this hardware)
+  - Serves built React dashboard as static files via Flask
+  - Generates daily PDF patrol reports via fpdf2
+  - Manages charging schedule and relay logic via RPi.GPIO
+  - Communicates with ESP32-C3 Mini via hardware UART:
+    Pi TX=GPIO14 (pin8), RX=GPIO15 (pin10), 9600 baud
+  - Does NOT use WiFi directly — all network traffic is bridged
+    through the ESP32-C3 Mini
+
+ESP32-C3 Mini (WiFi & GPIO Bridge):
+  - Creates WiFi Access Point: SSID="STASIS_NET", WPA2
+    (or STA mode if existing network SSID defined in config.h)
+  - Bridges all TCP/HTTP/WebSocket traffic between WiFi clients
+    and Pi via UART (AsyncTCP-based TCP-UART bridge)
+  - Receives ESP-NOW packets from ESP32-S3, forwards as JSON
+    over UART to Pi
+  - Receives JSON commands from Pi over UART, relays as ESP-NOW
+    to ESP32-S3
+  - GPIO15: charging relay control (HIGH = charging enabled)
+  - GPIO16: emergency stop hardware signal to Pi (interrupt)
+  - Watchdog: if no rover telemetry for 60s, send alert to Pi
+
+=======================================================================
+  SECTION 3 — COMMUNICATION ARCHITECTURE
+=======================================================================
+
+[ESP32-S3 Rover] <---ESP-NOW/BLE---> [ESP32-C3 Mini]
+                                             |
+                                       UART (9600)
+                                             |
+                                    [Raspberry Pi Zero W]
+                                      Flask + SocketIO
+                                             |
+                              HTTP REST / Socket.IO / MJPEG proxy
+                                             |
+                                     [Web Dashboard]
+                                    (browser on LAN)
+
+ESP-NOW Packet Structs (use __attribute__((packed)) on all):
+
+  TELEMETRY (Rover → Station, every 2 seconds):
+  {
+    uint8_t  packet_type;     // 0x01
+    float    gps_lat;
+    float    gps_lon;
+    float    temperature;
+    float    battery_voltage;
+    int16_t  accel_x, accel_y, accel_z;
+    uint8_t  rover_state;     // IDLE=0 PATROL=1 RETURNING=2
+                              // STUCK=3 CHARGING=4 EMERGENCY=5
+    uint8_t  is_charging;
+  }
+
+  COMMAND (Station → Rover):
+  {
+    uint8_t  packet_type;     // 0x02
+    uint8_t  command;         // GOTO=1 STOP=2 RETURN=3 RESUME=4
+    float    target_lat;
+    float    target_lon;
+    uint8_t  geofence_point_count;
+    float    geofence_lats[10];
+    float    geofence_lons[10];
+  }
+
+  ALERT (Rover → Station):
+  {
+    uint8_t  packet_type;     // 0x03
+    uint8_t  alert_type;      // HUMAN=1 STUCK=2 LOW_BATTERY=3 TILT=4
+    float    alert_lat;
+    float    alert_lon;
+    uint32_t timestamp;
+    char     image_b64[4096]; // base64 JPEG (human alerts only)
+  }
+
+=======================================================================
+  SECTION 4 — ESP32-S3 FIRMWARE SPECIFICATION
+=======================================================================
+
+Language: Arduino framework (ESP32 Arduino Core 2.x)
+
+File structure:
+  firmware/esp32s3/
+    main.ino
+    config.h                 ← ALL pins, thresholds, constants here
+    motor_controller.h/.cpp
+    gps_handler.h/.cpp
+    imu_handler.h/.cpp
+    temp_sensor.h/.cpp
+    navigation.h/.cpp
+    path_memory.h/.cpp       ← NVS flash path storage
+    espnow_handler.h/.cpp
+    camera_comms.h/.cpp
+    lcd_display.h/.cpp
+    alert_handler.h/.cpp
+
+Rover State Machine (enum + switch in main loop):
+  STATE_IDLE        — waiting at charging station
+  STATE_NAVIGATING  — moving toward geofence destination
+  STATE_PATROLLING  — roaming within geofence boundary
+  STATE_RETURNING   — heading back to charging station
+  STATE_STUCK       — MPU6050 stuck/tilt detected, awaiting command
+  STATE_CHARGING    — docked and charging
+  STATE_EMERGENCY   — critical fault, full stop
+
+Navigation & Path Memory (path_memory.h):
+  - First visit to a GPS location: use reactive obstacle avoidance
+    (MPU6050 terrain/bump detection + motor feedback)
+  - Store successful path as GPS waypoint array in NVS flash:
+    Key: "path_<geohash6>" → JSON [{lat,lon}, ...]
+  - On revisit to same location (within 10m): load and follow
+    the stored waypoint path directly
+  - Invalidate and re-learn path if MPU6050 detects unexpected
+    obstacle profile significantly different from stored
+
+MPU6050 Behavior:
+  - Poll at 20Hz
+  - STUCK: linear accel < 0.05g for 3+ seconds while motors active
+  - TILT: roll or pitch > 35 degrees
+  - On either: stop motors, enter STATE_STUCK, broadcast ALERT packet
+  - If no command after 5 minutes: attempt single auto-reverse,
+    re-evaluate, then wait again
+  - Alert type sent: STUCK or TILT accordingly
+
+GPS Geofencing:
+  - Store geofence as polygon (up to 10 GPS coordinate vertices)
+  - Point-in-polygon ray casting check every 1 second
+  - If outside boundary: navigate to nearest boundary point,
+    then resume patrol
+
+LCD Display (I2C, address 0x27, 16x2 or 20x4):
+  Rotate every 3 seconds:
+    Screen 1: "STASIS v2.0" + current state name
+    Screen 2: GPS lat/lon (4 decimal places)
+    Screen 3: "BAT:XX.XV  TMP:XX.XC"
+    Screen 4: "SIG:OK/WEAK  CAM:ON/OFF"
+    Screen 5: (on detection) "!! ALERT !!  HUMAN DETECTED"
+              stays until alert acknowledged via dashboard
+    Screen 6: (on stuck)    "!! STUCK !!  AWAITING CMD"
+
+Buzzer (GPIO2, passive):
+  - Human detected:  3 short beeps (100ms on / 100ms off) x3
+  - Stuck/Tilt:      2 long beeps (500ms on / 200ms off) x2
+  - Low battery:     1 slow beep every 10 seconds
+  - Charging done:   ascending 3-tone melody (C4, E4, G4)
+
+Coding rules for all firmware:
+  - #pragma once in every header
+  - No delay() in main loop — millis() timers only
+  - Every module has init() and update() called from main loop
+  - Serial debug output inside #ifdef DEBUG_MODE
+  - All structs use __attribute__((packed))
+  - NVS wrapped in nvs_flash_init error handling
+  - esp_task_wdt watchdog enabled with 30s timeout
+
+=======================================================================
+  SECTION 5 — ESP32-CAM FIRMWARE SPECIFICATION
+=======================================================================
+
+Language: Arduino framework
+
+File structure:
+  firmware/esp32cam/
+    main.ino
+    config.h
+    human_detector.h/.cpp    ← motion + person classification
+    stream_server.h/.cpp     ← MJPEG HTTP on port 81
+    uart_comms.h/.cpp        ← JSON over UART to ESP32-S3
+
+Detection Pipeline:
+  1. Capture at 320x240, convert to grayscale
+  2. Frame delta vs previous frame → changed_pixels / total > 0.03
+  3. On motion: run ESP-WHO person detection model
+     (fallback: quantized INT8 MobileNetV2 96x96 via TFLite Micro)
+  4. If person_confidence > 0.72: fire event
+  5. Capture 640x480 JPEG, base64 encode, send JSON via UART
+  6. 30 second detection cooldown
+
+=======================================================================
+  SECTION 6 — ESP32-C3 MINI FIRMWARE SPECIFICATION
+=======================================================================
+
+Language: Arduino framework
+
+File structure:
+  firmware/esp32c3/
+    main.ino
+    config.h
+    wifi_bridge.h/.cpp       ← AP/STA WiFi + TCP-UART bridge
+    uart_pi_bridge.h/.cpp    ← relay Pi traffic over UART
+    espnow_relay.h/.cpp      ← forward rover telemetry to Pi
+    gpio_control.h/.cpp      ← charging relay + emergency GPIO
+
+Behavior:
+  - Boot: create AP "STASIS_NET" (pw: "stasis2024")
+    or STA if credentials in config.h
+  - Bridge TCP traffic from WiFi → UART to Pi (AsyncTCP)
+  - ESP-NOW from rover → JSON over UART to Pi
+  - JSON commands from Pi UART → ESP-NOW to rover
+  - GPIO15: charging relay (HIGH = on)
+  - GPIO16: emergency stop to Pi
+  - Watchdog: no telemetry for 60s → alert Pi
+
+=======================================================================
+  SECTION 7 — RASPBERRY PI PYTHON BACKEND SPECIFICATION
+=======================================================================
+
+OS: Raspberry Pi OS Lite (headless, 32-bit)
+Runtime: Python 3.11+
+
+Why Python and not Node.js:
+  The Pi Zero W has only 512MB RAM and a single-core ARM11.
+  Node.js consumes ~150MB on startup alone. Python with Flask
+  is dramatically lighter, has native RPi.GPIO support, better
+  UART libraries, and is the standard for Pi-based IoT backends.
+
+File structure:
+  server/
+    app.py                   ← Flask + Flask-SocketIO entry point
+    config.py                ← all settings, paths, constants
+    database.py              ← SQLite3 setup, schema, migrations
+    uart_handler.py          ← pyserial UART comms with ESP32-C3
+    telemetry_handler.py     ← parse + store incoming telemetry
+    alert_handler.py         ← handle, persist, emit alerts
+    charging_controller.py   ← charging logic + RPi.GPIO relay
+    geofence_manager.py      ← store/retrieve geofence polygons
+    path_manager.py          ← store/retrieve learned patrol paths
+    report_generator.py      ← daily PDF via fpdf2
+    requirements.txt
+    .env                     ← environment config
+    .env.example
+
+requirements.txt must include:
+  flask
+  flask-socketio
+  flask-cors
+  pyserial
+  RPi.GPIO
+  fpdf2
+  schedule
+  python-dotenv
+  geopy                      ← for GPS distance calculations
+  eventlet                   ← async worker for Flask-SocketIO
+
+app.py responsibilities:
+  - Flask app with Flask-SocketIO using eventlet async mode
+  - Register all REST API blueprints under /api/v1
+  - Serve built React static files from /server/static/
+    (route: catch-all returns index.html for React Router)
+  - Start background threads on boot:
+      uart_handler.start()        ← reads UART in background thread
+      charging_controller.start() ← monitors battery + schedule
+      report_generator.schedule() ← schedule 23:55 daily report
+  - Graceful shutdown: close UART, GPIO cleanup on SIGTERM/SIGINT
+
+config.py constants:
+  UART_PORT = "/dev/ttyS0"
+  UART_BAUD = 9600
+  DB_PATH = "/var/stasis/stasis.db"
+  REPORTS_PATH = "/var/stasis/reports/"
+  CAM_STREAM_URL = "http://<ESP32CAM_IP>:81/stream"
+  CAM_CAPTURE_URL = "http://<ESP32CAM_IP>:81/capture"
+  BATTERY_LOW_THRESHOLD = 3.6
+  BATTERY_CRITICAL_THRESHOLD = 3.3
+  CHARGING_RELAY_PIN = 17           ← RPi.GPIO BCM pin number
+  EMERGENCY_STOP_PIN = 27           ← RPi.GPIO BCM pin number
+  CHARGE_SCHEDULE_START = "02:00"
+  CHARGE_SCHEDULE_END = "06:00"
+  STATION_LAT = 0.0                 ← set on first run
+  STATION_LON = 0.0
+
+database.py SQLite3 schema:
+  Tables:
+    telemetry (id, timestamp, lat, lon, battery_voltage,
+               temperature, accel_x, accel_y, accel_z,
+               rover_state, created_at)
+    alerts    (id, timestamp, alert_type, lat, lon,
+               image_b64, confidence, acknowledged,
+               ack_timestamp, notes, created_at)
+    geofences (id, name, polygon_json, active,
+               created_at, updated_at)
+    paths     (id, location_hash, waypoints_json,
+               times_used, created_at, last_used)
+    reports   (id, report_date, pdf_path, summary_json,
+               created_at)
+    settings  (key TEXT PRIMARY KEY, value TEXT,
+               updated_at)
+
+uart_handler.py:
+  - Opens /dev/ttyS0 at 9600 baud via pyserial
+  - Runs in daemon background thread (threading.Thread)
+  - Reads newline-delimited JSON packets from ESP32-C3
+  - Dispatches to telemetry_handler or alert_handler based
+    on packet_type field
+  - send_command(command_dict): serializes dict to JSON,
+    writes to UART with newline terminator
+  - Auto-reconnect on serial disconnect with 5s retry
+  - All errors logged to /var/log/stasis/uart.log
+
+telemetry_handler.py:
+  - parse_telemetry(packet): validate fields, insert to DB
+  - Emit Socket.IO event "telemetry" to all connected clients
+  - Maintain in-memory rolling buffer of last 200 records
+    for fast dashboard queries without DB hit
+  - Trigger charging_controller check on each update
+
+alert_handler.py:
+  - parse_alert(packet): validate, insert to DB with image
+  - Emit Socket.IO event "alert" to all connected clients
+  - For HUMAN alerts: also log detection image to
+    /var/stasis/snapshots/YYYY-MM-DD_HH-MM-SS.jpg
+  - acknowledge_alert(alert_id, notes): update DB record
+
+charging_controller.py:
+  - Uses RPi.GPIO to control charging relay on CHARGING_RELAY_PIN
+  - monitor(): called on each telemetry update
+      If battery_voltage < BATTERY_LOW_THRESHOLD:
+        send RETURN command via uart_handler
+      If battery_voltage < BATTERY_CRITICAL_THRESHOLD:
+        send EMERGENCY_STOP then RETURN
+  - dock_detected(): if rover GPS within 2m of STATION_LAT/LON:
+      activate relay (GPIO.output(CHARGING_RELAY_PIN, GPIO.HIGH))
+  - undock(): deactivate relay
+  - schedule_check(): runs every minute via schedule library
+      If current time in charge window and rover not at station:
+        send RETURN command
+
+report_generator.py:
+  - Uses fpdf2 to generate PDF daily reports
+  - generate_report(date): queries DB for full day data and:
+      - Header: STASIS logo text + date + summary line
+      - Section 1: Patrol statistics
+          Total distance (calculated from GPS lat/lon chain)
+          Time in each rover state
+          Battery charge cycles
+      - Section 2: Human detections
+          Count, table of detections with timestamp + GPS coords
+          Embedded JPEG thumbnails (max 5 per page)
+      - Section 3: Environmental data
+          Temperature min/max/avg from DS18B20 log
+      - Section 4: Incident log
+          All stuck/tilt events with timestamps
+      - Footer: generated timestamp + STASIS v2.0
+  - Save to REPORTS_PATH/YYYY-MM-DD.pdf
+  - Insert record into reports table
+  - schedule_daily(): use schedule library to run at 23:55
+
+REST API (all blueprints registered under /api/v1):
+
+  GET  /status
+    → {rover_state, battery, temperature, gps_lat, gps_lon,
+       connected, last_seen, uptime}
+
+  GET  /telemetry?limit=100&offset=0
+    → paginated telemetry records from DB
+
+  GET  /alerts?type=all&date=YYYY-MM-DD&unacked=false
+    → filtered alert list
+
+  POST /alerts/<id>/acknowledge
+    body: {"notes": "string"}
+    → update alert as acknowledged
+
+  GET  /geofences
+    → list all saved geofences
+
+  POST /geofences
+    body: {"name":"Zone A","polygon":[{lat,lon},...]}
+    → save geofence, return id
+
+  DELETE /geofences/<id>
+    → delete geofence
+
+  POST /geofences/<id>/activate
+    → set as active geofence, send to rover
+
+  POST /commands/goto
+    body: {"lat": float, "lon": float}
+    → send GOTO command to rover via UART
+
+  POST /commands/stop
+    → send STOP command (emergency)
+
+  POST /commands/return
+    → send RETURN command
+
+  POST /commands/resume
+    → send RESUME command (after stuck)
+
+  GET  /reports
+    → list all generated reports
+
+  GET  /reports/<date>/pdf
+    → stream PDF file as download
+
+  POST /reports/generate
+    body: {"date": "YYYY-MM-DD"}
+    → manually trigger report generation
+
+  GET  /stream/url
+    → {"url": CAM_STREAM_URL, "capture_url": CAM_CAPTURE_URL}
+
+  GET  /settings
+    → all settings key/value pairs
+
+  POST /settings
+    body: {key: value, ...}
+    → bulk update settings in DB
+
+  GET  /health
+    → server health check (uptime, DB status, UART status)
+
+Socket.IO events (server → client):
+  "telemetry"     → real-time telemetry object (every 2s)
+  "alert"         → new alert object on detection/stuck/battery
+  "rover_state"   → state machine change notification
+  "connection"    → rover link status changed
+  "charge_status" → charging relay state change
+
+Socket.IO events (client → server):
+  "command"       → relay command dict to rover via UART
+  "ack_alert"     → acknowledge alert by id
+
+=======================================================================
+  SECTION 8 — WEB DASHBOARD SPECIFICATION
+=======================================================================
+
+Framework: React 18 + Vite
+Styling: Tailwind CSS
+Map: Leaflet.js (react-leaflet)
+Charts: Recharts
+Real-time: Socket.IO client
+Icons: Lucide React
+State: Zustand
+
+Color Palette (Minimalist + Forest theme):
+  Background:    #F8FAF8   (off-white, slight green tint)
+  Surface:       #FFFFFF
+  Primary:       #2D6A4F   (deep forest green)
+  Secondary:     #40916C   (medium green)
+  Accent:        #74C69D   (light mint)
+  Text:          #1B2021   (near black)
+  Text Muted:    #6B7280
+  Alert Red:     #DC2626
+  Warning Amber: #D97706
+  Border:        #E5E7EB
+  Dark Surface:  #1A2E22   (header/sidebar)
+
+Typography:
+  Body: Inter (Google Fonts)
+  Data/Coords: JetBrains Mono
+
+File structure:
+  dashboard/
+    src/
+      App.jsx
+      main.jsx
+      pages/
+        Dashboard.jsx
+        LiveMap.jsx
+        CameraFeed.jsx
+        Alerts.jsx
+        Chat.jsx
+        Settings.jsx
+      components/
+        Sidebar.jsx
+        Header.jsx
+        StatusBar.jsx          ← always-visible rover status strip
+        TelemetryCard.jsx
+        AlertBadge.jsx
+        GeofenceEditor.jsx     ← draw polygon on Leaflet map
+        BatteryGauge.jsx
+        CompassRose.jsx
+        AlertModal.jsx         ← full-screen human detection overlay
+      hooks/
+        useSocket.js
+        useTelemetry.js
+        useAlerts.js
+      services/
+        api.js                 ← Axios client, base URL from .env
+      store/
+        useStore.js            ← Zustand global state
+      assets/
+        stasis-logo.svg
+        alert.mp3              ← 3-beep alert sound
+    index.html
+    vite.config.js
+    tailwind.config.js
+
+Page Specifications:
+
+[1] DASHBOARD (/):
+  - 4 stat cards top row: Battery %, Temperature, GPS fix, State
+  - Mini live map (300px) with rover dot + geofence overlay
+  - Dual-axis Recharts LineChart (battery + temperature, 60 points)
+  - Last 3 alerts preview with "View All" link
+  - Quick command buttons: STOP, RETURN, RESUME
+    (each with confirmation dialog before sending)
+
+[2] LIVE MAP (/map):
+  - Full-screen Leaflet (OpenStreetMap tiles)
+  - Rover as animated SVG marker (rotates with GPS heading)
+  - Editable geofence polygon (click to add vertex, drag to move,
+    Save button sends to rover via API)
+  - GPS trail polyline (last 200 positions)
+  - Alert pins (red markers with snapshot thumbnails on click)
+  - Charging station marker (green plug icon)
+  - Side panel: live coords, derived speed, heading, last update
+
+[3] CAMERA FEED (/camera):
+  - Live MJPEG stream (proxied via Flask /api/v1/stream to avoid
+    CORS issues, scales to container)
+  - Detection snapshot gallery (grid, most recent first,
+    with timestamp + confidence score)
+  - Manual capture button
+  - LIVE / OFFLINE status indicator
+
+[4] ALERTS (/alerts):
+  - Filter bar: All / Human / Stuck / Battery / Tilt
+  - Table: timestamp, type badge, GPS, confidence, thumbnail,
+    acknowledge button, notes field
+  - Stats bar: total today, unacknowledged count
+  - Click row → expand with full snapshot + map pin
+  - Export to CSV button
+
+[5] CHAT (/chat):
+  - Chat-bubble style command log
+    (sent commands on right, rover events/responses on left)
+  - Command input with preset buttons:
+    "STOP", "RETURN TO BASE", "RESUME PATROL",
+    "SEND TO COORDINATES" (opens lat/lon input dialog)
+  - System messages for alerts, state changes, connections
+
+[6] SETTINGS (/settings):
+  Sections:
+    ROVER: motor speed (0-100%), detection confidence threshold,
+           motion sensitivity, stuck timeout
+    GEOFENCE: saved geofence list, active selection, delete
+    CHARGING: voltage threshold, schedule window, auto-return toggle
+    REPORTS: report time, manual trigger, download all as ZIP
+    NETWORK: ESP32-CAM IP, WiFi AP password change
+    ABOUT: firmware version, server version, uptime, device IDs
+
+ALERT MODAL (global, triggered by Socket.IO "alert" where
+             alert_type === "human_detected"):
+  - Full-screen semi-transparent overlay (dark forest green tint)
+  - "⚠ HUMAN DETECTED" in Alert Red, large font
+  - Snapshot image
+  - GPS coordinates of detection
+  - Confidence score
+  - Plays alert.mp3 via Web Audio API
+  - Browser Notification API push (if permission granted)
+  - Buttons: "ACKNOWLEDGE" and "VIEW ON MAP"
+  - Cannot be dismissed without clicking ACKNOWLEDGE
+
+=======================================================================
+  SECTION 9 — GITHUB REPOSITORY STRUCTURE
+=======================================================================
+
+Repo name: stasis
+Description: "🤖 STASIS — Autonomous Forest Patrol Rover |
+              Human Detection · Geofencing · Auto-Charging"
+
+stasis/
+├── README.md
+├── LICENSE                    ← MIT
+├── .gitignore
+├── CONTRIBUTING.md
+├── CHANGELOG.md
+├── docs/
+│   ├── architecture.md
+│   ├── wiring_diagram.md      ← ASCII wiring diagram + pin table
+│   ├── api_reference.md       ← full REST API docs
+│   ├── setup_guide.md         ← zero-to-running in 30 min
+│   ├── firmware_flashing.md   ← flash all 3 ESP32s step by step
+│   └── images/
+│       ├── stasis_banner.png
+│       ├── architecture.png
+│       └── dashboard_preview.png
+├── firmware/
+│   ├── esp32s3/
+│   ├── esp32cam/
+│   └── esp32c3/
+├── server/                    ← Python Flask backend
+├── dashboard/                 ← React web app
+├── scripts/
+│   ├── install_pi.sh          ← full Pi setup automation
+│   ├── build_dashboard.sh     ← build React + copy to server/static
+│   └── backup_db.sh           ← SQLite backup script
+└── hardware/
+    ├── bom.md                 ← Bill of Materials with costs
+    └── mounting_notes.md
+
+=======================================================================
+  SECTION 10 — README.md SPECIFICATION
+=======================================================================
+
+The README must look like it was written by a developer, not
+generated by AI. No emojis anywhere in the file. Tone should be
+direct, technical, and confident. Write in plain sentences.
+
+Include in order:
+
+  1. ASCII art header — large block-letter text spelling "STASIS"
+     using characters like slashes, pipes, underscores and dots.
+     Must be wide enough to be visually striking at the top of
+     the file. Below the ASCII art, one line in plain text:
+     "Autonomous Forest Patrol Rover — Human Detection & Geofencing"
+     Then a single blank line separator (no banner image reference).
+
+     Example style (generate something this bold and clean):
+
+      _____ _____  ___  _____ _____  _____
+     /  ___|_   _|/ _ \|_   _|_   _||  ___|
+     \ `--.  | | / /_\ \ | |   | |  | |__
+      `--. \ | | |  _  | | |   | |  |  __|
+     /\__/ / | | | | | | | |  _| |_ | |___
+     \____/  \_/ \_| |_/ \_/  \___/ \____/
+
+     Make the ASCII art larger and more impressive than this example.
+     Use a classic block font style (not slant, not banner — solid
+     block or 3D block). Generate it as a code block in the README.
+
+  2. Badges row (plain shields.io markdown badges, no emoji):
+     License: MIT | Platform: ESP32 + Raspberry Pi |
+     Stack: Arduino / Flask / React | Status: Active Development
+
+  3. Linked Table of Contents (plain dashes as list markers,
+     no emoji, no bold — just clean linked lines)
+
+  4. Overview section
+     3-4 tight paragraphs. Write like a developer explaining
+     the project to another developer. State the problem it
+     solves, how it works at a high level, and what makes it
+     different (fully offline, path memory, auto-charging).
+     No buzzwords. No "cutting-edge". No "powerful".
+
+  5. Features section — titled "What it does"
+     Plain bulleted list using dashes. No emoji. No bold headers
+     per item. Just clean, specific one-liners:
+     - GPS geofencing with editable polygon boundary
+     - Autonomous patrol with obstacle-avoidance and path memory
+     - Human detection using motion filtering and ML confirmation
+     - Auto-return to charging station on low battery or schedule
+     - Real-time web dashboard (Flask backend, React frontend)
+     - Live GPS map with rover trail, geofence overlay, alert pins
+     - MJPEG camera stream and detection snapshot gallery
+     - Daily PDF patrol reports generated automatically at midnight
+     - Real-time alerts with sound and browser push notifications
+     - Fully local network — no cloud, no external dependencies
+
+  6. System architecture section — titled "Architecture"
+     ASCII diagram showing the 3 nodes and their communication
+     links. Use box-drawing characters or plain ASCII boxes.
+     Label each node clearly with its hardware and role.
+     Show communication protocols on the connecting lines.
+
+     Example structure to expand on:
+     
+     +------------------+        ESP-NOW / BLE       +---------------------+
+     |   ROVER UNIT     | <------------------------> |  CHARGING STATION   |
+     |  ESP32-S3        |                            |  ESP32-C3 Mini      |
+     |  ESP32-CAM       |                            |  (WiFi bridge)      |
+     |  NEO-6M GPS      |                            |       | UART        |
+     |  MPU6050         |                            |  Raspberry Pi Zero W|
+     |  DS18B20         |                            |  Flask + SQLite     |
+     |  4x Motors       |                            |  React Dashboard    |
+     +------------------+                            +---------------------+
+                                                              |
+                                                        HTTP / WS
+                                                              |
+                                                     +--------+--------+
+                                                     |  Browser Client  |
+                                                     |  Web Dashboard   |
+                                                     +-----------------+
+
+  7. Hardware section — titled "Hardware"
+     Simple markdown table:
+     | Component | Qty | Purpose | Approx Cost |
+     No emoji in the table. List every component from the
+     hardware manifest in Section 2.
+
+  8. Getting Started section — titled "Getting Started"
+     Short numbered steps to go from zero to running system.
+     Reference setup_guide.md for full detail.
+     Keep this section to under 10 steps — just the skeleton.
+
+  9. Screenshots section — titled "Dashboard"
+     Reference placeholder images in docs/images/.
+     One line of plain descriptive text per image.
+
+  10. Repository structure — titled "Structure"
+      Abbreviated tree (2 levels deep) in a code block.
+
+  11. Contributing — one short paragraph referencing CONTRIBUTING.md
+
+  12. License — one line: "MIT. See LICENSE."
+
+  13. Last line of the file (no header, just a plain line):
+      "Built with too much coffee and too many soldering burns."
+
+=======================================================================
+  SECTION 11 — CODING STANDARDS
+=======================================================================
+
+FIRMWARE (Arduino/C++):
+  - #pragma once in all headers
+  - All magic numbers in config.h as #define
+  - No delay() — millis() timers only
+  - init() and update() per module, called from main loop
+  - #ifdef DEBUG_MODE wrapping all Serial debug prints
+  - __attribute__((packed)) on all ESP-NOW structs
+  - esp_task_wdt watchdog, 30s timeout
+  - NVS operations with nvs_flash_init error handling
+
+PYTHON BACKEND (Flask):
+  - Python 3.11+ syntax
+  - All config from .env via python-dotenv
+  - Blueprints for all route groups
+  - Background threads as daemon threads (threading.Thread,
+    daemon=True)
+  - All DB operations via parameterized queries (no f-string SQL)
+  - try/except on all UART reads/writes with logging
+  - RPi.GPIO cleanup in atexit handler
+  - Logging to /var/log/stasis/ with rotating file handler
+  - .env.example documents every required env variable
+
+REACT DASHBOARD:
+  - Functional components + hooks only
+  - Zustand for global state
+  - React Router v6
+  - All API calls via custom hooks (no raw useEffect fetching)
+  - Single useSocket hook manages Socket.IO lifecycle
+  - Tailwind only — no inline styles, no CSS modules
+  - All map ops via react-leaflet hooks
+  - Mobile responsive (min 375px width)
+  - PropTypes on all components
+
+=======================================================================
+  SECTION 12 — DELIVERABLES
+=======================================================================
+
+Generate ALL files below, completely and fully — no placeholder
+comments, no "TODO: implement this", no truncated output.
+Generate them in order, one at a time, confirming each before next.
+
+FIRMWARE — ESP32-S3 (Rover Brain):
+  [ 1 ] firmware/esp32s3/config.h
+  [ 2 ] firmware/esp32s3/motor_controller.h + .cpp
+  [ 3 ] firmware/esp32s3/gps_handler.h + .cpp
+  [ 4 ] firmware/esp32s3/imu_handler.h + .cpp
+  [ 5 ] firmware/esp32s3/temp_sensor.h + .cpp
+  [ 6 ] firmware/esp32s3/path_memory.h + .cpp
+  [ 7 ] firmware/esp32s3/navigation.h + .cpp
+  [ 8 ] firmware/esp32s3/espnow_handler.h + .cpp
+  [ 9 ] firmware/esp32s3/camera_comms.h + .cpp
+  [10 ] firmware/esp32s3/lcd_display.h + .cpp
+  [11 ] firmware/esp32s3/alert_handler.h + .cpp
+  [12 ] firmware/esp32s3/main.ino
+
+FIRMWARE — ESP32-CAM:
+  [13 ] firmware/esp32cam/config.h
+  [14 ] firmware/esp32cam/human_detector.h + .cpp
+  [15 ] firmware/esp32cam/stream_server.h + .cpp
+  [16 ] firmware/esp32cam/uart_comms.h + .cpp
+  [17 ] firmware/esp32cam/main.ino
+
+FIRMWARE — ESP32-C3 Mini (WiFi Bridge):
+  [18 ] firmware/esp32c3/config.h
+  [19 ] firmware/esp32c3/wifi_bridge.h + .cpp
+  [20 ] firmware/esp32c3/uart_pi_bridge.h + .cpp
+  [21 ] firmware/esp32c3/espnow_relay.h + .cpp
+  [22 ] firmware/esp32c3/gpio_control.h + .cpp
+  [23 ] firmware/esp32c3/main.ino
+
+PYTHON BACKEND (Raspberry Pi Zero W):
+  [24 ] server/requirements.txt
+  [25 ] server/.env.example
+  [26 ] server/config.py
+  [27 ] server/database.py
+  [28 ] server/app.py
+  [29 ] server/uart_handler.py
+  [30 ] server/telemetry_handler.py
+  [31 ] server/alert_handler.py
+  [32 ] server/charging_controller.py
+  [33 ] server/geofence_manager.py
+  [34 ] server/path_manager.py
+  [35 ] server/report_generator.py
+
+REACT DASHBOARD:
+  [36 ] dashboard/package.json
+  [37 ] dashboard/vite.config.js
+  [38 ] dashboard/tailwind.config.js
+  [39 ] dashboard/index.html
+  [40 ] dashboard/src/main.jsx
+  [41 ] dashboard/src/App.jsx
+  [42 ] dashboard/src/store/useStore.js
+  [43 ] dashboard/src/hooks/useSocket.js
+  [44 ] dashboard/src/hooks/useTelemetry.js
+  [45 ] dashboard/src/hooks/useAlerts.js
+  [46 ] dashboard/src/services/api.js
+  [47 ] dashboard/src/components/Sidebar.jsx
+  [48 ] dashboard/src/components/Header.jsx
+  [49 ] dashboard/src/components/StatusBar.jsx
+  [50 ] dashboard/src/components/TelemetryCard.jsx
+  [51 ] dashboard/src/components/AlertBadge.jsx
+  [52 ] dashboard/src/components/GeofenceEditor.jsx
+  [53 ] dashboard/src/components/BatteryGauge.jsx
+  [54 ] dashboard/src/components/CompassRose.jsx
+  [55 ] dashboard/src/components/AlertModal.jsx
+  [56 ] dashboard/src/pages/Dashboard.jsx
+  [57 ] dashboard/src/pages/LiveMap.jsx
+  [58 ] dashboard/src/pages/CameraFeed.jsx
+  [59 ] dashboard/src/pages/Alerts.jsx
+  [60 ] dashboard/src/pages/Chat.jsx
+  [61 ] dashboard/src/pages/Settings.jsx
+
+DOCS & REPO:
+  [62 ] README.md
+  [63 ] docs/architecture.md
+  [64 ] docs/wiring_diagram.md
+  [65 ] docs/api_reference.md
+  [66 ] docs/setup_guide.md
+  [67 ] docs/firmware_flashing.md
+  [68 ] hardware/bom.md
+  [69 ] scripts/install_pi.sh
+  [70 ] scripts/build_dashboard.sh
+  [71 ] scripts/backup_db.sh
+  [72 ] .gitignore
+  [73 ] CONTRIBUTING.md
+  [74 ] CHANGELOG.md
+
+=======================================================================
+  END OF MASTER PROMPT — STASIS v2.0
+=======================================================================

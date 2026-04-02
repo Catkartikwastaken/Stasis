@@ -1,0 +1,45 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg
+*.egg-info/
+dist/
+build/
+venv/
+.env
+*.db
+
+# ---- Node ----
+node_modules/
+dashboard/node_modules/
+npm-debug.log
+yarn-error.log
+
+# ---- Build ----
+server/public/
+dashboard/dist/
+
+# ---- IDE ----
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ---- Arduino ----
+*.elf
+*.hex
+*.bin
+.pio/
+
+# ---- OS ----
+.DS_Store
+*.bak
+*.tmp
+
+# ---- Reports / Data ----
+/var/stasis/
+*.pdf

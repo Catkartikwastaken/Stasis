@@ -1,0 +1,20 @@
+{
+  "version": 1,
+  "skills": {
+    "designing-beautiful-websites": {
+      "source": "tristanmanchester/agent-skills",
+      "sourceType": "github",
+      "computedHash": "8c5bd91e0a85c9dd07de4a2b42378020603ce878065ccb382b621004e1e15f62"
+    },
+    "embedded-systems": {
+      "source": "jeffallan/claude-skills",
+      "sourceType": "github",
+      "computedHash": "ec505411f743e775fc3854539142f6770fb28dbb04ca9e852430fae245c2e788"
+    },
+    "vibecoding-animated-websites": {
+      "source": "herdiansah/antigravity-skills-master",
+      "sourceType": "github",
+      "computedHash": "609e1ea1f7247cedd96c9b379812d5aef4382b9e6beebf4b9c86257b38a4fe0e"
+    }
+  }
+}
