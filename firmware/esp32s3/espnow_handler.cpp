@@ -43,25 +43,28 @@ void ESPNowHandler::sendTelemetry(const TelemetryPacket& pkt) {
 
 void ESPNowHandler::sendAlert(const AlertPacket& pkt) {
     uint8_t stationMac[] = STATION_MAC;
-    // For large alerts (with image), may need to chunk
-    // Send header first (without image)
-    size_t headerSize = offsetof(AlertPacket, image_b64);
-    esp_now_send(stationMac, (uint8_t*)&pkt, headerSize);
+    // Send the alert header (fits within ESP-NOW 250-byte limit)
+    esp_now_send(stationMac, (uint8_t*)&pkt, sizeof(AlertPacket));
+}
 
-    // Send image chunks if present
-    if (pkt.alert_type == ALERT_HUMAN && strlen(pkt.image_b64) > 0) {
-        const size_t chunkSize = 240;  // ESP-NOW max payload ~250 bytes
-        size_t imgLen = strlen(pkt.image_b64);
-        for (size_t offset = 0; offset < imgLen; offset += chunkSize) {
-            size_t len = min(chunkSize, imgLen - offset);
-            uint8_t chunk[244];
-            chunk[0] = 0x04;  // Image chunk marker
-            chunk[1] = (offset == 0) ? 0x01 : 0x00;  // First chunk flag
-            chunk[2] = (offset + len >= imgLen) ? 0x01 : 0x00;  // Last chunk flag
-            memcpy(chunk + 3, pkt.image_b64 + offset, len);
-            esp_now_send(stationMac, chunk, len + 3);
-            delay(5);  // Throttle
-        }
+void ESPNowHandler::sendImageChunked(const char* base64Data, size_t dataLen) {
+    uint8_t stationMac[] = STATION_MAC;
+    const size_t chunkDataSize = IMAGE_CHUNK_DATA_SIZE;
+
+    for (size_t offset = 0; offset < dataLen; offset += chunkDataSize) {
+        ImageChunkPacket chunk = {};
+        chunk.packet_type = PKT_IMAGE_CHUNK;
+        chunk.is_first = (offset == 0) ? 1 : 0;
+        size_t len = min(chunkDataSize, dataLen - offset);
+        chunk.is_last = (offset + len >= dataLen) ? 1 : 0;
+        memcpy(chunk.data, base64Data + offset, len);
+
+        // Header (3 bytes) + data
+        esp_now_send(stationMac, (uint8_t*)&chunk, 3 + len);
+
+        // Yield to avoid watchdog — use millis() based throttle
+        unsigned long t = millis();
+        while (millis() - t < 5) { yield(); }
     }
 }
 

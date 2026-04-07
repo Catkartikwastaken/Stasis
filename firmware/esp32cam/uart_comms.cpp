@@ -1,43 +1,43 @@
 #include "uart_comms.h"
 #include "config.h"
-#include "base64.h"
+#include "mbedtls/base64.h"   // Bundled in ESP32 Arduino Core — no install needed
 
 void UARTComms::init() {
     Serial.begin(UART_BAUD);
 }
 
-void UARTComms::encodeAndSendBase64Chunked(uint8_t* buf, size_t len) {
-    // Base64 chunking to prevent memory allocation crashes
-    const int CHUNK_SIZE = 45; // multiple of 3
-    for (size_t i = 0; i < len; i += CHUNK_SIZE) {
-        size_t chunk_len = min((size_t)CHUNK_SIZE, len - i);
-        String b64 = base64::encode(buf + i, chunk_len);
-        Serial.print(b64);
+void UARTComms::sendBase64Chunked(const uint8_t* buf, size_t len) {
+    // Encode in 48-byte chunks (48 raw → 64 base64 chars, no padding issues)
+    const size_t CHUNK_RAW = 48;
+    unsigned char out[65];   // 64 base64 chars + NUL
+    size_t olen = 0;
+
+    for (size_t i = 0; i < len; i += CHUNK_RAW) {
+        size_t chunk = len - i;
+        if (chunk > CHUNK_RAW) chunk = CHUNK_RAW;
+
+        mbedtls_base64_encode(out, sizeof(out), &olen, buf + i, chunk);
+        out[olen] = '\0';
+        Serial.print((const char*)out);
     }
 }
 
-void UARTComms::sendAlert(float confidence, camera_fb_t* fb) {
-    uint8_t *jpg_buf = NULL;
-    size_t jpg_len = 0;
-
-    // Convert RGB565 to JPEG in memory for the snapshot requirement
-    if (!fmt2jpg(fb->buf, fb->len, fb->width, fb->height, fb->format, 30, &jpg_buf, &jpg_len)) {
-        sendLog("jpeg_compression_failed");
+void UARTComms::sendAlert(float confidence, const uint8_t* jpgBuf, size_t jpgLen) {
+    if (!jpgBuf || jpgLen == 0) {
+        sendLog("alert_no_image");
         return;
     }
 
-    // STASIS Spec JSON format
+    // STASIS spec JSON format
     Serial.print("{\"event\":\"human_detected\",\"confidence\":");
     Serial.print(confidence, 2);
     Serial.print(",\"timestamp\":");
     Serial.print(millis());
     Serial.print(",\"image\":\"");
-    
-    encodeAndSendBase64Chunked(jpg_buf, jpg_len);
-    
-    Serial.println("\"}");
 
-    free(jpg_buf);
+    sendBase64Chunked(jpgBuf, jpgLen);
+
+    Serial.println("\"}");
 }
 
 void UARTComms::sendLog(const char* msg) {

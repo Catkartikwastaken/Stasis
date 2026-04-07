@@ -47,7 +47,9 @@ class Database:
                 lat REAL,
                 lon REAL,
                 image_b64 TEXT,
+                confidence REAL DEFAULT 0,
                 acknowledged INTEGER DEFAULT 0,
+                ack_timestamp TEXT DEFAULT NULL,
                 notes TEXT DEFAULT ''
             );
 
@@ -118,10 +120,10 @@ class Database:
     def insert_alert(self, data):
         conn = self._get_conn()
         cursor = conn.execute(
-            """INSERT INTO alerts (type, lat, lon, image_b64)
-               VALUES (?, ?, ?, ?)""",
+            """INSERT INTO alerts (type, lat, lon, image_b64, confidence)
+               VALUES (?, ?, ?, ?, ?)""",
             (data.get("type"), data.get("lat"), data.get("lon"),
-             data.get("image_b64", ""))
+             data.get("image_b64", ""), data.get("confidence", 0))
         )
         conn.commit()
         return cursor.lastrowid
@@ -142,7 +144,7 @@ class Database:
     def acknowledge_alert(self, alert_id, notes=""):
         conn = self._get_conn()
         conn.execute(
-            "UPDATE alerts SET acknowledged = 1, notes = ? WHERE id = ?",
+            "UPDATE alerts SET acknowledged = 1, ack_timestamp = datetime('now'), notes = ? WHERE id = ?",
             (notes, alert_id)
         )
         conn.commit()

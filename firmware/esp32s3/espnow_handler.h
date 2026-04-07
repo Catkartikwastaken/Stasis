@@ -9,6 +9,7 @@ public:
     bool begin();
     void sendTelemetry(const TelemetryPacket& pkt);
     void sendAlert(const AlertPacket& pkt);
+    void sendImageChunked(const char* base64Data, size_t dataLen);
     void setCommandCallback(CommandCallback cb);
     bool isConnected() const { return _connected; }
     unsigned long lastReceiveTime() const { return _lastRxTime; }

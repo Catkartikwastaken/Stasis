@@ -59,6 +59,7 @@ ESP32-S3 (Main Controller):
   - Communicates with ESP32-CAM via UART1: RX1=GPIO19, TX1=GPIO20
   - Communicates with ESP32-C3 Mini via ESP-NOW (primary),
     BLE (fallback)
+  - Battery voltage via ADC on GPIO35 (with 2:1 voltage divider)
   - Passive buzzer on GPIO2
 
 ESP32-CAM (AI-Thinker module):
@@ -74,6 +75,10 @@ ESP32-CAM (AI-Thinker module):
       over UART to ESP32-S3:
       {"event":"human_detected","confidence":0.91,
        "timestamp":<ms>,"image":"<base64>"}
+  - Connects to WiFi network (STASIS_NET) in STA mode for
+    HTTP streaming — this is separate from on the UART link to S3.
+    WiFi is used ONLY for the MJPEG stream; detection events go
+    over UART to the ESP32-S3.
   - Streams MJPEG video over HTTP on port 81:
       GET /stream  → MJPEG feed
       GET /capture → single JPEG
@@ -134,8 +139,9 @@ ESP-NOW Packet Structs (use __attribute__((packed)) on all):
     float    temperature;
     float    battery_voltage;
     int16_t  accel_x, accel_y, accel_z;
-    uint8_t  rover_state;     // IDLE=0 PATROL=1 RETURNING=2
-                              // STUCK=3 CHARGING=4 EMERGENCY=5
+    uint8_t  rover_state;     // IDLE=0 NAVIGATING=1 PATROLLING=2
+                              // RETURNING=3 STUCK=4 CHARGING=5
+                              // EMERGENCY=6
     uint8_t  is_charging;
   }
 
@@ -157,8 +163,20 @@ ESP-NOW Packet Structs (use __attribute__((packed)) on all):
     float    alert_lat;
     float    alert_lon;
     uint32_t timestamp;
-    char     image_b64[4096]; // base64 JPEG (human alerts only)
+    // NOTE: image is NOT included here — ESP-NOW has a 250-byte
+    // payload limit. Images are sent separately via IMAGE_CHUNK.
   }
+
+  IMAGE CHUNK (Rover → Station, follows an ALERT with image):
+  {
+    uint8_t  packet_type;     // 0x04
+    uint8_t  is_first;        // 1 if first chunk, 0 otherwise
+    uint8_t  is_last;         // 1 if final chunk, 0 otherwise
+    char     data[240];       // base64 image fragment
+  }
+  The rover sends the alert header (0x03) first, then streams
+  the base64-encoded JPEG as sequential 240-byte chunks (0x04).
+  The station reassembles chunks between first and last markers.
 
 =======================================================================
   SECTION 4 — ESP32-S3 FIRMWARE SPECIFICATION
@@ -326,7 +344,6 @@ requirements.txt must include:
   fpdf2
   schedule
   python-dotenv
-  geopy                      ← for GPS distance calculations
   eventlet                   ← async worker for Flask-SocketIO
 
 app.py responsibilities:
@@ -334,6 +351,8 @@ app.py responsibilities:
   - Register all REST API blueprints under /api/v1
   - Serve built React static files from /server/static/
     (route: catch-all returns index.html for React Router)
+  - On startup, ensure /var/stasis/, /var/stasis/reports/,
+    /var/stasis/snapshots/, and /var/log/stasis/ directories exist
   - Start background threads on boot:
       uart_handler.start()        ← reads UART in background thread
       charging_controller.start() ← monitors battery + schedule
@@ -349,8 +368,9 @@ config.py constants:
   CAM_CAPTURE_URL = "http://<ESP32CAM_IP>:81/capture"
   BATTERY_LOW_THRESHOLD = 3.6
   BATTERY_CRITICAL_THRESHOLD = 3.3
-  CHARGING_RELAY_PIN = 17           ← RPi.GPIO BCM pin number
+  CHARGING_RELAY_PIN = 18           ← RPi.GPIO BCM pin number
   EMERGENCY_STOP_PIN = 27           ← RPi.GPIO BCM pin number
+  BATTERY_CRITICAL_THRESHOLD = 3.3
   CHARGE_SCHEDULE_START = "02:00"
   CHARGE_SCHEDULE_END = "06:00"
   STATION_LAT = 0.0                 ← set on first run
@@ -444,7 +464,7 @@ REST API (all blueprints registered under /api/v1):
   GET  /alerts?type=all&date=YYYY-MM-DD&unacked=false
     → filtered alert list
 
-  POST /alerts/<id>/acknowledge
+  POST /alerts/<id>/ack
     body: {"notes": "string"}
     → update alert as acknowledged
 
@@ -519,6 +539,13 @@ Charts: Recharts
 Real-time: Socket.IO client
 Icons: Lucide React
 State: Zustand
+Animations: Framer Motion
+PropTypes: prop-types (all components must declare PropTypes)
+
+Note on map tiles: Leaflet uses OpenStreetMap tiles by default,
+which require internet. For fully offline deployments, pre-cache
+tile sets using a tool like TileServer GL or mbtiles, and point
+Leaflet at a local tile URL served from the Pi.
 
 Color Palette (Minimalist + Forest theme):
   Background:    #F8FAF8   (off-white, slight green tint)
@@ -543,6 +570,7 @@ File structure:
       App.jsx
       main.jsx
       pages/
+        Landing.jsx            ← initial landing / connection screen
         Dashboard.jsx
         LiveMap.jsx
         CameraFeed.jsx
@@ -559,6 +587,7 @@ File structure:
         BatteryGauge.jsx
         CompassRose.jsx
         AlertModal.jsx         ← full-screen human detection overlay
+        LoadingScreen.jsx      ← initial spinner while data loads
       hooks/
         useSocket.js
         useTelemetry.js
@@ -732,7 +761,7 @@ Include in order:
      - Real-time web dashboard (Flask backend, React frontend)
      - Live GPS map with rover trail, geofence overlay, alert pins
      - MJPEG camera stream and detection snapshot gallery
-     - Daily PDF patrol reports generated automatically at midnight
+     - Daily PDF patrol reports generated automatically at 23:55
      - Real-time alerts with sound and browser push notifications
      - Fully local network — no cloud, no external dependencies
 
@@ -895,27 +924,30 @@ REACT DASHBOARD:
   [53 ] dashboard/src/components/BatteryGauge.jsx
   [54 ] dashboard/src/components/CompassRose.jsx
   [55 ] dashboard/src/components/AlertModal.jsx
-  [56 ] dashboard/src/pages/Dashboard.jsx
-  [57 ] dashboard/src/pages/LiveMap.jsx
-  [58 ] dashboard/src/pages/CameraFeed.jsx
-  [59 ] dashboard/src/pages/Alerts.jsx
-  [60 ] dashboard/src/pages/Chat.jsx
-  [61 ] dashboard/src/pages/Settings.jsx
+  [55a] dashboard/src/components/LoadingScreen.jsx
+  [56 ] dashboard/src/pages/Landing.jsx
+  [57 ] dashboard/src/pages/Dashboard.jsx
+  [58 ] dashboard/src/pages/LiveMap.jsx
+  [59 ] dashboard/src/pages/CameraFeed.jsx
+  [60 ] dashboard/src/pages/Alerts.jsx
+  [61 ] dashboard/src/pages/Chat.jsx
+  [62 ] dashboard/src/pages/Settings.jsx
 
 DOCS & REPO:
-  [62 ] README.md
-  [63 ] docs/architecture.md
-  [64 ] docs/wiring_diagram.md
-  [65 ] docs/api_reference.md
-  [66 ] docs/setup_guide.md
-  [67 ] docs/firmware_flashing.md
-  [68 ] hardware/bom.md
-  [69 ] scripts/install_pi.sh
-  [70 ] scripts/build_dashboard.sh
-  [71 ] scripts/backup_db.sh
-  [72 ] .gitignore
-  [73 ] CONTRIBUTING.md
-  [74 ] CHANGELOG.md
+  [63 ] README.md
+  [64 ] docs/architecture.md
+  [65 ] docs/wiring_diagram.md
+  [66 ] docs/api_reference.md
+  [67 ] docs/setup_guide.md
+  [68 ] docs/firmware_flashing.md
+  [69 ] hardware/bom.md
+  [70 ] scripts/install_pi.sh
+  [71 ] scripts/build_dashboard.sh
+  [72 ] scripts/backup_db.sh
+  [73 ] .gitignore
+  [74 ] CONTRIBUTING.md
+  [75 ] CHANGELOG.md
+  [76 ] server/.env.example
 
 =======================================================================
   END OF MASTER PROMPT — STASIS v2.0

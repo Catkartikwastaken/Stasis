@@ -135,7 +135,7 @@ void loop() {
     if (camera.hasNewDetection()) {
         CameraDetection det = camera.getDetection();
         if (det.confidence >= DETECTION_CONFIDENCE) {
-            // Fire alert
+            // Fire alert header (no image — fits ESP-NOW limit)
             AlertPacket alertPkt;
             alertPkt.packet_type = PKT_ALERT;
             alertPkt.alert_type = ALERT_HUMAN;
@@ -143,8 +143,12 @@ void loop() {
             alertPkt.alert_lat = gd.latitude;
             alertPkt.alert_lon = gd.longitude;
             alertPkt.timestamp = now;
-            strncpy(alertPkt.image_b64, det.image_b64, sizeof(alertPkt.image_b64));
             espNow.sendAlert(alertPkt);
+
+            // Send image as chunked packets
+            if (strlen(det.image_b64) > 0) {
+                espNow.sendImageChunked(det.image_b64, strlen(det.image_b64));
+            }
 
             alerts.humanDetected();
             lcd.showAlert("!! ALERT !!", "HUMAN DETECTED");
@@ -230,7 +234,6 @@ void loop() {
         alertPkt.alert_lat = gpsD.latitude;
         alertPkt.alert_lon = gpsD.longitude;
         alertPkt.timestamp = now;
-        alertPkt.image_b64[0] = '\0';
         espNow.sendAlert(alertPkt);
         alerts.lowBattery();
 
@@ -271,7 +274,6 @@ void changeState(RoverState newState) {
                 pkt.alert_lat = gd.latitude;
                 pkt.alert_lon = gd.longitude;
                 pkt.timestamp = millis();
-                pkt.image_b64[0] = '\0';
                 espNow.sendAlert(pkt);
             } else {
                 alerts.stuckAlert();
@@ -284,7 +286,6 @@ void changeState(RoverState newState) {
                 pkt.alert_lat = gd.latitude;
                 pkt.alert_lon = gd.longitude;
                 pkt.timestamp = millis();
-                pkt.image_b64[0] = '\0';
                 espNow.sendAlert(pkt);
             }
             break;
@@ -323,7 +324,10 @@ void handleStuckState() {
         motors.stop();
         reverseInProgress = false;
         imu.resetFlags();
-        delay(500);
+
+        // Wait briefly before re-evaluating (non-blocking via state)
+        unsigned long waitStart = millis();
+        while (millis() - waitStart < 500) { yield(); }
         imu.update();
 
         if (!imu.isStuck() && !imu.isTilted()) {

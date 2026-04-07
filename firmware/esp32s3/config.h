@@ -108,6 +108,10 @@ enum RoverState : uint8_t {
 #define PKT_TELEMETRY  0x01
 #define PKT_COMMAND    0x02
 #define PKT_ALERT      0x03
+#define PKT_IMAGE_CHUNK 0x04
+
+// ---- Image Chunk Config ----
+#define IMAGE_CHUNK_DATA_SIZE 240  // ESP-NOW max ~250 bytes minus header
 
 // ---- Command Types ----
 #define CMD_GOTO    1
@@ -153,7 +157,15 @@ struct AlertPacket {
     float    alert_lat;
     float    alert_lon;
     uint32_t timestamp;
-    char     image_b64[4096];
+    // NOTE: image data is NOT included here — ESP-NOW has a 250-byte
+    // payload limit. Images are sent as separate IMAGE_CHUNK packets.
+};
+
+struct ImageChunkPacket {
+    uint8_t  packet_type;      // PKT_IMAGE_CHUNK (0x04)
+    uint8_t  is_first;         // 1 if first chunk
+    uint8_t  is_last;          // 1 if final chunk
+    char     data[IMAGE_CHUNK_DATA_SIZE];
 };
 
 #pragma pack(pop)

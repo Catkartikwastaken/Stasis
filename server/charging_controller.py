@@ -2,12 +2,30 @@
 STASIS Server — Charging Controller
 Monitor battery and manage charging schedule.
 """
+import atexit
 import threading
 import time
 from datetime import datetime
-from config import (BATTERY_LOW_VOLTAGE, CHARGING_SCHEDULE_START,
-                    CHARGING_SCHEDULE_END, AUTO_RETURN_ENABLED,
-                    STATION_LAT, STATION_LON, CMD_RETURN)
+from config import (BATTERY_LOW_VOLTAGE, BATTERY_CRITICAL_VOLTAGE,
+                    CHARGING_SCHEDULE_START, CHARGING_SCHEDULE_END,
+                    AUTO_RETURN_ENABLED, STATION_LAT, STATION_LON,
+                    CMD_RETURN, CMD_STOP, CHARGING_RELAY_GPIO,
+                    EMERGENCY_STOP_GPIO)
+
+# RPi.GPIO is only available on the Pi — gracefully degrade on dev machines
+try:
+    import RPi.GPIO as GPIO
+    GPIO.setmode(GPIO.BCM)
+    GPIO.setup(CHARGING_RELAY_GPIO, GPIO.OUT, initial=GPIO.LOW)
+    GPIO.setup(EMERGENCY_STOP_GPIO, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+    _gpio_available = True
+
+    def _gpio_cleanup():
+        GPIO.output(CHARGING_RELAY_GPIO, GPIO.LOW)
+        GPIO.cleanup()
+    atexit.register(_gpio_cleanup)
+except (ImportError, RuntimeError):
+    _gpio_available = False
 
 
 class ChargingController:
@@ -52,6 +70,17 @@ class ChargingController:
         # Don't send if already returning, charging, or idle
         if state in (3, 5, 0):  # RETURNING, CHARGING, IDLE
             self._return_sent = False
+            return
+
+        if voltage < BATTERY_CRITICAL_VOLTAGE and voltage > 0 and not self._return_sent:
+            print(f"[CHARGING] CRITICAL battery ({voltage:.2f}V), emergency stop + return")
+            self._uart.send_command(CMD_STOP)
+            self._uart.send_command(
+                CMD_RETURN,
+                target_lat=STATION_LAT,
+                target_lon=STATION_LON
+            )
+            self._return_sent = True
             return
 
         if voltage < BATTERY_LOW_VOLTAGE and voltage > 0 and not self._return_sent:
@@ -102,11 +131,15 @@ class ChargingController:
 
         if dist < 2.0 and state in (3, 5, 0):  # RETURNING, CHARGING, IDLE
             if not self._charging_active:
+                if _gpio_available:
+                    GPIO.output(CHARGING_RELAY_GPIO, GPIO.HIGH)
                 self._uart.send_charging_control(True)
                 self._charging_active = True
                 print("[CHARGING] Rover docked, charging enabled")
         else:
             if self._charging_active:
+                if _gpio_available:
+                    GPIO.output(CHARGING_RELAY_GPIO, GPIO.LOW)
                 self._uart.send_charging_control(False)
                 self._charging_active = False
 

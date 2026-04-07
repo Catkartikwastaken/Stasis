@@ -17,7 +17,8 @@ from flask_cors import CORS
 from config import (SERVER_HOST, SERVER_PORT, SECRET_KEY, DEBUG,
                     STATIC_DIR, CMD_GOTO, CMD_STOP, CMD_RETURN, CMD_RESUME,
                     CAM_STREAM_URL, CAM_CAPTURE_URL, REPORT_DIR,
-                    REPORT_TIME, SERVER_VERSION, STATION_LAT, STATION_LON)
+                    REPORT_TIME, SERVER_VERSION, STATION_LAT, STATION_LON,
+                    DB_PATH, SNAPSHOTS_DIR)
 from database import Database
 from uart_handler import UARTHandler
 from telemetry_handler import TelemetryHandler
@@ -102,6 +103,16 @@ def api_delete_geofence(gf_id):
     return jsonify({"status": "ok"})
 
 
+@app.route("/api/v1/geofences/<int:gf_id>/activate", methods=["POST"])
+def api_activate_geofence(gf_id):
+    geofence_manager.activate(gf_id)
+    # Send updated geofence to rover
+    gf_lats, gf_lons = geofence_manager.get_active_polygon_arrays()
+    if gf_lats:
+        uart.send_command(CMD_GOTO, 0, 0, gf_lats, gf_lons)
+    return jsonify({"status": "ok", "id": gf_id})
+
+
 @app.route("/api/v1/commands/goto", methods=["POST"])
 def api_cmd_goto():
     data = request.json
@@ -143,6 +154,17 @@ def api_report_pdf(date):
     return jsonify({"error": "Report not found"}), 404
 
 
+@app.route("/api/v1/reports/generate", methods=["POST"])
+def api_generate_report():
+    data = request.json or {}
+    date = data.get("date", datetime.now().strftime("%Y-%m-%d"))
+    try:
+        report_generator.generate_daily_report(date)
+        return jsonify({"status": "ok", "date": date})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/v1/stream/url")
 def api_stream_url():
     return jsonify({"url": CAM_STREAM_URL, "capture_url": CAM_CAPTURE_URL})
@@ -159,6 +181,17 @@ def api_save_settings():
     for key, value in data.items():
         db.set_setting(key, value)
     return jsonify({"status": "ok"})
+
+
+@app.route("/api/v1/health")
+def api_health():
+    return jsonify({
+        "status": "ok",
+        "uptime": int(time.time() - app_start_time),
+        "uart_connected": uart.is_connected() if hasattr(uart, 'is_connected') else True,
+        "db_path": db._get_conn() is not None,
+        "server_version": SERVER_VERSION
+    })
 
 
 # ============================================================
@@ -249,6 +282,10 @@ if __name__ == "__main__":
     print(f"  STASIS Server v{SERVER_VERSION}")
     print(f"  http://{SERVER_HOST}:{SERVER_PORT}")
     print(f"{'='*50}\n")
+
+    # Ensure required directories exist
+    for d in [os.path.dirname(DB_PATH), REPORT_DIR, SNAPSHOTS_DIR, "/var/log/stasis"]:
+        os.makedirs(d, exist_ok=True)
 
     # Start UART
     uart.start()

@@ -1,0 +1,5 @@
+## IDF Component Manager — managed dependencies
+## PlatformIO resolves these automatically during build.
+dependencies:
+  espressif/esp32-camera:
+    version: ">=1.0.0"

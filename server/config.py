@@ -23,6 +23,7 @@ UART_BAUD = int(os.getenv("STASIS_UART_BAUD", "9600"))
 # ---- Reports ----
 REPORT_DIR = os.getenv("STASIS_REPORTS", "/var/stasis/reports")
 REPORT_TIME = os.getenv("STASIS_REPORT_TIME", "23:55")
+SNAPSHOTS_DIR = os.getenv("STASIS_SNAPSHOTS", "/var/stasis/snapshots")
 
 # ---- Charging ----
 BATTERY_LOW_VOLTAGE = float(os.getenv("STASIS_BAT_LOW", "3.6"))
@@ -41,6 +42,8 @@ CAM_CAPTURE_URL = os.getenv("STASIS_CAM_CAPTURE", "http://192.168.4.2:81/capture
 
 # ---- GPIO (RPi) ----
 CHARGING_RELAY_GPIO = int(os.getenv("STASIS_RELAY_PIN", "18"))
+EMERGENCY_STOP_GPIO = int(os.getenv("STASIS_ESTOP_PIN", "27"))
+BATTERY_CRITICAL_VOLTAGE = float(os.getenv("STASIS_BAT_CRITICAL", "3.3"))
 
 # ---- Rover State Names ----
 ROVER_STATES = {
@@ -68,7 +71,7 @@ CMD_RETURN = 3
 CMD_RESUME = 4
 
 # ---- Dashboard ----
-STATIC_DIR = os.path.join(os.path.dirname(__file__), "public")
+STATIC_DIR = os.getenv("STASIS_STATIC", os.path.join(os.path.dirname(__file__), "static"))
 
 # ---- Server Info ----
 SERVER_VERSION = "1.0.0"

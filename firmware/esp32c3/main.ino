@@ -82,7 +82,7 @@ void loop() {
         Serial.println("[WATCHDOG] Rover telemetry timeout!");
     }
 
-    delay(1);  // Prevent tight loop
+    yield();  // Prevent tight loop
 }
 
 // ---- ESP-NOW Callbacks ----

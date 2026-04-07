@@ -32,6 +32,13 @@ class GeofenceManager:
         """Delete a geofence."""
         self._db.delete_geofence(gf_id)
 
+    def activate(self, gf_id):
+        """Deactivate all geofences and activate the specified one."""
+        conn = self._db._get_conn()
+        conn.execute("UPDATE geofences SET active = 0")
+        conn.execute("UPDATE geofences SET active = 1 WHERE id = ?", (gf_id,))
+        conn.commit()
+
     def get_active(self):
         """Get the currently active geofence."""
         gf = self._db.get_active_geofence()
