@@ -368,9 +368,9 @@ ArduinoJson
 WebSockets
 ```
 
-These compile checks passed:
+These compile checks passed from the repo root:
 
 ```text
-arduino-cli compile --fqbn esp32:esp32:esp32cam .\esp32_cam_mjpeg_stream
-arduino-cli compile --fqbn esp32:esp32:esp32s3 .\esp32s3_rover_ws
+arduino-cli compile --fqbn esp32:esp32:esp32cam firmware\esp32cam\esp32_cam_mjpeg_stream
+arduino-cli compile --fqbn esp32:esp32:esp32s3 firmware\esp32s3\esp32s3_rover_ws
 ```
