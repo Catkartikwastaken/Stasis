@@ -1,6 +1,7 @@
 #include "esp_camera.h"
 #include "esp_http_server.h"
 #include <WiFi.h>
+#include <string.h>
 
 const char *WIFI_SSID = "YOUR_WIFI_SSID";
 const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
@@ -51,7 +52,9 @@ static esp_err_t stream_handler(httpd_req_t *req) {
 
     esp_camera_fb_return(fb);
 
-    if (res != ESP_OK) break;
+    if (res != ESP_OK) {
+      break;
+    }
   }
 
   return res;
@@ -61,12 +64,11 @@ void startCameraServer() {
   httpd_config_t config = HTTPD_DEFAULT_CONFIG();
   config.server_port = 80;
 
-  httpd_uri_t stream_uri = {
-    .uri = "/stream",
-    .method = HTTP_GET,
-    .handler = stream_handler,
-    .user_ctx = NULL
-  };
+  httpd_uri_t stream_uri = {};
+  stream_uri.uri = "/stream";
+  stream_uri.method = HTTP_GET;
+  stream_uri.handler = stream_handler;
+  stream_uri.user_ctx = NULL;
 
   if (httpd_start(&stream_httpd, &config) == ESP_OK) {
     httpd_register_uri_handler(stream_httpd, &stream_uri);
