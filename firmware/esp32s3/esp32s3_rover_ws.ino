@@ -1,16 +1,18 @@
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 #include <ArduinoJson.h>
+#include <DNSServer.h>
+#include <Preferences.h>
+#include <WebServer.h>
 #include <WebSocketsClient.h>
 #include <WiFi.h>
 #include <Wire.h>
 #include <math.h>
 #include <string.h>
 
-const char *WIFI_SSID = "YOUR_WIFI_SSID";
-const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
+const char *SETUP_AP_SSID = "STASIS-ROVER-SETUP";
+const char *SETUP_AP_PASSWORD = "stasis1234";
 
-const char *SERVER_IP = "192.168.1.10";  // Update this to your laptop/server IP.
 const uint16_t SERVER_PORT = 5000;
 const char *WEBSOCKET_PATH = "/ws/rover";
 
@@ -27,16 +29,160 @@ const float TURN_TOLERANCE_DEG = 5.0;
 const int TURN_MIN_PWM = 75;
 const int TURN_MAX_PWM = 200;
 const int DRIVE_PWM = 180;
-const float DRIVE_MS_PER_CM = 50.0;
+const float DRIVE_MS_PER_CM = 50.0;  // Tune this on the real floor.
+
+const byte DNS_PORT = 53;
 
 Adafruit_MPU6050 mpu;
+DNSServer dnsServer;
+Preferences prefs;
+WebServer setupServer(80);
 WebSocketsClient webSocket;
 
+String serverIp = "";
+String portalReason = "";
 float yawDeg = 0.0;
 float gyroZBias = 0.0;
 unsigned long lastImuMs = 0;
 unsigned long lastHeartbeatMs = 0;
 bool imuReady = false;
+
+void stopMotors();
+
+String htmlEscape(const String &value) {
+  String escaped = value;
+  escaped.replace("&", "&amp;");
+  escaped.replace("<", "&lt;");
+  escaped.replace(">", "&gt;");
+  escaped.replace("\"", "&quot;");
+  return escaped;
+}
+
+String setupPage(const String &message = "") {
+  String page = "<!doctype html><html><head><meta name='viewport' content='width=device-width,initial-scale=1'>";
+  page += "<title>STASIS Rover Setup</title><style>";
+  page += "body{font-family:Arial,sans-serif;background:#111827;color:#f9fafb;margin:0;padding:24px}";
+  page += "main{max-width:420px;margin:0 auto;background:#1f2937;border:1px solid #374151;border-radius:8px;padding:18px}";
+  page += "label{display:block;margin:14px 0 6px}input{width:100%;padding:10px;border-radius:6px;border:1px solid #4b5563;background:#111827;color:#fff}";
+  page += "button{margin-top:18px;width:100%;padding:12px;border:0;border-radius:6px;background:#2563eb;color:#fff;font-weight:bold}";
+  page += ".msg{color:#fbbf24}</style></head><body><main><h2>STASIS Rover Setup</h2>";
+  if (message.length()) page += "<p class='msg'>" + htmlEscape(message) + "</p>";
+  page += "<form method='POST' action='/save'>";
+  page += "<label>Wi-Fi SSID</label><input name='ssid' required autocomplete='off'>";
+  page += "<label>Wi-Fi Password</label><input name='password' type='password'>";
+  page += "<label>Laptop / Server IP</label><input name='server_ip' placeholder='192.168.1.10' required>";
+  page += "<button type='submit'>Save and Restart</button></form>";
+  page += "<p>Use the IP address of the laptop running the Flask server on port 5000.</p></main></body></html>";
+  return page;
+}
+
+void startSetupPortal(const String &reason) {
+  portalReason = reason;
+  stopMotors();
+  WiFi.disconnect(true);
+  delay(200);
+  WiFi.mode(WIFI_AP);
+  WiFi.softAP(SETUP_AP_SSID, SETUP_AP_PASSWORD);
+  IPAddress apIP = WiFi.softAPIP();
+
+  dnsServer.start(DNS_PORT, "*", apIP);
+
+  setupServer.on("/", HTTP_GET, []() {
+    setupServer.send(200, "text/html", setupPage(portalReason));
+  });
+
+  setupServer.on("/save", HTTP_POST, []() {
+    String ssid = setupServer.arg("ssid");
+    String password = setupServer.arg("password");
+    String server = setupServer.arg("server_ip");
+    ssid.trim();
+    server.trim();
+
+    if (!ssid.length() || !server.length()) {
+      setupServer.send(400, "text/html", setupPage("SSID and server IP are required."));
+      return;
+    }
+
+    prefs.begin("stasis_rover", false);
+    prefs.putString("ssid", ssid);
+    prefs.putString("password", password);
+    prefs.putString("server", server);
+    prefs.end();
+
+    setupServer.send(200, "text/html", "<html><body><h2>Saved. Restarting rover...</h2></body></html>");
+    delay(1500);
+    ESP.restart();
+  });
+
+  setupServer.onNotFound([]() {
+    setupServer.send(200, "text/html", setupPage());
+  });
+
+  setupServer.begin();
+
+  Serial.println();
+  Serial.println("Rover setup portal started.");
+  Serial.print("Connect to Wi-Fi: ");
+  Serial.println(SETUP_AP_SSID);
+  Serial.print("Password: ");
+  Serial.println(SETUP_AP_PASSWORD);
+  Serial.print("Open: http://");
+  Serial.println(apIP);
+
+  while (true) {
+    dnsServer.processNextRequest();
+    setupServer.handleClient();
+    delay(2);
+  }
+}
+
+bool loadSavedSettings(String &ssid, String &password, String &server) {
+  prefs.begin("stasis_rover", true);
+  ssid = prefs.getString("ssid", "");
+  password = prefs.getString("password", "");
+  server = prefs.getString("server", "");
+  prefs.end();
+  ssid.trim();
+  server.trim();
+  return ssid.length() > 0 && server.length() > 0;
+}
+
+bool connectToWiFi(const String &ssid, const String &password) {
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ssid.c_str(), password.c_str());
+
+  Serial.print("Connecting to WiFi: ");
+  Serial.print(ssid);
+  for (int i = 0; i < 60 && WiFi.status() != WL_CONNECTED; i++) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("WiFi connected, IP: ");
+    Serial.println(WiFi.localIP());
+    return true;
+  }
+
+  Serial.println("WiFi connection failed.");
+  return false;
+}
+
+bool ensureNetworkSettings() {
+  String ssid;
+  String password;
+
+  if (!loadSavedSettings(ssid, password, serverIp)) {
+    startSetupPortal("No saved Wi-Fi/server settings found.");
+  }
+
+  if (!connectToWiFi(ssid, password)) {
+    startSetupPortal("Could not connect with saved Wi-Fi settings. Enter new details.");
+  }
+
+  return true;
+}
 
 float normalizeAngle(float angle) {
   while (angle > 180.0) angle -= 360.0;
@@ -147,6 +293,7 @@ void turnToAngle(float targetAngle) {
   }
 
   unsigned long startMs = millis();
+
   while (millis() - startMs < 12000) {
     webSocket.loop();
     updateYaw();
@@ -254,6 +401,7 @@ void setupMotors() {
   pinMode(A_IB, OUTPUT);
   pinMode(B_IA, OUTPUT);
   pinMode(B_IB, OUTPUT);
+
   stopMotors();
 }
 
@@ -272,23 +420,11 @@ void setupImu() {
   calibrateGyro();
 }
 
-void connectWiFi() {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-  Serial.print("Connecting to WiFi");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  Serial.println();
-  Serial.print("WiFi connected, IP: ");
-  Serial.println(WiFi.localIP());
-}
-
 void setupWebSocket() {
-  webSocket.begin(SERVER_IP, SERVER_PORT, WEBSOCKET_PATH);
+  Serial.print("Connecting WebSocket to ws://");
+  Serial.print(serverIp);
+  Serial.println(":5000/ws/rover");
+  webSocket.begin(serverIp.c_str(), SERVER_PORT, WEBSOCKET_PATH);
   webSocket.onEvent(webSocketEvent);
   webSocket.setReconnectInterval(5000);
   webSocket.enableHeartbeat(15000, 3000, 2);
@@ -297,11 +433,13 @@ void setupWebSocket() {
 void setup() {
   Serial.begin(115200);
   delay(500);
+
   pinMode(BUZZER_PIN, OUTPUT);
   digitalWrite(BUZZER_PIN, LOW);
+
   setupMotors();
   setupImu();
-  connectWiFi();
+  ensureNetworkSettings();
   setupWebSocket();
 }
 
