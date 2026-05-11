@@ -4,6 +4,8 @@
 #include <WebSocketsClient.h>
 #include <WiFi.h>
 #include <Wire.h>
+#include <math.h>
+#include <string.h>
 
 const char *WIFI_SSID = "YOUR_WIFI_SSID";
 const char *WIFI_PASSWORD = "YOUR_WIFI_PASSWORD";
@@ -82,7 +84,9 @@ void stopMotors() {
 }
 
 void sendJson(const char *json) {
-  if (webSocket.isConnected()) webSocket.sendTXT(json);
+  if (webSocket.isConnected()) {
+    webSocket.sendTXT(json);
+  }
 }
 
 void sendHeartbeat() {
