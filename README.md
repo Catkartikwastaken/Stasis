@@ -29,9 +29,24 @@ Alert event:           new_alert
 Position event:        rover_position
 ```
 
+## Setup Portals
+
+The ESP32-CAM and ESP32-S3 rover sketches no longer require private Wi-Fi credentials to be edited into the code.
+
+On first boot, or when saved Wi-Fi settings fail, use these temporary setup networks:
+
+```text
+Camera setup Wi-Fi: STASIS-CAM-SETUP
+Rover setup Wi-Fi:  STASIS-ROVER-SETUP
+Setup password:     stasis1234
+Setup page:         http://192.168.4.1
+```
+
+The camera setup page asks for Wi-Fi SSID/password. The rover setup page asks for Wi-Fi SSID/password plus the laptop/server IP. Settings are saved in ESP32 flash and usually survive normal re-uploads.
+
 ## Important
 
-The Wi-Fi SSID, Wi-Fi password, laptop IP, and camera IP are placeholders in this public repository. Replace them locally before flashing or running.
+The public repo does not contain your private Wi-Fi credentials. You still need to update the laptop server with the ESP32-CAM IP after the camera joins your network.
 
 Read the full setup guide here:
 
