@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Security Rover</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body { margin: 0; min-height: 100vh; font-family: Arial, sans-serif; background: #121417; color: #f2f4f7; }
+      main { width: min(920px, calc(100vw - 32px)); margin: 0 auto; padding: 28px 0; }
+      header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+      .status, .panel { border: 1px solid #343c47; background: #1a1f26; border-radius: 8px; }
+      .status { padding: 7px 12px; }
+      .panel { padding: 14px; margin-bottom: 20px; }
+      canvas { display: block; width: 100%; max-width: 800px; aspect-ratio: 1; margin: 0 auto; background: #e6e6e6; cursor: crosshair; }
+      #alerts { max-height: 260px; overflow-y: auto; display: grid; gap: 12px; }
+      .alert { border: 1px solid #343c47; border-radius: 8px; padding: 10px; background: #151a20; }
+      .alert img { width: 100%; max-width: 280px; display: block; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><h1>Security Rover</h1><div id="status" class="status">Connecting...</div></header>
+      <section class="panel"><canvas id="mapCanvas" width="800" height="800"></canvas></section>
+      <h2>Alerts</h2><section id="alerts" class="panel"></section>
+    </main>
+    <script>
+      const socket = io();
+      const canvas = document.getElementById("mapCanvas");
+      const ctx = canvas.getContext("2d");
+      const statusEl = document.getElementById("status");
+      const alertsEl = document.getElementById("alerts");
+      let roverPos = { x: 400, y: 400 };
+      let goalPos = null;
+
+      function drawMap() {
+        ctx.fillStyle = "#e6e6e6";
+        ctx.fillRect(0, 0, 800, 800);
+        ctx.strokeStyle = "#c4c4c4";
+        for (let p = 0; p <= 800; p += 50) {
+          ctx.beginPath(); ctx.moveTo(p, 0); ctx.lineTo(p, 800); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(0, p); ctx.lineTo(800, p); ctx.stroke();
+        }
+        ctx.fillStyle = "#1565c0";
+        ctx.beginPath(); ctx.arc(400, 400, 7, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#1f2937"; ctx.font = "16px Arial"; ctx.fillText("Home Base", 412, 395);
+        if (goalPos) {
+          ctx.strokeStyle = "#d32f2f"; ctx.lineWidth = 5; ctx.beginPath();
+          ctx.moveTo(goalPos.x - 14, goalPos.y - 14); ctx.lineTo(goalPos.x + 14, goalPos.y + 14);
+          ctx.moveTo(goalPos.x + 14, goalPos.y - 14); ctx.lineTo(goalPos.x - 14, goalPos.y + 14); ctx.stroke();
+        }
+        ctx.fillStyle = "#0d47a1"; ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(roverPos.x, roverPos.y, 16, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      }
+
+      canvas.addEventListener("click", (event) => {
+        const rect = canvas.getBoundingClientRect();
+        goalPos = { x: Math.round(((event.clientX - rect.left) / rect.width) * 800), y: Math.round(((event.clientY - rect.top) / rect.height) * 800) };
+        drawMap();
+        socket.emit("set_goal", goalPos);
+      });
+
+      socket.on("connect", () => { statusEl.textContent = "Connected"; });
+      socket.on("disconnect", () => { statusEl.textContent = "Disconnected"; });
+      socket.on("rover_position", (pose) => { roverPos = { x: Number(pose.x) || 400, y: Number(pose.y) || 400 }; drawMap(); });
+      socket.on("new_alert", (alert) => {
+        const item = document.createElement("article"); item.className = "alert";
+        item.innerHTML = `<img src="/${alert.image_path}" alt="Alert snapshot"><p>${alert.message || "Activity detected"}</p>`;
+        alertsEl.prepend(item);
+      });
+      drawMap();
+    </script>
+  </body>
+</html>
