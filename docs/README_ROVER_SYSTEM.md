@@ -11,7 +11,7 @@ This repository contains a complete starter setup for the indoor security rover:
 
 ```text
 firmware/esp32cam/esp32_cam_mjpeg_stream/esp32_cam_mjpeg_stream.ino
-firmware/esp32s3/esp32s3_rover_ws.ino
+firmware/esp32s3/esp32s3_rover_ws/esp32s3_rover_ws.ino
 server/security_rover_server.py
 server/security_rover_server_windows.py
 server/requirements.txt
@@ -65,6 +65,51 @@ When the vision model detects activity, the server saves an image in `alerts/`, 
 ```json
 {"cmd":"alert_buzzer"}
 ```
+
+## Hardware Connections
+
+The ESP32-CAM and ESP32-S3 rover do not connect directly to each other with wires. They both join the same 2.4 GHz Wi-Fi network and communicate through the laptop server.
+
+ESP32-CAM AI-Thinker:
+
+```text
+5V       -> stable 5V supply
+GND      -> supply ground
+U0R/RX   -> USB-serial TX while uploading
+U0T/TX   -> USB-serial RX while uploading
+GPIO 0   -> GND only while uploading, then disconnect and reset
+```
+
+ESP32-S3 rover to L9110S motor driver:
+
+```text
+GPIO 26  -> A-IA
+GPIO 27  -> A-IB
+GPIO 14  -> B-IA
+GPIO 12  -> B-IB
+GND      -> L9110S GND and motor battery negative
+VM/VCC   -> motor battery positive, matched to your motors/driver board
+Motor A  -> left motor terminals
+Motor B  -> right motor terminals
+```
+
+ESP32-S3 rover to MPU6050:
+
+```text
+GPIO 21  -> SDA
+GPIO 22  -> SCL
+3V3      -> VCC
+GND      -> GND
+```
+
+ESP32-S3 rover to buzzer:
+
+```text
+GPIO 33  -> buzzer positive/input
+GND      -> buzzer negative
+```
+
+Use a common ground between the ESP32-S3, motor driver, and motor battery. If a motor spins backward, swap that motor's two output wires or invert that motor in code. Use a separate motor supply when possible, because motor noise and voltage dips can reset the ESP32-S3.
 
 ## No More Hardcoded Wi-Fi
 
@@ -129,7 +174,7 @@ dashboard/rover_dashboard.html or dashboard/rover_dashboard_windows.html if you 
 Open this sketch in Arduino IDE:
 
 ```text
-firmware/esp32s3/esp32s3_rover_ws.ino
+firmware/esp32s3/esp32s3_rover_ws/esp32s3_rover_ws.ino
 ```
 
 Required Arduino libraries:
@@ -163,18 +208,6 @@ Then press **Save and Restart**. The rover will reboot, join your Wi-Fi, and con
 
 ```text
 ws://<SERVER_IP>:5000/ws/rover
-```
-
-The rover expects:
-
-```text
-L9110S A-IA = GPIO 26
-L9110S A-IB = GPIO 27
-L9110S B-IA = GPIO 14
-L9110S B-IB = GPIO 12
-MPU6050 SDA = GPIO 21
-MPU6050 SCL = GPIO 22
-Buzzer = GPIO 33
 ```
 
 Keep the rover still during startup while the gyro calibrates.
@@ -314,17 +347,30 @@ The Python server files were syntax-checked earlier with:
 python -m py_compile .\security_rover_server.py .\security_rover_server_windows.py
 ```
 
-Arduino compile verification requires the ESP32 Arduino board package. In this workspace, Arduino CLI currently has only `arduino:avr` installed. I tried installing `esp32:esp32`, but the `esp32:esp-x32@2601` toolchain download was cut off twice by the remote host before completion, so a local Arduino compile could not be completed here.
-
-Install the ESP32 package in Arduino IDE if CLI download keeps failing:
+Arduino CLI is installed at:
 
 ```text
-Boards Manager -> esp32 by Espressif Systems
+C:\Windows\System32\arduino-cli.exe
 ```
 
-Then compile with these board choices:
+The ESP32 Arduino core installed successfully:
 
 ```text
-ESP32-CAM: AI Thinker ESP32-CAM
-ESP32-S3 rover: your exact ESP32-S3 Dev Module board
+esp32:esp32 2.0.17
+```
+
+The required rover libraries were installed with Arduino CLI:
+
+```text
+Adafruit MPU6050
+Adafruit Unified Sensor
+ArduinoJson
+WebSockets
+```
+
+These compile checks passed:
+
+```text
+arduino-cli compile --fqbn esp32:esp32:esp32cam .\esp32_cam_mjpeg_stream
+arduino-cli compile --fqbn esp32:esp32:esp32s3 .\esp32s3_rover_ws
 ```
