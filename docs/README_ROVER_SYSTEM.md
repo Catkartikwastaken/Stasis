@@ -244,3 +244,24 @@ Server position event:       rover_position
 Rover buzzer command:        {"cmd":"alert_buzzer"}
 Rover navigation command:    {"cmd":"goto","angle":...,"distance":...}
 ```
+
+## Verification Notes
+
+The Python server files were syntax-checked with:
+
+```powershell
+python -m py_compile .\security_rover_server.py .\security_rover_server_windows.py
+```
+
+Arduino compile verification requires the ESP32 Arduino board package. If Arduino CLI reports only `arduino:avr` under `core list`, install the ESP32 package in Arduino IDE first:
+
+```text
+Boards Manager -> esp32 by Espressif Systems
+```
+
+Then compile with these board choices:
+
+```text
+ESP32-CAM: AI Thinker ESP32-CAM
+ESP32-S3 rover: your exact ESP32-S3 Dev Module board
+```
