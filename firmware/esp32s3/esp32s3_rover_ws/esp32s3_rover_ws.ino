@@ -531,13 +531,22 @@ void setupWebSocket() {
 
 void setup() {
   Serial.begin(115200);
-  delay(500);
+  delay(1500);
+
+  Serial.println();
+  Serial.println("ESP32-S3 rover booting...");
 
   setupMotors();
-  setupImu();
-  setupCompass();
-  setupScanner();
+  // Start Wi-Fi/config before sensor init so a bad sensor cannot block setup mode.
   ensureNetworkSettings();
+  Serial.println("Network settings ready.");
+
+  Serial.println("Starting IMU...");
+  setupImu();
+  Serial.println("Starting compass...");
+  setupCompass();
+  Serial.println("Starting ultrasonic scanner...");
+  setupScanner();
   setupWebSocket();
 }
 
