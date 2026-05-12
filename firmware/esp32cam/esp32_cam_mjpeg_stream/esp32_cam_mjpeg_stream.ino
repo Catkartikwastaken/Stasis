@@ -8,6 +8,7 @@
 
 const char *SETUP_AP_SSID = "STASIS-CAM-SETUP";
 const char *SETUP_AP_PASSWORD = "stasis1234";
+const char *FIRMWARE_BUILD_ID = __DATE__ " " __TIME__;
 
 // AI-Thinker ESP32-CAM pin map
 #define PWDN_GPIO_NUM 32
@@ -88,6 +89,7 @@ void startSetupPortal(const String &reason) {
     prefs.begin("stasis_cam", false);
     prefs.putString("ssid", ssid);
     prefs.putString("password", password);
+    prefs.putString("build", FIRMWARE_BUILD_ID);
     prefs.end();
 
     setupServer.send(200, "text/html", "<html><body><h2>Saved. Restarting camera...</h2></body></html>");
@@ -121,9 +123,10 @@ bool loadSavedWiFi(String &ssid, String &password) {
   prefs.begin("stasis_cam", true);
   ssid = prefs.getString("ssid", "");
   password = prefs.getString("password", "");
+  String savedBuild = prefs.getString("build", "");
   prefs.end();
   ssid.trim();
-  return ssid.length() > 0;
+  return ssid.length() > 0 && savedBuild == FIRMWARE_BUILD_ID;
 }
 
 bool connectToWiFi(const String &ssid, const String &password) {
@@ -257,6 +260,8 @@ void setup() {
   WiFi.mode(WIFI_STA);
   Serial.println();
   Serial.println("ESP32-CAM booting...");
+  Serial.print("Firmware build: ");
+  Serial.println(FIRMWARE_BUILD_ID);
   Serial.print("ESP32-CAM MAC: ");
   Serial.println(WiFi.macAddress());
 
