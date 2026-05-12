@@ -142,9 +142,9 @@ Use a common ground between the ESP32-S3, motor driver, motor battery, sensors, 
 
 ## No More Hardcoded Wi-Fi
 
-The ESP32 sketches no longer store your private Wi-Fi SSID/password in the code. On first boot, or whenever saved Wi-Fi settings are missing or fail, each board opens its own setup hotspot.
+The ESP32 sketches no longer store your private Wi-Fi SSID/password in the code. On first boot, after a new firmware build, or whenever saved Wi-Fi settings are missing or fail, each board opens its own setup hotspot.
 
-Saved settings are stored in ESP32 flash memory with `Preferences`, so they usually survive normal sketch uploads. If you need to force setup again, erase the board flash from Arduino IDE or boot the board somewhere the saved Wi-Fi cannot connect.
+Saved settings are stored in ESP32 flash memory with `Preferences`, but the current firmware also stores a build ID. After a new upload, the build ID changes and setup mode opens again so you can re-enter network details without editing code.
 
 ## ESP32-CAM Setup Portal
 
@@ -323,6 +323,23 @@ const ESP32_CAM_IP = "<ESP32_CAM_IP>";
 Use `115200` baud in Serial Monitor for both ESP32 boards.
 
 If you see random symbols, the Serial Monitor baud rate is wrong.
+
+If Serial Monitor only repeats bootloader lines such as `ESP-ROM`, `rst:0x8`, or `TG1WDT_SYS_RST`, and you never see `ESP32-CAM booting...` or `ESP32-S3 rover booting...`, the sketch is not reaching `setup()`. That is almost always power, boot-mode wiring, board selection, or corrupted flash state.
+
+Do this first:
+
+```text
+1. Erase flash once, then upload the sketch again.
+2. ESP32-CAM board: select AI Thinker ESP32-CAM.
+3. ESP32-S3 rover board: select ESP32S3 Dev Module, or the exact board you own.
+4. ESP32-CAM upload: connect GPIO0 to GND only while uploading.
+5. ESP32-CAM run: disconnect GPIO0 from GND, then press RESET.
+6. ESP32-CAM power: use stable 5V power. Many USB serial adapters cannot supply enough current.
+7. ESP32-S3 test: power by USB with motors, servo, MPU6050, compass, and HC-SR04 unplugged. Reconnect hardware after the setup hotspot appears.
+8. If the S3 only fails when motors/servo are connected, use a separate motor/servo supply with common GND.
+```
+
+With the current firmware, a successful boot prints a firmware build line and reset reason before it opens the setup hotspot. If you do not see those lines, keep debugging boot/power/board settings before changing Flask or WebSocket code.
 
 If the ESP32-CAM shows `Camera init failed`, check:
 

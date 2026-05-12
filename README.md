@@ -109,7 +109,7 @@ Use a common ground between the ESP32-S3, motor driver, motor battery, sensors, 
 
 The ESP32-CAM and ESP32-S3 rover sketches no longer require private Wi-Fi credentials to be edited into the code.
 
-On first boot, or when saved Wi-Fi settings fail, use these temporary setup networks:
+On first boot, after a new firmware build, or when saved Wi-Fi settings fail, use these temporary setup networks:
 
 ```text
 Camera setup Wi-Fi: STASIS-CAM-SETUP
@@ -118,7 +118,23 @@ Setup password:     stasis1234
 Setup page:         http://192.168.4.1
 ```
 
-The camera setup page asks for Wi-Fi SSID/password. The rover setup page asks for Wi-Fi SSID/password plus the laptop/server IP. Settings are saved in ESP32 flash and usually survive normal re-uploads.
+The camera setup page asks for Wi-Fi SSID/password. The rover setup page asks for Wi-Fi SSID/password plus the laptop/server IP. Settings are saved in ESP32 flash, but the current firmware intentionally reopens setup mode after a new build/upload so you can re-enter network details without editing code.
+
+## If The Setup Wi-Fi Does Not Appear
+
+If Serial Monitor only repeats `ESP-ROM`, `rst:0x8`, or `TG1WDT_SYS_RST` and never prints `ESP32-CAM booting...` or `ESP32-S3 rover booting...`, the sketch is not reaching `setup()`. Fix this before changing server code.
+
+```text
+1. Use Serial Monitor baud 115200.
+2. In Arduino IDE, choose AI Thinker ESP32-CAM for the camera.
+3. Choose ESP32S3 Dev Module, or the exact ESP32-S3 board you own, for the rover.
+4. Erase flash once, then upload again.
+5. Power the ESP32-CAM from a stable 5V supply, not weak 3.3V from a USB serial adapter.
+6. For ESP32-CAM, keep GPIO0 connected to GND only while uploading. Disconnect GPIO0 from GND, then press RESET to run.
+7. For the rover, test from USB power with motors, servo, and sensors unplugged first. Reconnect hardware after the setup Wi-Fi appears.
+```
+
+With the current firmware, a successful boot prints a firmware build line and reset reason before opening the setup hotspot.
 
 ## Important
 

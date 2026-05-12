@@ -4,6 +4,7 @@
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#include <esp_system.h>
 #include <string.h>
 
 const char *SETUP_AP_SSID = "STASIS-CAM-SETUP";
@@ -64,7 +65,8 @@ String setupPage(const String &message = "") {
 
 void startSetupPortal(const String &reason) {
   portalReason = reason;
-  WiFi.disconnect(true);
+  WiFi.persistent(false);
+  WiFi.disconnect(false, true);
   delay(200);
   WiFi.mode(WIFI_AP);
   WiFi.softAP(SETUP_AP_SSID, SETUP_AP_PASSWORD);
@@ -262,8 +264,11 @@ void setup() {
   Serial.println("ESP32-CAM booting...");
   Serial.print("Firmware build: ");
   Serial.println(FIRMWARE_BUILD_ID);
+  Serial.print("Reset reason: ");
+  Serial.println((int)esp_reset_reason());
   Serial.print("ESP32-CAM MAC: ");
   Serial.println(WiFi.macAddress());
+  Serial.flush();
 
   ensureWiFi();
 

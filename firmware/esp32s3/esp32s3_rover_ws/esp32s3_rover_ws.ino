@@ -9,11 +9,13 @@
 #include <WebSocketsClient.h>
 #include <WiFi.h>
 #include <Wire.h>
+#include <esp_system.h>
 #include <math.h>
 #include <string.h>
 
 const char *SETUP_AP_SSID = "STASIS-ROVER-SETUP";
 const char *SETUP_AP_PASSWORD = "stasis1234";
+const char *FIRMWARE_BUILD_ID = __DATE__ " " __TIME__;
 
 const uint16_t SERVER_PORT = 5000;
 const char *WEBSOCKET_PATH = "/ws/rover";
@@ -91,7 +93,8 @@ String setupPage(const String &message = "") {
 void startSetupPortal(const String &reason) {
   portalReason = reason;
   stopMotors();
-  WiFi.disconnect(true);
+  WiFi.persistent(false);
+  WiFi.disconnect(false, true);
   delay(200);
   WiFi.mode(WIFI_AP);
   WiFi.softAP(SETUP_AP_SSID, SETUP_AP_PASSWORD);
@@ -119,6 +122,7 @@ void startSetupPortal(const String &reason) {
     prefs.putString("ssid", ssid);
     prefs.putString("password", password);
     prefs.putString("server", server);
+    prefs.putString("build", FIRMWARE_BUILD_ID);
     prefs.end();
 
     setupServer.send(200, "text/html", "<html><body><h2>Saved. Restarting rover...</h2></body></html>");
@@ -153,10 +157,11 @@ bool loadSavedSettings(String &ssid, String &password, String &server) {
   ssid = prefs.getString("ssid", "");
   password = prefs.getString("password", "");
   server = prefs.getString("server", "");
+  String savedBuild = prefs.getString("build", "");
   prefs.end();
   ssid.trim();
   server.trim();
-  return ssid.length() > 0 && server.length() > 0;
+  return ssid.length() > 0 && server.length() > 0 && savedBuild == FIRMWARE_BUILD_ID;
 }
 
 bool connectToWiFi(const String &ssid, const String &password) {
@@ -535,6 +540,11 @@ void setup() {
 
   Serial.println();
   Serial.println("ESP32-S3 rover booting...");
+  Serial.print("Firmware build: ");
+  Serial.println(FIRMWARE_BUILD_ID);
+  Serial.print("Reset reason: ");
+  Serial.println((int)esp_reset_reason());
+  Serial.flush();
 
   setupMotors();
   // Start Wi-Fi/config before sensor init so a bad sensor cannot block setup mode.
