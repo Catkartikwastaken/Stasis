@@ -60,11 +60,7 @@ When the rover finishes, it sends:
 {"status":"goal_reached"}
 ```
 
-When the vision model detects activity, the server saves an image in `alerts/`, emits `new_alert`, and sends this to the rover:
-
-```json
-{"cmd":"alert_buzzer"}
-```
+When the vision model detects activity, the server saves an image in `alerts/` and emits `new_alert` to the dashboard. Physical sound alerts were removed from the rover hardware.
 
 ## Hardware Connections
 
@@ -93,6 +89,15 @@ Motor A  -> left motor terminals
 Motor B  -> right motor terminals
 ```
 
+ESP32-S3 power:
+
+```text
+7.4V Li-ion battery positive -> ESP32-S3 VIN
+7.4V Li-ion battery negative -> ESP32-S3 GND
+```
+
+Do NOT use the ESP32-S3 5V pin for battery input. The 7.4V battery connects directly to VIN because the ESP32-S3 board has its own onboard regulator.
+
 ESP32-S3 rover to MPU6050:
 
 ```text
@@ -102,14 +107,38 @@ GPIO 22  -> SCL
 GND      -> GND
 ```
 
-ESP32-S3 rover to buzzer:
+ESP32-S3 rover to GY-271 compass:
 
 ```text
-GPIO 33  -> buzzer positive/input
-GND      -> buzzer negative
+GPIO 21  -> SDA
+GPIO 22  -> SCL
+3V3      -> VCC
+GND      -> GND
+I2C      -> 0x1E
 ```
 
-Use a common ground between the ESP32-S3, motor driver, and motor battery. If a motor spins backward, swap that motor's two output wires or invert that motor in code. Use a separate motor supply when possible, because motor noise and voltage dips can reset the ESP32-S3.
+The MPU6050 and GY-271 share the same I2C bus. The MPU6050 uses address `0x68`; the GY-271/HMC5883L compass uses address `0x1E`.
+
+ESP32-S3 rover to HC-SR04 ultrasonic sensor:
+
+```text
+GPIO 33  -> Trig
+GPIO 32  -> Echo
+3V3      -> VCC
+GND      -> GND
+```
+
+Power the HC-SR04 from 3.3V, not 5V, so the Echo signal does not damage the ESP32-S3.
+
+ESP32-S3 rover to scanner servo:
+
+```text
+GPIO 13  -> Signal
+5V       -> Power/red
+GND      -> Ground/brown
+```
+
+Use a common ground between the ESP32-S3, motor driver, motor battery, sensors, and servo. If a motor spins backward, swap that motor's two output wires or invert that motor in code. Use a separate motor supply when possible, because motor noise and voltage dips can reset the ESP32-S3.
 
 ## No More Hardcoded Wi-Fi
 
@@ -181,8 +210,10 @@ Required Arduino libraries:
 
 ```text
 Adafruit MPU6050
+Adafruit HMC5883 Unified
 Adafruit Unified Sensor
 ArduinoJson
+ESP32Servo
 WebSockets by Markus Sattler
 ```
 
@@ -333,9 +364,11 @@ Camera stream endpoint:      /stream
 Rover WebSocket endpoint:    /ws/rover
 Rover ID:                    esp32s3_rover
 Dashboard goal event:        set_goal
+Dashboard return event:      return_home
+Dashboard scan event:        request_scan
 Server alert event:          new_alert
 Server position event:       rover_position
-Rover buzzer command:        {"cmd":"alert_buzzer"}
+Rover scan command:          {"cmd":"scan"}
 Rover navigation command:    {"cmd":"goto","angle":...,"distance":...}
 ```
 
@@ -363,8 +396,10 @@ The required rover libraries were installed with Arduino CLI:
 
 ```text
 Adafruit MPU6050
+Adafruit HMC5883 Unified
 Adafruit Unified Sensor
 ArduinoJson
+ESP32Servo
 WebSockets
 ```
 

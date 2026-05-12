@@ -41,21 +41,23 @@ vision_pipe = None
 
 rover_ws: Server | None = None
 rover_socketio_sid: str | None = None
-rover_pose = {"x": 400, "y": 400, "yaw": 0}
+home_position = {"x": 400.0, "y": 400.0}
+home_heading: float | None = None
+last_distance_traveled: float | None = None
+latest_scan: list[dict[str, float]] = []
+rover_pose = {"x": 400.0, "y": 400.0, "yaw": 0.0, "heading": 0.0, "distance_from_home": 0.0}
 pending_goal: dict[str, float] | None = None
 
 
-def get_windows_device() -> int:
-    if torch.cuda.is_available():
-        logging.info("Using CUDA GPU for vision model")
-        return 0
-
-    logging.info("Using CPU for vision model")
-    return -1
+def get_windows_device() -> torch.device:
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logging.info("Using %s for vision model", device)
+    return device
 
 
 def load_vision_model() -> None:
     global vision_pipe
+
     vision_pipe = pipeline("image-to-text", model=VISION_MODEL, device=get_windows_device())
 
 
@@ -183,15 +185,83 @@ def vision_analysis_loop() -> None:
         image_path = save_alert_frame(frame)
         payload = {"message": analysis["message"], "image_path": image_path}
         socketio.emit("new_alert", payload)
-        send_rover_command({"cmd": "alert_buzzer"})
+        # Physical sound hardware was removed; alerts now stay in the web dashboard.
+
+
+def normalize_angle_degrees(angle: float) -> float:
+    while angle > 180.0:
+        angle -= 360.0
+    while angle < -180.0:
+        angle += 360.0
+    return angle
+
+
+def normalize_heading_degrees(angle: float) -> float:
+    return angle % 360.0
+
+
+def update_distance_from_home() -> None:
+    dx = rover_pose["x"] - home_position["x"]
+    dy = rover_pose["y"] - home_position["y"]
+    rover_pose["distance_from_home"] = math.sqrt(dx**2 + dy**2) * PIXEL_TO_CM
 
 
 def build_goto_command(target_x: float, target_y: float) -> dict[str, Any]:
     dx = target_x - rover_pose["x"]
     dy = target_y - rover_pose["y"]
-    angle_to_goal = math.degrees(math.atan2(dy, dx))
+    map_angle_to_goal = math.degrees(math.atan2(dy, dx))
+    angle_to_goal = normalize_heading_degrees((home_heading or 0.0) + map_angle_to_goal)
     distance_cm = math.sqrt(dx**2 + dy**2) * PIXEL_TO_CM
     return {"cmd": "goto", "angle": angle_to_goal, "distance": distance_cm}
+
+
+def handle_rover_telemetry(payload: dict[str, Any]) -> None:
+    global home_heading, last_distance_traveled
+
+    try:
+        heading = float(payload["heading"])
+        distance_traveled = float(payload["distance_traveled"])
+    except (KeyError, TypeError, ValueError):
+        return
+
+    if home_heading is None:
+        home_heading = heading
+        last_distance_traveled = distance_traveled
+
+    previous_distance = last_distance_traveled if last_distance_traveled is not None else distance_traveled
+    distance_delta = max(0.0, distance_traveled - previous_distance)
+    last_distance_traveled = distance_traveled
+
+    map_yaw = normalize_angle_degrees(heading - home_heading)
+    rover_pose["heading"] = normalize_heading_degrees(heading)
+    rover_pose["yaw"] = map_yaw
+
+    if distance_delta > 0.0:
+        yaw_rad = math.radians(map_yaw)
+        rover_pose["x"] += math.cos(yaw_rad) * (distance_delta / PIXEL_TO_CM)
+        rover_pose["y"] += math.sin(yaw_rad) * (distance_delta / PIXEL_TO_CM)
+
+    update_distance_from_home()
+    socketio.emit("rover_position", rover_pose.copy())
+
+
+def handle_scan_report(payload: dict[str, Any]) -> None:
+    global latest_scan
+
+    scan_data = payload.get("data", [])
+    if not isinstance(scan_data, list):
+        return
+
+    latest_scan = []
+    for point in scan_data:
+        if not isinstance(point, dict):
+            continue
+        try:
+            latest_scan.append({"angle": float(point["angle"]), "distance": float(point["distance"])})
+        except (KeyError, TypeError, ValueError):
+            continue
+
+    socketio.emit("scan_data", {"data": latest_scan})
 
 
 def handle_rover_report(payload: Any) -> None:
@@ -203,15 +273,23 @@ def handle_rover_report(payload: Any) -> None:
         except json.JSONDecodeError:
             return
 
-    if not isinstance(payload, dict) or payload.get("status") != "goal_reached":
+    if not isinstance(payload, dict):
         return
 
-    if pending_goal is not None:
-        rover_pose["x"] = pending_goal["x"]
-        rover_pose["y"] = pending_goal["y"]
-        pending_goal = None
+    if "heading" in payload and "distance_traveled" in payload:
+        handle_rover_telemetry(payload)
 
-    socketio.emit("rover_position", rover_pose.copy())
+    if payload.get("type") == "scan":
+        handle_scan_report(payload)
+
+    if payload.get("status") == "goal_reached":
+        if pending_goal is not None:
+            rover_pose["x"] = pending_goal["x"]
+            rover_pose["y"] = pending_goal["y"]
+            pending_goal = None
+
+        update_distance_from_home()
+        socketio.emit("rover_position", rover_pose.copy())
 
 
 @app.route("/")
@@ -276,6 +354,7 @@ def on_connect(auth=None):
         return
 
     emit("rover_position", rover_pose.copy())
+    emit("scan_data", {"data": latest_scan})
 
 
 @socketio.on("disconnect")
@@ -303,6 +382,24 @@ def on_set_goal(payload):
     if not sent:
         pending_goal = None
     emit("goal_commanded", {"sent": sent, "command": command})
+
+
+@socketio.on("return_home")
+def on_return_home():
+    global pending_goal
+
+    pending_goal = home_position.copy()
+    command = build_goto_command(home_position["x"], home_position["y"])
+    sent = send_rover_command(command)
+    if not sent:
+        pending_goal = None
+    emit("goal_commanded", {"sent": sent, "command": command})
+
+
+@socketio.on("request_scan")
+def on_request_scan():
+    sent = send_rover_command({"cmd": "scan"})
+    emit("scan_requested", {"sent": sent})
 
 
 @socketio.on("rover_status")

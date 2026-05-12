@@ -1,7 +1,9 @@
 #include <Adafruit_MPU6050.h>
+#include <Adafruit_HMC5883_U.h>
 #include <Adafruit_Sensor.h>
 #include <ArduinoJson.h>
 #include <DNSServer.h>
+#include <ESP32Servo.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WebSocketsClient.h>
@@ -20,9 +22,11 @@ const int A_IA = 26;
 const int A_IB = 27;
 const int B_IA = 14;
 const int B_IB = 12;
-const int BUZZER_PIN = 33;
 const int SDA_PIN = 21;
 const int SCL_PIN = 22;
+const int ULTRASONIC_TRIG_PIN = 33;
+const int ULTRASONIC_ECHO_PIN = 32;
+const int SCANNER_SERVO_PIN = 13;
 
 const float TURN_KP = 5.0;
 const float TURN_TOLERANCE_DEG = 5.0;
@@ -30,12 +34,17 @@ const int TURN_MIN_PWM = 75;
 const int TURN_MAX_PWM = 200;
 const int DRIVE_PWM = 180;
 const float DRIVE_MS_PER_CM = 50.0;  // Tune this on the real floor.
+const unsigned long TELEMETRY_INTERVAL_MS = 500;
+const int SCAN_STEP_DEG = 30;
+const int SCAN_SETTLE_MS = 250;
 
 const byte DNS_PORT = 53;
 
 Adafruit_MPU6050 mpu;
+Adafruit_HMC5883_Unified compass = Adafruit_HMC5883_Unified(12345);
 DNSServer dnsServer;
 Preferences prefs;
+Servo scannerServo;
 WebServer setupServer(80);
 WebSocketsClient webSocket;
 
@@ -45,7 +54,10 @@ float yawDeg = 0.0;
 float gyroZBias = 0.0;
 unsigned long lastImuMs = 0;
 unsigned long lastHeartbeatMs = 0;
+unsigned long lastTelemetryMs = 0;
+float distanceTraveledCm = 0.0;
 bool imuReady = false;
+bool compassReady = false;
 
 void stopMotors();
 
@@ -243,6 +255,70 @@ void sendGoalReached() {
   sendJson("{\"status\":\"goal_reached\"}");
 }
 
+float readCompassHeading() {
+  if (!compassReady) return yawDeg;
+
+  sensors_event_t compassEvent;
+  compass.getEvent(&compassEvent);
+
+  float heading = atan2(compassEvent.magnetic.y, compassEvent.magnetic.x) * 180.0 / PI;
+  if (heading < 0.0) heading += 360.0;
+  return heading;
+}
+
+void sendTelemetry() {
+  StaticJsonDocument<128> doc;
+  doc["heading"] = readCompassHeading();
+  doc["distance_traveled"] = distanceTraveledCm;
+
+  char message[128];
+  serializeJson(doc, message, sizeof(message));
+  sendJson(message);
+}
+
+void sendTelemetryIfDue() {
+  if (millis() - lastTelemetryMs < TELEMETRY_INTERVAL_MS) return;
+  lastTelemetryMs = millis();
+  sendTelemetry();
+}
+
+float getDistanceCm() {
+  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(ULTRASONIC_TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+
+  unsigned long duration = pulseIn(ULTRASONIC_ECHO_PIN, HIGH, 30000);
+  if (duration == 0) return -1.0;
+  return duration * 0.0343 / 2.0;
+}
+
+void sendScanData() {
+  StaticJsonDocument<512> doc;
+  doc["type"] = "scan";
+  JsonArray data = doc["data"].to<JsonArray>();
+
+  for (int angle = 0; angle <= 180; angle += SCAN_STEP_DEG) {
+    scannerServo.write(angle);
+    delay(SCAN_SETTLE_MS);
+
+    JsonObject point = data.add<JsonObject>();
+    point["angle"] = angle;
+    point["distance"] = getDistanceCm();
+
+    webSocket.loop();
+    updateYaw();
+    sendTelemetryIfDue();
+  }
+
+  scannerServo.write(90);
+
+  char message[512];
+  serializeJson(doc, message, sizeof(message));
+  sendJson(message);
+}
+
 void updateYaw() {
   if (!imuReady) return;
 
@@ -297,8 +373,9 @@ void turnToAngle(float targetAngle) {
   while (millis() - startMs < 12000) {
     webSocket.loop();
     updateYaw();
+    sendTelemetryIfDue();
 
-    float error = normalizeAngle(targetAngle - yawDeg);
+    float error = normalizeAngle(targetAngle - readCompassHeading());
     if (fabs(error) <= TURN_TOLERANCE_DEG) break;
 
     int pwm = constrain((int)(fabs(error) * TURN_KP), TURN_MIN_PWM, TURN_MAX_PWM);
@@ -320,15 +397,20 @@ void driveForward(float distanceCm) {
   if (distanceCm < 0.0) distanceCm = 0.0;
   unsigned long driveTimeMs = (unsigned long)(distanceCm * DRIVE_MS_PER_CM);
   unsigned long startMs = millis();
+  float startDistanceCm = distanceTraveledCm;
 
   while (millis() - startMs < driveTimeMs) {
     webSocket.loop();
     updateYaw();
+    float progress = driveTimeMs > 0 ? (float)(millis() - startMs) / driveTimeMs : 1.0;
+    distanceTraveledCm = startDistanceCm + distanceCm * constrain(progress, 0.0, 1.0);
+    sendTelemetryIfDue();
     setMotorA(DRIVE_PWM);
     setMotorB(DRIVE_PWM);
     delay(10);
   }
 
+  distanceTraveledCm = startDistanceCm + distanceCm;
   stopMotors();
 }
 
@@ -345,12 +427,6 @@ void handleGoto(float angle, float distanceCm) {
   sendGoalReached();
 }
 
-void soundBuzzer() {
-  digitalWrite(BUZZER_PIN, HIGH);
-  delay(1000);
-  digitalWrite(BUZZER_PIN, LOW);
-}
-
 void handleCommand(const char *payload) {
   StaticJsonDocument<256> doc;
   DeserializationError err = deserializeJson(doc, payload);
@@ -362,8 +438,8 @@ void handleCommand(const char *payload) {
   const char *cmd = doc["cmd"] | "";
   if (strcmp(cmd, "goto") == 0) {
     handleGoto(doc["angle"] | 0.0, doc["distance"] | 0.0);
-  } else if (strcmp(cmd, "alert_buzzer") == 0) {
-    soundBuzzer();
+  } else if (strcmp(cmd, "scan") == 0) {
+    sendScanData();
   }
 }
 
@@ -420,6 +496,29 @@ void setupImu() {
   calibrateGyro();
 }
 
+void setupCompass() {
+  // GY-271/HMC5883L compass shares I2C with the MPU6050 at address 0x1E.
+  if (!compass.begin()) {
+    Serial.println("GY-271/HMC5883L compass not found");
+    compassReady = false;
+    return;
+  }
+
+  compassReady = true;
+  Serial.println("GY-271/HMC5883L compass ready");
+}
+
+void setupScanner() {
+  // HC-SR04 must be powered from 3.3V on this ESP32-S3 wiring.
+  pinMode(ULTRASONIC_TRIG_PIN, OUTPUT);
+  pinMode(ULTRASONIC_ECHO_PIN, INPUT);
+  digitalWrite(ULTRASONIC_TRIG_PIN, LOW);
+
+  scannerServo.setPeriodHertz(50);
+  scannerServo.attach(SCANNER_SERVO_PIN, 500, 2400);
+  scannerServo.write(90);
+}
+
 void setupWebSocket() {
   Serial.print("Connecting WebSocket to ws://");
   Serial.print(serverIp);
@@ -434,11 +533,10 @@ void setup() {
   Serial.begin(115200);
   delay(500);
 
-  pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW);
-
   setupMotors();
   setupImu();
+  setupCompass();
+  setupScanner();
   ensureNetworkSettings();
   setupWebSocket();
 }
@@ -446,6 +544,7 @@ void setup() {
 void loop() {
   webSocket.loop();
   updateYaw();
+  sendTelemetryIfDue();
 
   if (webSocket.isConnected() && millis() - lastHeartbeatMs >= 5000) {
     lastHeartbeatMs = millis();

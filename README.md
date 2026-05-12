@@ -56,6 +56,15 @@ Motor A  -> left motor terminals
 Motor B  -> right motor terminals
 ```
 
+ESP32-S3 power:
+
+```text
+7.4V Li-ion battery positive -> ESP32-S3 VIN
+7.4V Li-ion battery negative -> ESP32-S3 GND
+```
+
+Do NOT use the ESP32-S3 5V pin for battery input. The 7.4V battery connects directly to VIN because the ESP32-S3 board has its own onboard regulator.
+
 ESP32-S3 rover to MPU6050:
 
 ```text
@@ -65,14 +74,36 @@ GPIO 22  -> SCL
 GND      -> GND
 ```
 
-ESP32-S3 rover to buzzer:
+ESP32-S3 rover to GY-271 compass:
 
 ```text
-GPIO 33  -> buzzer positive/input
-GND      -> buzzer negative
+GPIO 21  -> SDA
+GPIO 22  -> SCL
+3V3      -> VCC
+GND      -> GND
+I2C      -> 0x1E
 ```
 
-Use a common ground between the ESP32-S3, motor driver, and motor battery. If a motor spins backward, swap that motor's two output wires or invert that motor in code.
+ESP32-S3 rover to HC-SR04 ultrasonic sensor:
+
+```text
+GPIO 33  -> Trig
+GPIO 32  -> Echo
+3V3      -> VCC
+GND      -> GND
+```
+
+Power the HC-SR04 from 3.3V, not 5V, so the Echo signal does not damage the ESP32-S3.
+
+ESP32-S3 rover to scanner servo:
+
+```text
+GPIO 13  -> Signal
+5V       -> Power/red
+GND      -> Ground/brown
+```
+
+Use a common ground between the ESP32-S3, motor driver, motor battery, sensors, and servo. If a motor spins backward, swap that motor's two output wires or invert that motor in code.
 
 ## Setup Portals
 
@@ -91,7 +122,7 @@ The camera setup page asks for Wi-Fi SSID/password. The rover setup page asks fo
 
 ## Important
 
-The public repo does not contain your private Wi-Fi credentials. You still need to update the laptop server with the ESP32-CAM IP after the camera joins your network.
+The public repo does not contain your private Wi-Fi credentials. You still need to update the Windows laptop server with the ESP32-CAM IP after the camera joins your network.
 
 Read the full setup guide here:
 
