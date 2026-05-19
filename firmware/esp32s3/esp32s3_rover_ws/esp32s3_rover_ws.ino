@@ -63,6 +63,11 @@ bool compassReady = false;
 
 void stopMotors();
 
+void logBootStep(const char *message) {
+  Serial.println(message);
+  Serial.flush();
+}
+
 String htmlEscape(const String &value) {
   String escaped = value;
   escaped.replace("&", "&amp;");
@@ -92,14 +97,24 @@ String setupPage(const String &message = "") {
 
 void startSetupPortal(const String &reason) {
   portalReason = reason;
+  logBootStep("Setup portal: stopping motors");
   stopMotors();
+  logBootStep("Setup portal: preparing Wi-Fi AP");
   WiFi.persistent(false);
+  logBootStep("Setup portal: Wi-Fi persistence disabled");
   WiFi.disconnect(false, true);
+  logBootStep("Setup portal: Wi-Fi disconnected");
   delay(200);
+  logBootStep("Setup portal: switching to AP mode");
   WiFi.mode(WIFI_AP);
-  WiFi.softAP(SETUP_AP_SSID, SETUP_AP_PASSWORD);
+  logBootStep("Setup portal: starting softAP");
+  bool apStarted = WiFi.softAP(SETUP_AP_SSID, SETUP_AP_PASSWORD);
+  Serial.print("Setup portal: softAP result: ");
+  Serial.println(apStarted ? "ok" : "failed");
+  Serial.flush();
   IPAddress apIP = WiFi.softAPIP();
 
+  logBootStep("Setup portal: starting DNS");
   dnsServer.start(DNS_PORT, "*", apIP);
 
   setupServer.on("/", HTTP_GET, []() {
@@ -135,6 +150,7 @@ void startSetupPortal(const String &reason) {
   });
 
   setupServer.begin();
+  logBootStep("Setup portal: web server started");
 
   Serial.println();
   Serial.println("Rover setup portal started.");
@@ -153,15 +169,22 @@ void startSetupPortal(const String &reason) {
 }
 
 bool loadSavedSettings(String &ssid, String &password, String &server) {
+  logBootStep("Settings: opening Preferences");
   prefs.begin("stasis_rover", true);
+  logBootStep("Settings: reading Preferences");
   ssid = prefs.getString("ssid", "");
   password = prefs.getString("password", "");
   server = prefs.getString("server", "");
   String savedBuild = prefs.getString("build", "");
   prefs.end();
+  logBootStep("Settings: Preferences closed");
   ssid.trim();
   server.trim();
-  return ssid.length() > 0 && server.length() > 0 && savedBuild == FIRMWARE_BUILD_ID;
+  bool valid = ssid.length() > 0 && server.length() > 0 && savedBuild == FIRMWARE_BUILD_ID;
+  Serial.print("Settings: saved settings valid: ");
+  Serial.println(valid ? "yes" : "no");
+  Serial.flush();
+  return valid;
 }
 
 bool connectToWiFi(const String &ssid, const String &password) {
@@ -190,11 +213,15 @@ bool ensureNetworkSettings() {
   String ssid;
   String password;
 
+  logBootStep("Network: checking saved settings");
   if (!loadSavedSettings(ssid, password, serverIp)) {
+    logBootStep("Network: no valid saved settings, opening setup portal");
     startSetupPortal("No saved Wi-Fi/server settings found.");
   }
 
+  logBootStep("Network: connecting to saved Wi-Fi");
   if (!connectToWiFi(ssid, password)) {
+    logBootStep("Network: saved Wi-Fi failed, opening setup portal");
     startSetupPortal("Could not connect with saved Wi-Fi settings. Enter new details.");
   }
 
@@ -540,6 +567,8 @@ void setup() {
 
   Serial.println();
   Serial.println("ESP32-S3 rover booting...");
+  Serial.flush();
+  logBootStep("Boot: printing firmware metadata");
   Serial.print("Firmware build: ");
   Serial.println(FIRMWARE_BUILD_ID);
   Serial.print("Reset reason: ");
