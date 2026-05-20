@@ -1,0 +1,169 @@
+# Gemma Vision Integration
+
+STASIS uses Gemma on the laptop/server to inspect ESP32-CAM frames and create dashboard alerts. The rover does not run Gemma; the Raspberry Pi 2B only drives the rover and sends telemetry.
+
+## Default Model
+
+The server defaults to:
+
+```text
+google/gemma-4-E2B-it
+```
+
+This is a multimodal Gemma instruct model that supports image + text input through Hugging Face Transformers. The server uses the documented `any-to-any` pipeline and sends a chat-style message containing:
+
+```text
+1. The current camera frame as a PIL image.
+2. A strict JSON instruction prompt.
+```
+
+The expected model response is:
+
+```json
+{"detected": true, "message": "Person visible near the doorway"}
+```
+
+or:
+
+```json
+{"detected": false, "message": ""}
+```
+
+The server calls the pipeline with `return_full_text=False` and deterministic generation settings so the parser sees only Gemma's new answer, not the original prompt.
+
+## Hugging Face Access
+
+Gemma 4 model weights are hosted on Hugging Face. If your environment needs authentication for downloads or you hit rate limits, create a Hugging Face access token.
+
+Set the token before starting the server.
+
+PowerShell:
+
+```powershell
+$env:HF_TOKEN = "hf_your_token_here"
+```
+
+Bash:
+
+```bash
+export HF_TOKEN="hf_your_token_here"
+```
+
+You can also run `huggingface-cli login` on the server machine.
+
+## Install
+
+Install the normal server requirements. They include the Transformers version needed for Gemma any-to-any inference.
+
+Windows PowerShell:
+
+```powershell
+cd server
+py -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements-windows.txt
+```
+
+Linux:
+
+```bash
+cd server
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+## Configuration
+
+The defaults use Hugging Face device mapping automatically. Override these environment variables when needed:
+
+```text
+STASIS_VISION_ENABLED=true
+STASIS_VISION_REQUIRED=false
+STASIS_VISION_MODEL=google/gemma-4-E2B-it
+STASIS_VISION_PIPELINE_TASK=any-to-any
+STASIS_VISION_DEVICE=auto
+STASIS_VISION_DEVICE_MAP=auto
+STASIS_VISION_TORCH_DTYPE=auto
+STASIS_VISION_MAX_NEW_TOKENS=160
+STASIS_ANALYSIS_INTERVAL_SECONDS=2
+```
+
+Recommended Windows CUDA settings:
+
+```powershell
+$env:STASIS_VISION_DEVICE = "cuda"
+$env:STASIS_VISION_DEVICE_MAP = "none"
+$env:STASIS_VISION_TORCH_DTYPE = "bfloat16"
+$env:STASIS_VISION_REQUIRED = "true"
+python security_rover_server_windows.py
+```
+
+CPU fallback:
+
+```powershell
+$env:STASIS_VISION_DEVICE = "cpu"
+$env:STASIS_VISION_DEVICE_MAP = "none"
+$env:STASIS_VISION_TORCH_DTYPE = "float32"
+python security_rover_server_windows.py
+```
+
+CPU inference can be slow. If you only want to test rover control and the dashboard, disable vision:
+
+```powershell
+$env:STASIS_VISION_ENABLED = "false"
+python security_rover_server_windows.py
+```
+
+## Prompt Contract
+
+The server prompt asks Gemma to return only one JSON object:
+
+```json
+{"detected": boolean, "message": string}
+```
+
+The parser accepts plain JSON or the first valid JSON object embedded in extra model text. If `detected` is false, the server clears `message` before broadcasting. If the response cannot be parsed, the error is logged and no alert is emitted for that frame.
+
+To customize the prompt:
+
+PowerShell:
+
+```powershell
+$env:STASIS_ANALYSIS_PROMPT = "Analyze this frame for open doors or people. Return only JSON with detected and message."
+```
+
+Keep the same JSON schema so the dashboard continues to work.
+
+## Troubleshooting
+
+If model loading fails with an authorization error:
+
+```text
+1. Set HF_TOKEN or run huggingface-cli login.
+2. Restart the server.
+```
+
+If model loading fails because of Transformers support:
+
+```bash
+pip install --upgrade "transformers>=4.53.0" torch torchvision accelerate sentencepiece protobuf
+```
+
+If CUDA runs out of memory:
+
+```text
+1. Lower camera resolution in the ESP32-CAM sketch.
+2. Increase STASIS_ANALYSIS_INTERVAL_SECONDS.
+3. Try STASIS_VISION_TORCH_DTYPE=bfloat16.
+4. Disable vision while testing rover control.
+```
+
+If alerts are noisy, adjust `STASIS_ANALYSIS_PROMPT` to describe only the objects or events that matter for your test space.
+
+## References
+
+- Hugging Face model page: https://huggingface.co/google/gemma-4-E2B-it
+- Google Gemma documentation: https://ai.google.dev/gemma
