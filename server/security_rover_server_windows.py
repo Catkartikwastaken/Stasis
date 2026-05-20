@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import re
 import time
 from datetime import datetime
@@ -24,14 +25,58 @@ ALERTS_DIR = BASE_DIR / "alerts"
 ESP32_CAM_IP = "192.168.1.100"  # Update this after the ESP32-CAM prints its IP.
 STREAM_URL = f"http://{ESP32_CAM_IP}/stream"
 
-VISION_MODEL = "google/gemma-4-e2b-it"
-ANALYSIS_INTERVAL_SECONDS = 2
-PIXEL_TO_CM = 1.0
-ROVER_CLIENT_ID = "esp32s3_rover"
 
-ANALYSIS_PROMPT = (
-    "You are a security rover in a simulated forest. Analyze this image. Look for humans, animals (dogs, cats, birds), plastic bottles, and any disturbances in the soil like scratches or footprints. Respond ONLY with a valid JSON object. The JSON must have two fields: 'detected' (boolean) and 'message' (string describing the activity if detected, otherwise empty)."
+def env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        logging.warning("Invalid %s=%r; using %.2f", name, value, default)
+        return default
+
+
+def env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        logging.warning("Invalid %s=%r; using %d", name, value, default)
+        return default
+
+
+VISION_ENABLED = env_bool("STASIS_VISION_ENABLED", True)
+VISION_REQUIRED = env_bool("STASIS_VISION_REQUIRED", False)
+VISION_MODEL = os.getenv("STASIS_VISION_MODEL", "google/gemma-4-E2B-it")
+VISION_PIPELINE_TASK = os.getenv("STASIS_VISION_PIPELINE_TASK", "any-to-any")
+VISION_DEVICE = os.getenv("STASIS_VISION_DEVICE", "auto")
+VISION_DEVICE_MAP = os.getenv("STASIS_VISION_DEVICE_MAP", "auto")
+VISION_TORCH_DTYPE = os.getenv("STASIS_VISION_TORCH_DTYPE", "auto")
+VISION_MAX_NEW_TOKENS = env_int("STASIS_VISION_MAX_NEW_TOKENS", 160)
+ANALYSIS_INTERVAL_SECONDS = env_float("STASIS_ANALYSIS_INTERVAL_SECONDS", 2.0)
+PIXEL_TO_CM = 1.0
+ROVER_CLIENT_ID = "rpi2b_rover"
+LEGACY_ROVER_CLIENT_IDS = {"esp32s3_rover"}
+
+DEFAULT_ANALYSIS_PROMPT = (
+    "Analyze this security-rover camera frame. Look for humans, dogs, cats, birds, plastic bottles, "
+    "open doors, spilled objects, scratches, footprints, or other unusual indoor activity. "
+    "Respond with exactly one JSON object and no Markdown. Use this schema: "
+    "{\"detected\": boolean, \"message\": string}. Set detected to true only when a relevant "
+    "security or inspection event is visible. Keep message short and specific; use an empty string "
+    "when detected is false."
 )
+ANALYSIS_PROMPT = os.getenv("STASIS_ANALYSIS_PROMPT", DEFAULT_ANALYSIS_PROMPT)
 
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
@@ -49,16 +94,94 @@ rover_pose = {"x": 400.0, "y": 400.0, "yaw": 0.0, "heading": 0.0, "distance_from
 pending_goal: dict[str, float] | None = None
 
 
-def get_windows_device() -> torch.device:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logging.info("Using %s for vision model", device)
-    return device
+def get_vision_device() -> str:
+    if VISION_DEVICE.lower() != "auto":
+        return VISION_DEVICE
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def get_vision_dtype(device: str) -> torch.dtype:
+    dtype_name = VISION_TORCH_DTYPE.lower()
+    if dtype_name == "auto":
+        return torch.bfloat16 if device.startswith("cuda") else torch.float32
+
+    dtype_by_name = {
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+        "float32": torch.float32,
+    }
+    if dtype_name not in dtype_by_name:
+        logging.warning("Invalid STASIS_VISION_TORCH_DTYPE=%r; using auto", VISION_TORCH_DTYPE)
+        return torch.bfloat16 if device.startswith("cuda") else torch.float32
+    return dtype_by_name[dtype_name]
+
+
+def get_vision_device_map() -> str | None:
+    value = VISION_DEVICE_MAP.strip()
+    if value.lower() in {"", "none", "false", "off"}:
+        return None
+    return value
+
+
+def build_pipeline_kwargs() -> dict[str, Any]:
+    device_map = get_vision_device_map()
+    if device_map is not None:
+        return {
+            "model": VISION_MODEL,
+            "device_map": device_map,
+            "dtype": VISION_TORCH_DTYPE,
+        }
+
+    device = get_vision_device()
+    return {
+        "model": VISION_MODEL,
+        "device": device,
+        "torch_dtype": get_vision_dtype(device),
+    }
 
 
 def load_vision_model() -> None:
     global vision_pipe
 
-    vision_pipe = pipeline("image-to-text", model=VISION_MODEL, device=get_windows_device())
+    if not VISION_ENABLED:
+        logging.warning("Gemma vision analysis is disabled with STASIS_VISION_ENABLED=false")
+        return
+
+    pipeline_kwargs = build_pipeline_kwargs()
+    logging.info(
+        "Loading Gemma vision model %s with task=%s options=%s",
+        VISION_MODEL,
+        VISION_PIPELINE_TASK,
+        {key: value for key, value in pipeline_kwargs.items() if key != "model"},
+    )
+
+    load_error: Exception | None = None
+    try:
+        vision_pipe = pipeline(VISION_PIPELINE_TASK, **pipeline_kwargs)
+    except TypeError as error:
+        load_error = error
+        if "dtype" in pipeline_kwargs:
+            fallback_kwargs = dict(pipeline_kwargs)
+            fallback_kwargs.pop("dtype")
+            fallback_kwargs["torch_dtype"] = get_vision_dtype(get_vision_device())
+            logging.warning("Retrying Gemma model load with torch_dtype instead of dtype")
+            try:
+                vision_pipe = pipeline(VISION_PIPELINE_TASK, **fallback_kwargs)
+                load_error = None
+            except Exception as fallback_error:
+                load_error = fallback_error
+    except Exception as error:
+        load_error = error
+
+    if load_error is not None:
+        logging.error(
+            "Could not load Gemma vision model",
+            exc_info=(type(load_error), load_error, load_error.__traceback__),
+        )
+        if VISION_REQUIRED:
+            raise load_error
+        logging.warning("Continuing without vision alerts. Set STASIS_VISION_REQUIRED=true to fail fast.")
+        vision_pipe = None
 
 
 def mjpeg_capture_loop() -> None:
@@ -93,18 +216,14 @@ def extract_model_text(model_output: Any) -> str:
         return model_output
 
     if isinstance(model_output, list) and model_output:
-        first = model_output[0]
-        if isinstance(first, dict):
-            for key in ("generated_text", "caption", "text"):
-                value = first.get(key)
-                if isinstance(value, str):
-                    return value
-                if isinstance(value, list) and value:
-                    return extract_model_text(value[-1])
-        return str(first)
+        for item in reversed(model_output):
+            text = extract_model_text(item)
+            if text:
+                return text
+        return ""
 
     if isinstance(model_output, dict):
-        for key in ("generated_text", "caption", "text", "answer"):
+        for key in ("content", "generated_text", "caption", "text", "answer"):
             value = model_output.get(key)
             if value is not None:
                 return extract_model_text(value)
@@ -117,22 +236,69 @@ def parse_json_response(text: str) -> dict[str, Any]:
     try:
         parsed = json.loads(stripped)
     except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", stripped, flags=re.DOTALL)
-        if not match:
-            raise
-        parsed = json.loads(match.group(0))
+        parsed = extract_json_object(stripped)
+
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Vision model returned JSON {type(parsed).__name__}, expected object")
 
     detected_value = parsed.get("detected", False)
     detected = detected_value.strip().lower() == "true" if isinstance(detected_value, str) else bool(detected_value)
-    return {"detected": detected, "message": str(parsed.get("message", ""))}
+    message = str(parsed.get("message", "")).strip()
+    if not detected:
+        message = ""
+    return {"detected": detected, "message": message[:500]}
+
+
+def extract_json_object(text: str) -> dict[str, Any]:
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
+        try:
+            parsed, _end = decoder.raw_decode(text[match.start() :])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    raise ValueError(f"Vision model did not return a JSON object: {text[:200]}")
+
+
+def build_vision_messages(image: Image.Image) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "You are the STASIS rover vision module. Output strict JSON only.",
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": image},
+                {"type": "text", "text": ANALYSIS_PROMPT},
+            ],
+        },
+    ]
 
 
 def analyze_frame(frame) -> dict[str, Any]:
+    if vision_pipe is None:
+        return {"detected": False, "message": ""}
+
     image = frame_to_pil(frame)
     try:
-        result = vision_pipe(image, prompt=ANALYSIS_PROMPT, max_new_tokens=256)
+        result = vision_pipe(
+            text=build_vision_messages(image),
+            return_full_text=False,
+            generate_kwargs={"max_new_tokens": VISION_MAX_NEW_TOKENS, "do_sample": False},
+        )
     except TypeError:
-        result = vision_pipe({"image": image, "text": ANALYSIS_PROMPT}, max_new_tokens=256)
+        result = vision_pipe(
+            text=build_vision_messages(image),
+            return_full_text=False,
+            max_new_tokens=VISION_MAX_NEW_TOKENS,
+        )
 
     return parse_json_response(extract_model_text(result))
 
@@ -166,9 +332,15 @@ def send_rover_command(command: dict[str, Any]) -> bool:
     return False
 
 
+def is_rover_client(client_id: str | None) -> bool:
+    return client_id == ROVER_CLIENT_ID or client_id in LEGACY_ROVER_CLIENT_IDS
+
+
 def vision_analysis_loop() -> None:
     while True:
         time.sleep(ANALYSIS_INTERVAL_SECONDS)
+        if not VISION_ENABLED or vision_pipe is None:
+            continue
         if latest_frame is None:
             continue
 
@@ -318,13 +490,13 @@ def rover_websocket():
             ws.close()
             return ""
 
-    if client_id != ROVER_CLIENT_ID:
+    if not is_rover_client(client_id):
         ws.send(json.dumps({"error": "unknown_client"}))
         ws.close()
         return ""
 
     rover_ws = ws
-    ws.send(json.dumps({"status": "registered", "id": ROVER_CLIENT_ID}))
+    ws.send(json.dumps({"status": "registered", "id": client_id}))
 
     if initial_payload is not None:
         handle_rover_report(initial_payload)
@@ -348,9 +520,9 @@ def on_connect(auth=None):
         client_id = auth.get("id") or auth.get("client_id")
     client_id = client_id or request.args.get("id") or request.args.get("client_id")
 
-    if client_id == ROVER_CLIENT_ID:
+    if is_rover_client(client_id):
         rover_socketio_sid = request.sid
-        emit("rover_registered", {"id": ROVER_CLIENT_ID})
+        emit("rover_registered", {"id": client_id})
         return
 
     emit("rover_position", rover_pose.copy())
@@ -400,6 +572,12 @@ def on_return_home():
 def on_request_scan():
     sent = send_rover_command({"cmd": "scan"})
     emit("scan_requested", {"sent": sent})
+
+
+@socketio.on("stop_rover")
+def on_stop_rover():
+    sent = send_rover_command({"cmd": "stop"})
+    emit("stop_requested", {"sent": sent})
 
 
 @socketio.on("rover_status")

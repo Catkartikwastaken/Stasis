@@ -244,6 +244,7 @@
           <div id="status" class="status">offline</div>
         </div>
         <div class="controls">
+          <button id="stopRover" type="button">Stop</button>
           <button id="returnHome" type="button">Return to Home</button>
           <button id="scanArea" type="button">Scan Area</button>
         </div>
@@ -285,6 +286,7 @@
       const goalEl = document.getElementById("goal");
       const alertsEl = document.getElementById("alerts");
       const homeDistanceEl = document.getElementById("homeDistance");
+      const stopRoverBtn = document.getElementById("stopRover");
       const returnHomeBtn = document.getElementById("returnHome");
       const scanAreaBtn = document.getElementById("scanArea");
       const scanResultsEl = document.getElementById("scanResults");
@@ -366,6 +368,10 @@
         positionMarker(goalEl, x, y);
         goalEl.style.display = "block";
         socket.emit("set_goal", { x, y });
+      });
+
+      stopRoverBtn.addEventListener("click", () => {
+        socket.emit("stop_rover");
       });
 
       returnHomeBtn.addEventListener("click", () => {
