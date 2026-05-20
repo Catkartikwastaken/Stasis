@@ -1,0 +1,14 @@
+[Unit]
+Description=STASIS Raspberry Pi rover client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/home/pi/Stasis/rover/rpi2b
+ExecStart=/home/pi/Stasis/rover/rpi2b/.venv/bin/python /home/pi/Stasis/rover/rpi2b/rover_client.py --config /home/pi/Stasis/rover/rpi2b/config.json
+Restart=always
+RestartSec=3
+User=pi
+
+[Install]
+WantedBy=multi-user.target

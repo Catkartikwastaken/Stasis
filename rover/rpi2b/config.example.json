@@ -1,0 +1,37 @@
+{
+  "server_host": "192.168.1.10",
+  "server_port": 5000,
+  "websocket_path": "/ws/rover",
+  "rover_id": "rpi2b_rover",
+  "simulate": false,
+  "pins": {
+    "left_motor_forward": 5,
+    "left_motor_reverse": 6,
+    "right_motor_forward": 13,
+    "right_motor_reverse": 19,
+    "ultrasonic_trig": 23,
+    "ultrasonic_echo": 24,
+    "scanner_servo": 18
+  },
+  "motion": {
+    "turn_kp": 0.8,
+    "turn_tolerance_deg": 5.0,
+    "turn_min_pwm": 35.0,
+    "turn_max_pwm": 85.0,
+    "drive_pwm": 70.0,
+    "drive_ms_per_cm": 50.0,
+    "turn_timeout_seconds": 12.0,
+    "telemetry_interval_seconds": 0.5,
+    "heartbeat_interval_seconds": 5.0,
+    "scan_step_deg": 30,
+    "scan_settle_seconds": 0.25
+  },
+  "sensors": {
+    "i2c_bus": 1,
+    "mpu6050_address": 104,
+    "hmc5883l_address": 30,
+    "compass_declination_deg": 0.0,
+    "gyro_calibration_samples": 300,
+    "gyro_deadband_deg_per_sec": 0.25
+  }
+}
