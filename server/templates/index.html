@@ -93,6 +93,20 @@
         font-size: 0.92rem;
       }
 
+      .camera-feed {
+        margin-bottom: 16px;
+      }
+
+      .camera-feed img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 1px solid rgba(237, 244, 239, 0.16);
+        border-radius: 8px;
+        background: #0a0f0d;
+        object-fit: cover;
+      }
+
       #map {
         position: relative;
         width: 100%;
@@ -268,6 +282,9 @@
           <button id="goToRedStrip" type="button">Go to Red Strip</button>
         </div>
         <div class="event-status">Rover status: <span id="roverStatus">waiting</span></div>
+        <section class="camera-feed" aria-label="Webcam feed">
+          <img src="/camera.mjpg" alt="Laptop webcam feed" />
+        </section>
         <div id="map" aria-label="Rover map">
           <div id="goal"></div>
           <div id="rover"></div>

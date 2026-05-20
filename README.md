@@ -2,7 +2,7 @@
 
 This repository contains the current working prototype for STASIS, a forest monitoring rover that is being demoed indoors in a forest-like test space.
 
-The current architecture uses a laptop server for Gemma vision, an ESP32-CAM for the MJPEG camera stream, and a Raspberry Pi 2B Python client for the rover's high-level control loop. The ESP32-S3 firmware remains in the repo as the existing microcontroller path while the exact Pi/ESP32-S3 hardware split is finalized.
+The current architecture is Python-based: a laptop server captures a USB webcam with OpenCV, runs Gemma vision, serves the dashboard, and talks to a Raspberry Pi 2B Python rover client for motion control.
 
 STASIS is aimed at autonomous and manual forest patrol demos: detecting humans/intruders, animals, soil or track changes, fire/smoke, and custom colored navigation markers such as red strips. GPS is intentionally out of scope for the indoor demo.
 
@@ -11,8 +11,6 @@ The server enforces that scope in code: Gemma alerts are accepted only for `huma
 ## What Is Included
 
 ```text
-firmware/esp32cam/esp32_cam_mjpeg_stream/esp32_cam_mjpeg_stream.ino
-firmware/esp32s3/esp32s3_rover_ws/esp32s3_rover_ws.ino      ESP32-S3 rover firmware path
 rover/rpi2b/rover_client.py                                 active rover controller
 rover/rpi2b/config.example.json
 rover/rpi2b/requirements.txt
@@ -33,8 +31,8 @@ docs/PROJECT_BRIEF.md
 ## Network Connections
 
 ```text
-ESP32-CAM camera:       http://<ESP32_CAM_IP>/stream
 Laptop server:          http://<SERVER_IP>:5000
+Webcam feed:            http://<SERVER_IP>:5000/camera.mjpg
 Rover WebSocket:        ws://<SERVER_IP>:5000/ws/rover
 Raspberry Pi rover ID:  rpi2b_rover
 Dashboard goal event:   set_goal
@@ -42,7 +40,7 @@ Alert event:            new_alert
 Position event:         rover_position
 ```
 
-The ESP32-CAM, Raspberry Pi rover, ESP32-S3, and laptop server should join the same Wi-Fi network for the demo. The ESP32-CAM streams video to the laptop, the laptop runs Gemma, and the Pi receives rover commands over WebSocket. If a USB webcam becomes available later, compare it against the ESP32-CAM before replacing the camera path.
+Only the laptop and Raspberry Pi need to be on the same Wi-Fi network for the demo. The webcam plugs into the laptop, the laptop runs Gemma, and the Pi receives rover commands over WebSocket.
 
 ## Raspberry Pi 2B Rover Hardware
 
@@ -120,25 +118,6 @@ For a protocol-only test on a laptop:
 python rover_client.py --server <SERVER_IP> --simulate
 ```
 
-## ESP32-CAM Setup Portal
-
-The ESP32-CAM sketch does not require private Wi-Fi credentials in code. On first boot, after a new firmware build, or when saved Wi-Fi settings fail, use:
-
-```text
-Camera setup Wi-Fi: STASIS-CAM-SETUP
-Setup password:     stasis1234
-Setup page:         http://192.168.4.1
-```
-
-After the camera joins Wi-Fi, copy the printed stream IP into:
-
-```text
-server/security_rover_server.py
-server/security_rover_server_windows.py
-server/templates/index.html if you want the served dashboard feed updated there
-dashboard/rover_dashboard.html or dashboard/rover_dashboard_windows.html if you use the standalone dashboard
-```
-
 ## Laptop Server
 
 Use this server on Windows:
@@ -170,10 +149,13 @@ To test rover control without loading Gemma:
 $env:STASIS_VISION_ENABLED = "false"
 ```
 
-Edit this line with the ESP32-CAM IP:
+Select a webcam if the default camera is not the one you want:
 
-```python
-ESP32_CAM_IP = "192.168.1.100"
+```powershell
+$env:STASIS_CAMERA_INDEX = "0"
+$env:STASIS_CAMERA_WIDTH = "640"
+$env:STASIS_CAMERA_HEIGHT = "480"
+$env:STASIS_CAMERA_FPS = "15"
 ```
 
 Run:

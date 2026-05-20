@@ -2,7 +2,7 @@
 
 This Python client runs the Raspberry Pi 2B side of the STASIS rover. It connects to the existing STASIS Flask server at `ws://<SERVER_IP>:5000/ws/rover`, registers as `rpi2b_rover`, accepts `goto`, `scan`, and `stop` commands, drives the L911S/L9110S motor driver, reads optional MPU6050 and GY-271/HMC5883L sensors, scans with optional HC-SR04 and servo hardware, and sends telemetry back to the dashboard.
 
-The ESP32-CAM remains the current MJPEG camera source. The ESP32-S3 firmware path is still kept in the repo until the final Pi/ESP32-S3 hardware split is confirmed.
+The camera path now lives on the laptop server. A USB webcam is captured by Python/OpenCV and served to the dashboard from `/camera.mjpg`.
 
 The default config is intentionally minimal-wire: the Pi drives motors directly, but I2C heading sensors, ultrasonic, and the scanner servo are disabled until you enable them. With no heading sensor, the client uses timed open-loop turns for the indoor demo.
 

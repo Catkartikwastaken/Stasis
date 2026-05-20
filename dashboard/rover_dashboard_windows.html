@@ -30,18 +30,17 @@
       <header><h1>STASIS Forest Rover Dashboard</h1><div id="connectionStatus" class="status">Connecting...</div></header>
       <section class="panel"><div class="controls"><button id="stopRover" type="button">Stop</button><button id="returnHome" type="button">Return to Home</button><button id="scanArea" type="button">Scan Area</button><button id="searchRedStrip" type="button">Search Red Strip</button><button id="goToRedStrip" type="button">Go to Red Strip</button></div><p class="rover-status">Rover status: <span id="roverStatus">waiting</span></p><canvas id="mapCanvas" width="800" height="800"></canvas></section>
       <h2>Live Camera Feed</h2>
-      <section class="panel"><img id="cameraFeed" class="camera" src="http://<ESP32_CAM_IP>/stream" alt="ESP32-CAM live stream" /><p class="note">Replace with your ESP32-CAM IP after uploading its firmware.</p></section>
+      <section class="panel"><img id="cameraFeed" class="camera" src="http://<WINDOWS_LAPTOP_IP>:5000/camera.mjpg" alt="Laptop webcam stream" /><p class="note">The laptop server captures the USB webcam with Python/OpenCV and serves this feed.</p></section>
       <h2>Alert Log</h2><section id="alertLog" class="panel"></section>
     </div>
     <script>
       const WINDOWS_LAPTOP_IP = "<WINDOWS_LAPTOP_IP>";
-      const ESP32_CAM_IP = "<ESP32_CAM_IP>";
       const socket = io(`http://${WINDOWS_LAPTOP_IP}:5000`);
       const canvas = document.getElementById("mapCanvas"); const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("connectionStatus"); const alertLog = document.getElementById("alertLog"); const cameraFeed = document.getElementById("cameraFeed"); const roverStatusEl = document.getElementById("roverStatus");
       const stopRoverBtn = document.getElementById("stopRover"); const returnHomeBtn = document.getElementById("returnHome"); const scanAreaBtn = document.getElementById("scanArea"); const searchRedStripBtn = document.getElementById("searchRedStrip"); const goToRedStripBtn = document.getElementById("goToRedStrip");
       let roverPos = { x: 400, y: 400 }; let goalPos = null;
-      if (!ESP32_CAM_IP.includes("<")) cameraFeed.src = `http://${ESP32_CAM_IP}/stream`;
+      if (!WINDOWS_LAPTOP_IP.includes("<")) cameraFeed.src = `http://${WINDOWS_LAPTOP_IP}:5000/camera.mjpg`;
       function drawMap() { ctx.fillStyle = "#e6e6e6"; ctx.fillRect(0,0,800,800); ctx.strokeStyle = "#c4c4c4"; ctx.lineWidth = 1; for (let p=0;p<=800;p+=50){ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,800);ctx.stroke();ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(800,p);ctx.stroke();} ctx.fillStyle="#1565c0";ctx.beginPath();ctx.arc(400,400,7,0,Math.PI*2);ctx.fill();ctx.fillStyle="#1f2937";ctx.font="16px Arial";ctx.fillText("Home Base",412,395); if(goalPos){ctx.strokeStyle="#d32f2f";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(goalPos.x-14,goalPos.y-14);ctx.lineTo(goalPos.x+14,goalPos.y+14);ctx.moveTo(goalPos.x+14,goalPos.y-14);ctx.lineTo(goalPos.x-14,goalPos.y+14);ctx.stroke();} ctx.fillStyle="#0d47a1";ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();ctx.arc(roverPos.x,roverPos.y,16,0,Math.PI*2);ctx.fill();ctx.stroke(); }
       canvas.addEventListener("click", e => { const r = canvas.getBoundingClientRect(); goalPos = { x: Math.round(((e.clientX-r.left)/r.width)*800), y: Math.round(((e.clientY-r.top)/r.height)*800) }; drawMap(); socket.emit("set_goal", goalPos); });
       stopRoverBtn.addEventListener("click", () => socket.emit("stop_rover"));

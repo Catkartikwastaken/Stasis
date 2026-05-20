@@ -1,6 +1,6 @@
 # Gemma Vision Integration
 
-STASIS uses Gemma on the laptop/server to inspect ESP32-CAM frames and create dashboard alerts. The rover does not run Gemma; the Raspberry Pi 2B drives the rover and sends telemetry.
+STASIS uses Gemma on the laptop/server to inspect USB webcam frames and create dashboard alerts. The rover does not run Gemma; the Raspberry Pi 2B drives the rover and sends telemetry.
 
 ## Default Model
 
@@ -89,6 +89,11 @@ STASIS_VISION_DEVICE_MAP=auto
 STASIS_VISION_TORCH_DTYPE=auto
 STASIS_VISION_MAX_NEW_TOKENS=160
 STASIS_ANALYSIS_INTERVAL_SECONDS=2
+STASIS_CAMERA_INDEX=0
+STASIS_CAMERA_WIDTH=640
+STASIS_CAMERA_HEIGHT=480
+STASIS_CAMERA_FPS=15
+STASIS_CAMERA_BACKEND=dshow
 ```
 
 Recommended Windows CUDA settings:
@@ -167,11 +172,13 @@ pip install --upgrade "transformers>=4.53.0" torch torchvision accelerate senten
 If CUDA runs out of memory:
 
 ```text
-1. Lower camera resolution in the ESP32-CAM sketch.
+1. Lower STASIS_CAMERA_WIDTH and STASIS_CAMERA_HEIGHT.
 2. Increase STASIS_ANALYSIS_INTERVAL_SECONDS.
 3. Try STASIS_VISION_TORCH_DTYPE=bfloat16.
 4. Disable vision while testing rover control.
 ```
+
+If the wrong webcam opens, set `STASIS_CAMERA_INDEX` to `1`, `2`, or the index shown by your camera test tool, then restart the server.
 
 If alerts are noisy, adjust `STASIS_ANALYSIS_PROMPT` to describe only the objects or events that matter for your test space.
 

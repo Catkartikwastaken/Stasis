@@ -2,21 +2,18 @@
 
 This repository contains a complete starter setup for STASIS, a forest monitoring rover that will be demonstrated indoors in a forest-like environment:
 
-1. An ESP32-CAM streams video over MJPEG.
+1. A USB webcam connects to the laptop.
 2. A laptop runs the Flask/Socket.IO vision and command server.
 3. A Raspberry Pi 2B runs the Python rover client.
-4. An ESP32-S3 remains part of the hardware plan while the final microcontroller split is decided.
-5. A browser dashboard sends map goals and displays alerts.
+4. A browser dashboard sends map goals and displays alerts.
 
-The Raspberry Pi client is the active high-level rover controller in this branch. The ESP32-S3 firmware is kept as the existing embedded path and can still be used for experiments, fallback control, or low-level helper duties once the hardware split is confirmed.
+The Raspberry Pi client is the active high-level rover controller in this branch. Old embedded camera and microcontroller firmware paths have been removed so the active project stays Python-based.
 
 The demo does not depend on GPS. Navigation should stay local: manual dashboard driving, clicked goals, return-to-home, obstacle avoidance, scan commands, and marker-directed patrols.
 
 ## File Locations
 
 ```text
-firmware/esp32cam/esp32_cam_mjpeg_stream/esp32_cam_mjpeg_stream.ino
-firmware/esp32s3/esp32s3_rover_ws/esp32s3_rover_ws.ino      ESP32-S3 rover firmware path
 rover/rpi2b/rover_client.py
 rover/rpi2b/config.example.json
 rover/rpi2b/requirements.txt
@@ -35,13 +32,13 @@ docs/README_ROVER_SYSTEM.md
 
 ## How The Pieces Work Together
 
-The ESP32-CAM firmware serves the camera stream here:
+The laptop server captures the USB webcam with OpenCV and serves it here:
 
 ```text
-http://<ESP32_CAM_IP>/stream
+http://<SERVER_IP>:5000/camera.mjpg
 ```
 
-The laptop server reads that stream with OpenCV. The Raspberry Pi rover connects to the laptop at:
+The Raspberry Pi rover connects to the laptop at:
 
 ```text
 ws://<SERVER_IP>:5000/ws/rover
@@ -100,8 +97,6 @@ Scanner servo sweep      -> RPi.GPIO PWM
 Telemetry heartbeat      -> JSON over WebSocket
 Goto and scan commands   -> Python command worker
 ```
-
-The ESP32-S3 role should be kept explicit during hardware testing. Good candidate roles are low-level motor/sensor coprocessor, fallback rover controller, or removed-from-control once the Pi wiring is proven stable.
 
 The default Pi config starts in minimal-wire mode:
 
@@ -229,56 +224,6 @@ sudo systemctl enable --now stasis-rover
 sudo systemctl status stasis-rover
 ```
 
-## ESP32-CAM Setup Portal
-
-Open this sketch in Arduino IDE:
-
-```text
-firmware/esp32cam/esp32_cam_mjpeg_stream/esp32_cam_mjpeg_stream.ino
-```
-
-Board:
-
-```text
-AI Thinker ESP32-CAM
-```
-
-Required libraries for the setup portal are included with the ESP32 Arduino core:
-
-```text
-DNSServer
-Preferences
-WebServer
-WiFi
-esp_camera
-esp_http_server
-```
-
-After upload, if no saved Wi-Fi exists, connect your phone/laptop to:
-
-```text
-Wi-Fi network: STASIS-CAM-SETUP
-Password: stasis1234
-Setup page: http://192.168.4.1
-```
-
-Enter your home Wi-Fi SSID and password, then press **Save and Restart**.
-
-After restart, open Serial Monitor at `115200` and copy the printed stream URL:
-
-```text
-Camera stream ready: http://<ESP32_CAM_IP>/stream
-```
-
-Put the camera IP into:
-
-```text
-server/security_rover_server.py
-server/security_rover_server_windows.py
-server/templates/index.html if you want the served dashboard feed updated there
-dashboard/rover_dashboard.html or dashboard/rover_dashboard_windows.html if you use the standalone dashboard
-```
-
 ## Windows Laptop Version
 
 Use this server on Windows:
@@ -309,6 +254,10 @@ $env:STASIS_VISION_REQUIRED = "true"
 Useful vision settings:
 
 ```powershell
+$env:STASIS_CAMERA_INDEX = "0"
+$env:STASIS_CAMERA_WIDTH = "640"
+$env:STASIS_CAMERA_HEIGHT = "480"
+$env:STASIS_CAMERA_FPS = "15"
 $env:STASIS_VISION_DEVICE = "cuda"
 $env:STASIS_VISION_DEVICE_MAP = "none"
 $env:STASIS_VISION_TORCH_DTYPE = "bfloat16"
@@ -321,13 +270,7 @@ To test rover control without loading Gemma:
 $env:STASIS_VISION_ENABLED = "false"
 ```
 
-Edit this line in `server/security_rover_server_windows.py`:
-
-```python
-ESP32_CAM_IP = "192.168.1.100"
-```
-
-Replace it with the IP printed by the ESP32-CAM Serial Monitor.
+If the wrong webcam opens, change `STASIS_CAMERA_INDEX` to `1` or `2`, then restart the server.
 
 Run:
 
@@ -361,22 +304,19 @@ Before using the standalone file, edit:
 
 ```js
 const WINDOWS_LAPTOP_IP = "<WINDOWS_LAPTOP_IP>";
-const ESP32_CAM_IP = "<ESP32_CAM_IP>";
 ```
 
 ## Recommended Startup Order
 
-1. Flash and power the ESP32-CAM.
-2. Join `STASIS-CAM-SETUP`, open `http://192.168.4.1`, save Wi-Fi details, and let it restart.
-3. Write down the ESP32-CAM IP from Serial Monitor.
-4. Set `HF_TOKEN` on the laptop if Hugging Face authentication is needed.
-5. Edit `ESP32_CAM_IP` in the Windows server.
-6. Start `server/security_rover_server_windows.py`.
-7. Power the Raspberry Pi rover.
-8. Edit `rover/rpi2b/config.json` with the laptop/server IP.
-9. Run `python rover_client.py --config config.json` on the Pi.
-10. Open `http://<WINDOWS_LAPTOP_IP>:5000` in the browser.
-11. Click the map to send a rover goal.
+1. Plug the USB webcam into the laptop.
+2. Set `HF_TOKEN` on the laptop if Hugging Face authentication is needed.
+3. Set `STASIS_CAMERA_INDEX` if the webcam is not camera `0`.
+4. Start `server/security_rover_server_windows.py`.
+5. Power the Raspberry Pi rover.
+6. Edit `rover/rpi2b/config.json` with the laptop/server IP.
+7. Run `python rover_client.py --config config.json` on the Pi.
+8. Open `http://<WINDOWS_LAPTOP_IP>:5000` in the browser.
+9. Confirm the webcam feed appears, then click the map to send a rover goal.
 
 ## Demo Behavior Targets
 
@@ -427,10 +367,9 @@ If turning oscillates, lower `turn_kp`. If turning is too weak, raise `turn_min_
 ## Compatibility Checklist
 
 ```text
-Camera stream endpoint:      /stream
+Camera stream endpoint:      /camera.mjpg
 Rover WebSocket endpoint:    /ws/rover
 Primary rover ID:            rpi2b_rover
-Legacy rover ID accepted:    esp32s3_rover
 Dashboard goal event:        set_goal
 Dashboard return event:      return_home
 Dashboard scan event:        request_scan

@@ -22,9 +22,6 @@ from transformers import pipeline
 BASE_DIR = Path(__file__).resolve().parent
 ALERTS_DIR = BASE_DIR / "alerts"
 
-ESP32_CAM_IP = "192.168.1.100"  # Update this after the ESP32-CAM prints its IP.
-STREAM_URL = f"http://{ESP32_CAM_IP}/stream"
-
 
 def env_bool(name: str, default: bool) -> bool:
     value = os.getenv(name)
@@ -64,9 +61,13 @@ VISION_DEVICE_MAP = os.getenv("STASIS_VISION_DEVICE_MAP", "auto")
 VISION_TORCH_DTYPE = os.getenv("STASIS_VISION_TORCH_DTYPE", "auto")
 VISION_MAX_NEW_TOKENS = env_int("STASIS_VISION_MAX_NEW_TOKENS", 160)
 ANALYSIS_INTERVAL_SECONDS = env_float("STASIS_ANALYSIS_INTERVAL_SECONDS", 2.0)
+CAMERA_INDEX = env_int("STASIS_CAMERA_INDEX", 0)
+CAMERA_WIDTH = env_int("STASIS_CAMERA_WIDTH", 640)
+CAMERA_HEIGHT = env_int("STASIS_CAMERA_HEIGHT", 480)
+CAMERA_FPS = env_int("STASIS_CAMERA_FPS", 15)
+CAMERA_BACKEND = os.getenv("STASIS_CAMERA_BACKEND", "dshow")
 PIXEL_TO_CM = 1.0
 ROVER_CLIENT_ID = "rpi2b_rover"
-LEGACY_ROVER_CLIENT_IDS = {"esp32s3_rover"}
 ALLOWED_EVENT_CATEGORIES = {"human", "animal", "track", "fire", "marker"}
 PROJECT_KEYWORDS = {
     "human",
@@ -117,6 +118,18 @@ latest_scan: list[dict[str, float]] = []
 rover_pose = {"x": 400.0, "y": 400.0, "yaw": 0.0, "heading": 0.0, "distance_from_home": 0.0}
 pending_goal: dict[str, float] | None = None
 known_markers: dict[str, dict[str, Any]] = {}
+
+
+def get_camera_backend() -> int:
+    backend = CAMERA_BACKEND.strip().lower()
+    if backend in {"", "auto", "default", "none"}:
+        return 0
+    if backend == "dshow":
+        return cv2.CAP_DSHOW
+    if backend == "msmf":
+        return cv2.CAP_MSMF
+    logging.warning("Unknown STASIS_CAMERA_BACKEND=%r; using default OpenCV backend", CAMERA_BACKEND)
+    return 0
 
 
 def get_vision_device() -> str:
@@ -209,21 +222,31 @@ def load_vision_model() -> None:
         vision_pipe = None
 
 
-def mjpeg_capture_loop() -> None:
+def webcam_capture_loop() -> None:
     global latest_frame
 
     while True:
-        cap = cv2.VideoCapture(STREAM_URL)
+        backend = get_camera_backend()
+        cap = cv2.VideoCapture(CAMERA_INDEX, backend) if backend else cv2.VideoCapture(CAMERA_INDEX)
         if not cap.isOpened():
-            logging.warning("Could not open ESP32-CAM stream at %s", STREAM_URL)
+            logging.warning("Could not open webcam index %s", CAMERA_INDEX)
             time.sleep(3)
             continue
 
-        logging.info("Connected to ESP32-CAM stream at %s", STREAM_URL)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
+        logging.info(
+            "Connected to webcam index %s at requested %sx%s@%sfps",
+            CAMERA_INDEX,
+            CAMERA_WIDTH,
+            CAMERA_HEIGHT,
+            CAMERA_FPS,
+        )
         while True:
             ok, frame = cap.read()
             if not ok or frame is None:
-                logging.warning("ESP32-CAM stream dropped; reconnecting")
+                logging.warning("Webcam read failed; reconnecting")
                 break
             latest_frame = frame.copy()
 
@@ -405,6 +428,27 @@ def save_alert_frame(frame) -> str:
     return f"alerts/{filename}"
 
 
+def camera_mjpeg_stream():
+    while True:
+        frame = latest_frame
+        if frame is None:
+            time.sleep(0.1)
+            continue
+
+        ok, encoded = cv2.imencode(".jpg", frame)
+        if not ok:
+            time.sleep(0.1)
+            continue
+
+        yield (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n"
+            + encoded.tobytes()
+            + b"\r\n"
+        )
+        time.sleep(1 / max(1, CAMERA_FPS))
+
+
 def send_rover_command(command: dict[str, Any]) -> bool:
     global rover_ws
 
@@ -424,7 +468,7 @@ def send_rover_command(command: dict[str, Any]) -> bool:
 
 
 def is_rover_client(client_id: str | None) -> bool:
-    return client_id == ROVER_CLIENT_ID or client_id in LEGACY_ROVER_CLIENT_IDS
+    return client_id == ROVER_CLIENT_ID
 
 
 def vision_analysis_loop() -> None:
@@ -592,6 +636,11 @@ def serve_alert(filename: str):
     return send_from_directory(ALERTS_DIR, filename)
 
 
+@app.route("/camera.mjpg")
+def camera_feed():
+    return app.response_class(camera_mjpeg_stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
 @app.route("/ws/rover", websocket=True)
 def rover_websocket():
     global rover_ws
@@ -742,7 +791,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ALERTS_DIR.mkdir(parents=True, exist_ok=True)
     load_vision_model()
-    socketio.start_background_task(mjpeg_capture_loop)
+    socketio.start_background_task(webcam_capture_loop)
     socketio.start_background_task(vision_analysis_loop)
     socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
 
