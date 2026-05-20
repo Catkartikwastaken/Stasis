@@ -1,12 +1,21 @@
-# STASIS Indoor Security Rover
+# STASIS Forest Monitoring Rover
 
-This repository contains the current working prototype for the indoor security rover system.
+This repository contains the current working prototype for STASIS, a forest monitoring rover that is being demoed indoors in a forest-like test space.
+
+The current architecture is Python-based: a laptop server captures a USB webcam with OpenCV, runs Gemma vision, serves the dashboard, and talks to a Raspberry Pi 2B Python rover client for motion control.
+
+STASIS is aimed at autonomous and manual forest patrol demos: detecting humans/intruders, animals, soil or track changes, fire/smoke, and custom colored navigation markers such as red strips. GPS is intentionally out of scope for the indoor demo.
+
+The server enforces that scope in code: Gemma alerts are accepted only for `human`, `animal`, `track`, `fire`, or `marker`. Other model output is suppressed so the project does not drift into unrelated indoor-security detections.
 
 ## What Is Included
 
 ```text
-firmware/esp32cam/esp32_cam_mjpeg_stream/esp32_cam_mjpeg_stream.ino
-firmware/esp32s3/esp32s3_rover_ws/esp32s3_rover_ws.ino
+rover/rpi2b/rover_client.py                                 active rover controller
+rover/rpi2b/config.example.json
+rover/rpi2b/requirements.txt
+rover/rpi2b/README.md
+rover/rpi2b/stasis-rover.service.example
 server/security_rover_server.py
 server/security_rover_server_windows.py
 server/requirements.txt
@@ -14,134 +23,187 @@ server/requirements-windows.txt
 server/templates/index.html
 dashboard/rover_dashboard.html
 dashboard/rover_dashboard_windows.html
+docs/GEMMA_VISION.md
 docs/README_ROVER_SYSTEM.md
+docs/PROJECT_BRIEF.md
 ```
 
 ## Network Connections
 
 ```text
-ESP32-CAM camera:      http://<ESP32_CAM_IP>/stream
-Laptop server:         http://<SERVER_IP>:5000
-Rover WebSocket:       ws://<SERVER_IP>:5000/ws/rover
-Rover ID:              esp32s3_rover
-Dashboard goal event:  set_goal
-Alert event:           new_alert
-Position event:        rover_position
+Laptop server:          http://<SERVER_IP>:5000
+Webcam feed:            http://<SERVER_IP>:5000/camera.mjpg
+Rover WebSocket:        ws://<SERVER_IP>:5000/ws/rover
+Raspberry Pi rover ID:  rpi2b_rover
+Dashboard goal event:   set_goal
+Alert event:            new_alert
+Position event:         rover_position
 ```
 
-The ESP32-CAM and ESP32-S3 rover do not connect directly to each other with wires. They both join the same 2.4 GHz Wi-Fi network and communicate through the laptop server.
+Only the laptop and Raspberry Pi need to be on the same Wi-Fi network for the demo. The webcam plugs into the laptop, the laptop runs Gemma, and the Pi receives rover commands over WebSocket.
 
-## Hardware Connections
+## Raspberry Pi 2B Rover Hardware
 
-ESP32-CAM AI-Thinker:
+Default pin numbers use Raspberry Pi BCM numbering.
+
+The default Pi config is minimal-wire: direct motor control is enabled, but I2C sensors, ultrasonic, and the scanner servo start disabled. Enable only the hardware that is actually connected in `rover/rpi2b/config.json`.
+
+L911S/L9110S motor driver:
 
 ```text
-5V       -> stable 5V supply
-GND      -> supply ground
-U0R/RX   -> USB-serial TX while uploading
-U0T/TX   -> USB-serial RX while uploading
-GPIO 0   -> GND only while uploading, then disconnect and reset
+BCM 5   -> A-IA / IA, left motor forward input
+BCM 6   -> A-IB / IB, left motor reverse input
+BCM 13  -> B-IA, right motor forward input
+BCM 19  -> B-IB, right motor reverse input
+GND     -> L911S/L9110S GND and motor battery negative
+VM/VCC  -> Motor battery positive, matched to your motors/driver board
 ```
 
-ESP32-S3 rover to L9110S motor driver:
+MPU6050 and GY-271/HMC5883L I2C sensors:
 
 ```text
-GPIO 26  -> A-IA
-GPIO 27  -> A-IB
-GPIO 14  -> B-IA
-GPIO 12  -> B-IB
-GND      -> L9110S GND and motor battery negative
-VM/VCC   -> motor battery positive, matched to your motors/driver board
-Motor A  -> left motor terminals
-Motor B  -> right motor terminals
+BCM 2 / physical pin 3  -> SDA
+BCM 3 / physical pin 5  -> SCL
+3V3                     -> VCC
+GND                     -> GND
+MPU6050 address         -> 0x68
+GY-271/HMC5883L address -> 0x1E
 ```
 
-ESP32-S3 power:
+HC-SR04 ultrasonic sensor:
 
 ```text
-7.4V Li-ion battery positive -> ESP32-S3 VIN
-7.4V Li-ion battery negative -> ESP32-S3 GND
+BCM 23 -> Trig
+BCM 24 -> Echo
+VCC    -> 5V or 3V3
+GND    -> GND
 ```
 
-Do NOT use the ESP32-S3 5V pin for battery input. The 7.4V battery connects directly to VIN because the ESP32-S3 board has its own onboard regulator.
+Raspberry Pi GPIO is not 5V tolerant. If the HC-SR04 is powered from 5V, use a voltage divider or level shifter on Echo before connecting it to BCM 24.
 
-ESP32-S3 rover to MPU6050:
+Scanner servo:
 
 ```text
-GPIO 21  -> SDA
-GPIO 22  -> SCL
-3V3      -> VCC
-GND      -> GND
+BCM 18 -> Signal
+5V     -> Servo power
+GND    -> Ground
 ```
 
-ESP32-S3 rover to GY-271 compass:
+Use a common ground between the Raspberry Pi, motor driver, motor battery, sensors, and servo. Use a separate motor/servo supply where possible.
+
+## Raspberry Pi Rover Setup
+
+On the Pi, enable I2C with `sudo raspi-config`, then reboot.
+
+```bash
+cd rover/rpi2b
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+cp config.example.json config.json
+```
+
+Edit `config.json` and set `server_host` to the IP address of the laptop running the Flask server.
+
+Run the rover client:
+
+```bash
+python rover_client.py --config config.json
+```
+
+For a protocol-only test on a laptop:
+
+```bash
+python rover_client.py --server <SERVER_IP> --simulate
+```
+
+## Laptop Server
+
+Use this server on Windows:
 
 ```text
-GPIO 21  -> SDA
-GPIO 22  -> SCL
-3V3      -> VCC
-GND      -> GND
-I2C      -> 0x1E
+server/security_rover_server_windows.py
 ```
 
-ESP32-S3 rover to HC-SR04 ultrasonic sensor:
+Install dependencies from PowerShell:
+
+```powershell
+cd server
+py -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements-windows.txt
+```
+
+Gemma vision alerts use `google/gemma-4-E2B-it` through Hugging Face Transformers on the laptop. If your environment needs Hugging Face authentication for model downloads, set a token:
+
+```powershell
+$env:HF_TOKEN = "hf_your_token_here"
+$env:STASIS_VISION_REQUIRED = "true"
+```
+
+To test rover control without loading Gemma:
+
+```powershell
+$env:STASIS_VISION_ENABLED = "false"
+```
+
+Select a webcam if the default camera is not the one you want:
+
+```powershell
+$env:STASIS_CAMERA_INDEX = "0"
+$env:STASIS_CAMERA_WIDTH = "640"
+$env:STASIS_CAMERA_HEIGHT = "480"
+$env:STASIS_CAMERA_FPS = "15"
+```
+
+Run:
+
+```powershell
+python security_rover_server_windows.py
+```
+
+Open:
 
 ```text
-GPIO 33  -> Trig
-GPIO 32  -> Echo
-3V3      -> VCC
-GND      -> GND
+http://<WINDOWS_LAPTOP_IP>:5000
 ```
 
-Power the HC-SR04 from 3.3V, not 5V, so the Echo signal does not damage the ESP32-S3.
+## Command Protocol
 
-ESP32-S3 rover to scanner servo:
+The server sends rover commands over WebSocket:
 
-```text
-GPIO 13  -> Signal
-5V       -> Power/red
-GND      -> Ground/brown
+```json
+{"cmd":"goto","angle":45.2,"distance":30.5}
+{"cmd":"scan"}
+{"cmd":"stop"}
 ```
 
-Use a common ground between the ESP32-S3, motor driver, motor battery, sensors, and servo. If a motor spins backward, swap that motor's two output wires or invert that motor in code.
+The Raspberry Pi rover sends:
 
-## Setup Portals
-
-The ESP32-CAM and ESP32-S3 rover sketches no longer require private Wi-Fi credentials to be edited into the code.
-
-On first boot, after a new firmware build, or when saved Wi-Fi settings fail, use these temporary setup networks:
-
-```text
-Camera setup Wi-Fi: STASIS-CAM-SETUP
-Rover setup Wi-Fi:  STASIS-ROVER-SETUP
-Setup password:     stasis1234
-Setup page:         http://192.168.4.1
+```json
+{"id":"rpi2b_rover","type":"rover"}
+{"status":"ready"}
+{"heading":92.4,"distance_traveled":18.0}
+{"status":"goal_reached"}
+{"type":"scan","data":[{"angle":0,"distance":77.5}]}
 ```
-
-The camera setup page asks for Wi-Fi SSID/password. The rover setup page asks for Wi-Fi SSID/password plus the laptop/server IP. Settings are saved in ESP32 flash, but the current firmware intentionally reopens setup mode after a new build/upload so you can re-enter network details without editing code.
-
-## If The Setup Wi-Fi Does Not Appear
-
-If Serial Monitor only repeats `ESP-ROM`, `rst:0x8`, or `TG1WDT_SYS_RST` and never prints `ESP32-CAM booting...` or `ESP32-S3 rover booting...`, the sketch is not reaching `setup()`. Fix this before changing server code.
-
-```text
-1. Use Serial Monitor baud 115200.
-2. In Arduino IDE, choose AI Thinker ESP32-CAM for the camera.
-3. Choose ESP32S3 Dev Module, or the exact ESP32-S3 board you own, for the rover.
-4. Erase flash once, then upload again.
-5. Power the ESP32-CAM from a stable 5V supply, not weak 3.3V from a USB serial adapter.
-6. For ESP32-CAM, keep GPIO0 connected to GND only while uploading. Disconnect GPIO0 from GND, then press RESET to run.
-7. For the rover, test from USB power with motors, servo, and sensors unplugged first. Reconnect hardware after the setup Wi-Fi appears.
-```
-
-With the current firmware, a successful boot prints a firmware build line and reset reason before opening the setup hotspot.
-
-## Important
-
-The public repo does not contain your private Wi-Fi credentials. You still need to update the Windows laptop server with the ESP32-CAM IP after the camera joins your network.
 
 Read the full setup guide here:
 
 ```text
 docs/README_ROVER_SYSTEM.md
+```
+
+Read the project assumptions and open hardware questions here:
+
+```text
+docs/PROJECT_BRIEF.md
+```
+
+Read the Gemma vision setup guide here:
+
+```text
+docs/GEMMA_VISION.md
 ```

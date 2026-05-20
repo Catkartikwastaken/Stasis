@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import re
 import time
 from datetime import datetime
@@ -21,17 +22,86 @@ from transformers import pipeline
 BASE_DIR = Path(__file__).resolve().parent
 ALERTS_DIR = BASE_DIR / "alerts"
 
-ESP32_CAM_IP = "192.168.1.100"  # Update this after the ESP32-CAM prints its IP.
-STREAM_URL = f"http://{ESP32_CAM_IP}/stream"
 
-VISION_MODEL = "google/gemma-4-e2b-it"
-ANALYSIS_INTERVAL_SECONDS = 2
+def env_bool(name: str, default: bool) -> bool:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def env_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        logging.warning("Invalid %s=%r; using %.2f", name, value, default)
+        return default
+
+
+def env_int(name: str, default: int) -> int:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        logging.warning("Invalid %s=%r; using %d", name, value, default)
+        return default
+
+
+VISION_ENABLED = env_bool("STASIS_VISION_ENABLED", True)
+VISION_REQUIRED = env_bool("STASIS_VISION_REQUIRED", False)
+VISION_MODEL = os.getenv("STASIS_VISION_MODEL", "google/gemma-4-E2B-it")
+VISION_PIPELINE_TASK = os.getenv("STASIS_VISION_PIPELINE_TASK", "any-to-any")
+VISION_DEVICE = os.getenv("STASIS_VISION_DEVICE", "auto")
+VISION_DEVICE_MAP = os.getenv("STASIS_VISION_DEVICE_MAP", "auto")
+VISION_TORCH_DTYPE = os.getenv("STASIS_VISION_TORCH_DTYPE", "auto")
+VISION_MAX_NEW_TOKENS = env_int("STASIS_VISION_MAX_NEW_TOKENS", 160)
+ANALYSIS_INTERVAL_SECONDS = env_float("STASIS_ANALYSIS_INTERVAL_SECONDS", 2.0)
+CAMERA_INDEX = env_int("STASIS_CAMERA_INDEX", 0)
+CAMERA_WIDTH = env_int("STASIS_CAMERA_WIDTH", 640)
+CAMERA_HEIGHT = env_int("STASIS_CAMERA_HEIGHT", 480)
+CAMERA_FPS = env_int("STASIS_CAMERA_FPS", 15)
+CAMERA_BACKEND = os.getenv("STASIS_CAMERA_BACKEND", "dshow")
 PIXEL_TO_CM = 1.0
-ROVER_CLIENT_ID = "esp32s3_rover"
+ROVER_CLIENT_ID = "rpi2b_rover"
+ALLOWED_EVENT_CATEGORIES = {"human", "animal", "track", "fire", "marker"}
+PROJECT_KEYWORDS = {
+    "human",
+    "person",
+    "people",
+    "intruder",
+    "animal",
+    "wildlife",
+    "track",
+    "trail",
+    "footprint",
+    "soil",
+    "disturbed",
+    "fire",
+    "flame",
+    "smoke",
+    "marker",
+    "strip",
+}
+MARKER_COLORS = {"red", "blue", "green", "yellow", "orange", "white", "black"}
 
-ANALYSIS_PROMPT = (
-    "You are a security rover in a simulated forest. Analyze this image. Look for humans, animals (dogs, cats, birds), plastic bottles, and any disturbances in the soil like scratches or footprints. Respond ONLY with a valid JSON object. The JSON must have two fields: 'detected' (boolean) and 'message' (string describing the activity if detected, otherwise empty)."
+DEFAULT_ANALYSIS_PROMPT = (
+    "Analyze this STASIS forest-monitoring rover frame. The demo may be indoors, but the scene is "
+    "staged like a forest patrol area. Look for humans or intruders, animals or wildlife stand-ins, "
+    "soil differences, footprints, trails, disturbed ground, fire, smoke, flame, and custom colored "
+    "navigation markers such as red strips. Ignore ordinary indoor doors and windows unless they are "
+    "relevant to the demo. "
+    "Respond with exactly one JSON object and no Markdown. Use this schema: "
+    "{\"detected\": boolean, \"category\": \"human|animal|track|fire|marker\", "
+    "\"message\": string}. Set detected to true only when a relevant STASIS monitoring event or "
+    "marker is visible. Intruders are category human. Use category marker for colored strips. "
+    "Keep message short and specific; use an empty string when detected is false."
 )
+ANALYSIS_PROMPT = os.getenv("STASIS_ANALYSIS_PROMPT", DEFAULT_ANALYSIS_PROMPT)
 
 app = Flask(__name__, template_folder=str(BASE_DIR / "templates"))
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
@@ -47,35 +117,136 @@ last_distance_traveled: float | None = None
 latest_scan: list[dict[str, float]] = []
 rover_pose = {"x": 400.0, "y": 400.0, "yaw": 0.0, "heading": 0.0, "distance_from_home": 0.0}
 pending_goal: dict[str, float] | None = None
+known_markers: dict[str, dict[str, Any]] = {}
 
 
-def get_windows_device() -> torch.device:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    logging.info("Using %s for vision model", device)
-    return device
+def get_camera_backend() -> int:
+    backend = CAMERA_BACKEND.strip().lower()
+    if backend in {"", "auto", "default", "none"}:
+        return 0
+    if backend == "dshow":
+        return cv2.CAP_DSHOW
+    if backend == "msmf":
+        return cv2.CAP_MSMF
+    logging.warning("Unknown STASIS_CAMERA_BACKEND=%r; using default OpenCV backend", CAMERA_BACKEND)
+    return 0
+
+
+def get_vision_device() -> str:
+    if VISION_DEVICE.lower() != "auto":
+        return VISION_DEVICE
+    return "cuda" if torch.cuda.is_available() else "cpu"
+
+
+def get_vision_dtype(device: str) -> torch.dtype:
+    dtype_name = VISION_TORCH_DTYPE.lower()
+    if dtype_name == "auto":
+        return torch.bfloat16 if device.startswith("cuda") else torch.float32
+
+    dtype_by_name = {
+        "bfloat16": torch.bfloat16,
+        "float16": torch.float16,
+        "float32": torch.float32,
+    }
+    if dtype_name not in dtype_by_name:
+        logging.warning("Invalid STASIS_VISION_TORCH_DTYPE=%r; using auto", VISION_TORCH_DTYPE)
+        return torch.bfloat16 if device.startswith("cuda") else torch.float32
+    return dtype_by_name[dtype_name]
+
+
+def get_vision_device_map() -> str | None:
+    value = VISION_DEVICE_MAP.strip()
+    if value.lower() in {"", "none", "false", "off"}:
+        return None
+    return value
+
+
+def build_pipeline_kwargs() -> dict[str, Any]:
+    device_map = get_vision_device_map()
+    if device_map is not None:
+        return {
+            "model": VISION_MODEL,
+            "device_map": device_map,
+            "dtype": VISION_TORCH_DTYPE,
+        }
+
+    device = get_vision_device()
+    return {
+        "model": VISION_MODEL,
+        "device": device,
+        "torch_dtype": get_vision_dtype(device),
+    }
 
 
 def load_vision_model() -> None:
     global vision_pipe
 
-    vision_pipe = pipeline("image-to-text", model=VISION_MODEL, device=get_windows_device())
+    if not VISION_ENABLED:
+        logging.warning("Gemma vision analysis is disabled with STASIS_VISION_ENABLED=false")
+        return
+
+    pipeline_kwargs = build_pipeline_kwargs()
+    logging.info(
+        "Loading Gemma vision model %s with task=%s options=%s",
+        VISION_MODEL,
+        VISION_PIPELINE_TASK,
+        {key: value for key, value in pipeline_kwargs.items() if key != "model"},
+    )
+
+    load_error: Exception | None = None
+    try:
+        vision_pipe = pipeline(VISION_PIPELINE_TASK, **pipeline_kwargs)
+    except TypeError as error:
+        load_error = error
+        if "dtype" in pipeline_kwargs:
+            fallback_kwargs = dict(pipeline_kwargs)
+            fallback_kwargs.pop("dtype")
+            fallback_kwargs["torch_dtype"] = get_vision_dtype(get_vision_device())
+            logging.warning("Retrying Gemma model load with torch_dtype instead of dtype")
+            try:
+                vision_pipe = pipeline(VISION_PIPELINE_TASK, **fallback_kwargs)
+                load_error = None
+            except Exception as fallback_error:
+                load_error = fallback_error
+    except Exception as error:
+        load_error = error
+
+    if load_error is not None:
+        logging.error(
+            "Could not load Gemma vision model",
+            exc_info=(type(load_error), load_error, load_error.__traceback__),
+        )
+        if VISION_REQUIRED:
+            raise load_error
+        logging.warning("Continuing without vision alerts. Set STASIS_VISION_REQUIRED=true to fail fast.")
+        vision_pipe = None
 
 
-def mjpeg_capture_loop() -> None:
+def webcam_capture_loop() -> None:
     global latest_frame
 
     while True:
-        cap = cv2.VideoCapture(STREAM_URL)
+        backend = get_camera_backend()
+        cap = cv2.VideoCapture(CAMERA_INDEX, backend) if backend else cv2.VideoCapture(CAMERA_INDEX)
         if not cap.isOpened():
-            logging.warning("Could not open ESP32-CAM stream at %s", STREAM_URL)
+            logging.warning("Could not open webcam index %s", CAMERA_INDEX)
             time.sleep(3)
             continue
 
-        logging.info("Connected to ESP32-CAM stream at %s", STREAM_URL)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+        cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
+        logging.info(
+            "Connected to webcam index %s at requested %sx%s@%sfps",
+            CAMERA_INDEX,
+            CAMERA_WIDTH,
+            CAMERA_HEIGHT,
+            CAMERA_FPS,
+        )
         while True:
             ok, frame = cap.read()
             if not ok or frame is None:
-                logging.warning("ESP32-CAM stream dropped; reconnecting")
+                logging.warning("Webcam read failed; reconnecting")
                 break
             latest_frame = frame.copy()
 
@@ -93,18 +264,14 @@ def extract_model_text(model_output: Any) -> str:
         return model_output
 
     if isinstance(model_output, list) and model_output:
-        first = model_output[0]
-        if isinstance(first, dict):
-            for key in ("generated_text", "caption", "text"):
-                value = first.get(key)
-                if isinstance(value, str):
-                    return value
-                if isinstance(value, list) and value:
-                    return extract_model_text(value[-1])
-        return str(first)
+        for item in reversed(model_output):
+            text = extract_model_text(item)
+            if text:
+                return text
+        return ""
 
     if isinstance(model_output, dict):
-        for key in ("generated_text", "caption", "text", "answer"):
+        for key in ("content", "generated_text", "caption", "text", "answer"):
             value = model_output.get(key)
             if value is not None:
                 return extract_model_text(value)
@@ -117,22 +284,135 @@ def parse_json_response(text: str) -> dict[str, Any]:
     try:
         parsed = json.loads(stripped)
     except json.JSONDecodeError:
-        match = re.search(r"\{.*\}", stripped, flags=re.DOTALL)
-        if not match:
-            raise
-        parsed = json.loads(match.group(0))
+        parsed = extract_json_object(stripped)
+
+    if not isinstance(parsed, dict):
+        raise ValueError(f"Vision model returned JSON {type(parsed).__name__}, expected object")
 
     detected_value = parsed.get("detected", False)
     detected = detected_value.strip().lower() == "true" if isinstance(detected_value, str) else bool(detected_value)
-    return {"detected": detected, "message": str(parsed.get("message", ""))}
+    message = str(parsed.get("message", "")).strip()
+    if not detected:
+        return {"detected": False, "category": "", "message": ""}
+
+    category = normalize_event_category(parsed.get("category"), message)
+    if category not in ALLOWED_EVENT_CATEGORIES:
+        logging.info("Suppressing out-of-scope Gemma alert: category=%r message=%r", category, message)
+        return {"detected": False, "category": "", "message": ""}
+
+    message = normalize_event_message(category, message)
+    if not message_has_project_context(message):
+        logging.info("Suppressing alert without STASIS project context: %r", message)
+        return {"detected": False, "category": "", "message": ""}
+
+    return {
+        "detected": True,
+        "category": category,
+        "message": message[:500],
+        "marker": extract_marker_name(message) if category == "marker" else "",
+    }
+
+
+def normalize_event_category(category_value: Any, message: str) -> str:
+    category = str(category_value or "").strip().lower()
+    category = category.split(":", 1)[0].strip()
+    if category in ALLOWED_EVENT_CATEGORIES:
+        return category
+
+    lowered = message.lower().strip()
+    prefix = lowered.split(":", 1)[0].strip()
+    if prefix in ALLOWED_EVENT_CATEGORIES:
+        return prefix
+
+    keyword_categories = {
+        "human": ("human", "person", "people", "intruder"),
+        "animal": ("animal", "wildlife", "dog", "cat", "bird"),
+        "track": ("track", "trail", "footprint", "soil", "disturbed"),
+        "fire": ("fire", "flame", "smoke"),
+        "marker": ("marker", "strip"),
+    }
+    for candidate, keywords in keyword_categories.items():
+        if any(keyword in lowered for keyword in keywords):
+            return candidate
+    return ""
+
+
+def normalize_event_message(category: str, message: str) -> str:
+    message = " ".join(message.split())
+    if not message:
+        return ""
+
+    lowered = message.lower()
+    if lowered.startswith(f"{category}:"):
+        return f"{category}: {message.split(':', 1)[1].strip()}"
+    return f"{category}: {message}"
+
+
+def message_has_project_context(message: str) -> bool:
+    lowered = message.lower()
+    return any(keyword in lowered for keyword in PROJECT_KEYWORDS)
+
+
+def extract_marker_name(message: str) -> str:
+    lowered = message.lower()
+    for color in MARKER_COLORS:
+        if color in lowered and ("strip" in lowered or "marker" in lowered):
+            return f"{color}_strip"
+    if "strip" in lowered or "marker" in lowered:
+        return "unknown_marker"
+    return ""
+
+
+def extract_json_object(text: str) -> dict[str, Any]:
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"\{", text):
+        try:
+            parsed, _end = decoder.raw_decode(text[match.start() :])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    raise ValueError(f"Vision model did not return a JSON object: {text[:200]}")
+
+
+def build_vision_messages(image: Image.Image) -> list[dict[str, Any]]:
+    return [
+        {
+            "role": "system",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "You are the STASIS rover vision module. Output strict JSON only.",
+                }
+            ],
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "image", "image": image},
+                {"type": "text", "text": ANALYSIS_PROMPT},
+            ],
+        },
+    ]
 
 
 def analyze_frame(frame) -> dict[str, Any]:
+    if vision_pipe is None:
+        return {"detected": False, "message": ""}
+
     image = frame_to_pil(frame)
     try:
-        result = vision_pipe(image, prompt=ANALYSIS_PROMPT, max_new_tokens=256)
+        result = vision_pipe(
+            text=build_vision_messages(image),
+            return_full_text=False,
+            generate_kwargs={"max_new_tokens": VISION_MAX_NEW_TOKENS, "do_sample": False},
+        )
     except TypeError:
-        result = vision_pipe({"image": image, "text": ANALYSIS_PROMPT}, max_new_tokens=256)
+        result = vision_pipe(
+            text=build_vision_messages(image),
+            return_full_text=False,
+            max_new_tokens=VISION_MAX_NEW_TOKENS,
+        )
 
     return parse_json_response(extract_model_text(result))
 
@@ -146,6 +426,27 @@ def save_alert_frame(frame) -> str:
         raise RuntimeError(f"Could not write alert snapshot to {image_path}")
 
     return f"alerts/{filename}"
+
+
+def camera_mjpeg_stream():
+    while True:
+        frame = latest_frame
+        if frame is None:
+            time.sleep(0.1)
+            continue
+
+        ok, encoded = cv2.imencode(".jpg", frame)
+        if not ok:
+            time.sleep(0.1)
+            continue
+
+        yield (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n"
+            + encoded.tobytes()
+            + b"\r\n"
+        )
+        time.sleep(1 / max(1, CAMERA_FPS))
 
 
 def send_rover_command(command: dict[str, Any]) -> bool:
@@ -166,9 +467,15 @@ def send_rover_command(command: dict[str, Any]) -> bool:
     return False
 
 
+def is_rover_client(client_id: str | None) -> bool:
+    return client_id == ROVER_CLIENT_ID
+
+
 def vision_analysis_loop() -> None:
     while True:
         time.sleep(ANALYSIS_INTERVAL_SECONDS)
+        if not VISION_ENABLED or vision_pipe is None:
+            continue
         if latest_frame is None:
             continue
 
@@ -183,7 +490,14 @@ def vision_analysis_loop() -> None:
             continue
 
         image_path = save_alert_frame(frame)
-        payload = {"message": analysis["message"], "image_path": image_path}
+        payload = {
+            "category": analysis["category"],
+            "message": analysis["message"],
+            "image_path": image_path,
+        }
+        if analysis.get("marker"):
+            payload["marker"] = analysis["marker"]
+            remember_marker(analysis["marker"], image_path)
         socketio.emit("new_alert", payload)
         # Physical sound hardware was removed; alerts now stay in the web dashboard.
 
@@ -213,6 +527,20 @@ def build_goto_command(target_x: float, target_y: float) -> dict[str, Any]:
     angle_to_goal = normalize_heading_degrees((home_heading or 0.0) + map_angle_to_goal)
     distance_cm = math.sqrt(dx**2 + dy**2) * PIXEL_TO_CM
     return {"cmd": "goto", "angle": angle_to_goal, "distance": distance_cm}
+
+
+def remember_marker(marker_name: str, image_path: str) -> None:
+    if not marker_name:
+        return
+    known_markers[marker_name] = {
+        "name": marker_name,
+        "x": rover_pose["x"],
+        "y": rover_pose["y"],
+        "heading": rover_pose["heading"],
+        "image_path": image_path,
+        "seen_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    socketio.emit("marker_seen", known_markers[marker_name])
 
 
 def handle_rover_telemetry(payload: dict[str, Any]) -> None:
@@ -282,6 +610,12 @@ def handle_rover_report(payload: Any) -> None:
     if payload.get("type") == "scan":
         handle_scan_report(payload)
 
+    status = payload.get("status")
+    if isinstance(status, str):
+        socketio.emit("rover_status", {"status": status, "message": payload.get("message", "")})
+        if status in {"stopped", "obstacle_detected", "imu_error", "command_error"}:
+            pending_goal = None
+
     if payload.get("status") == "goal_reached":
         if pending_goal is not None:
             rover_pose["x"] = pending_goal["x"]
@@ -302,6 +636,11 @@ def serve_alert(filename: str):
     return send_from_directory(ALERTS_DIR, filename)
 
 
+@app.route("/camera.mjpg")
+def camera_feed():
+    return app.response_class(camera_mjpeg_stream(), mimetype="multipart/x-mixed-replace; boundary=frame")
+
+
 @app.route("/ws/rover", websocket=True)
 def rover_websocket():
     global rover_ws
@@ -318,13 +657,13 @@ def rover_websocket():
             ws.close()
             return ""
 
-    if client_id != ROVER_CLIENT_ID:
+    if not is_rover_client(client_id):
         ws.send(json.dumps({"error": "unknown_client"}))
         ws.close()
         return ""
 
     rover_ws = ws
-    ws.send(json.dumps({"status": "registered", "id": ROVER_CLIENT_ID}))
+    ws.send(json.dumps({"status": "registered", "id": client_id}))
 
     if initial_payload is not None:
         handle_rover_report(initial_payload)
@@ -348,9 +687,9 @@ def on_connect(auth=None):
         client_id = auth.get("id") or auth.get("client_id")
     client_id = client_id or request.args.get("id") or request.args.get("client_id")
 
-    if client_id == ROVER_CLIENT_ID:
+    if is_rover_client(client_id):
         rover_socketio_sid = request.sid
-        emit("rover_registered", {"id": ROVER_CLIENT_ID})
+        emit("rover_registered", {"id": client_id})
         return
 
     emit("rover_position", rover_pose.copy())
@@ -402,6 +741,42 @@ def on_request_scan():
     emit("scan_requested", {"sent": sent})
 
 
+@socketio.on("search_marker")
+def on_search_marker(payload=None):
+    marker = "red_strip"
+    if isinstance(payload, dict):
+        marker = str(payload.get("marker") or marker).strip().lower().replace(" ", "_")
+    sent = send_rover_command({"cmd": "scan", "target": marker})
+    emit("marker_search_started", {"sent": sent, "marker": marker})
+
+
+@socketio.on("go_to_marker")
+def on_go_to_marker(payload=None):
+    global pending_goal
+
+    marker = "red_strip"
+    if isinstance(payload, dict):
+        marker = str(payload.get("marker") or marker).strip().lower().replace(" ", "_")
+
+    target = known_markers.get(marker)
+    if target is None:
+        emit("marker_error", {"marker": marker, "message": "Marker has not been seen yet"})
+        return
+
+    pending_goal = {"x": target["x"], "y": target["y"]}
+    command = build_goto_command(target["x"], target["y"])
+    sent = send_rover_command(command)
+    if not sent:
+        pending_goal = None
+    emit("marker_goal_commanded", {"sent": sent, "marker": marker, "command": command})
+
+
+@socketio.on("stop_rover")
+def on_stop_rover():
+    sent = send_rover_command({"cmd": "stop"})
+    emit("stop_requested", {"sent": sent})
+
+
 @socketio.on("rover_status")
 def on_rover_status(payload):
     handle_rover_report(payload)
@@ -416,7 +791,7 @@ def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     ALERTS_DIR.mkdir(parents=True, exist_ok=True)
     load_vision_model()
-    socketio.start_background_task(mjpeg_capture_loop)
+    socketio.start_background_task(webcam_capture_loop)
     socketio.start_background_task(vision_analysis_loop)
     socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
 
