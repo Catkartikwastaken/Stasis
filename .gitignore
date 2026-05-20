@@ -4,4 +4,5 @@ __pycache__/
 venv/
 alerts/
 .env
+rover/rpi2b/config.json
 .DS_Store

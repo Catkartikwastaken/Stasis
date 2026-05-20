@@ -4,4 +4,8 @@ simple-websocket
 opencv-python
 pillow
 torch
-transformers
+torchvision
+transformers>=4.53.0
+accelerate
+sentencepiece
+protobuf
