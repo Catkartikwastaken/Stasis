@@ -1,19 +1,22 @@
-# Indoor Security Rover System
+# STASIS Forest Monitoring Rover System
 
-This repository contains a complete starter setup for the indoor security rover:
+This repository contains a complete starter setup for STASIS, a forest monitoring rover that will be demonstrated indoors in a forest-like environment:
 
 1. An ESP32-CAM streams video over MJPEG.
 2. A laptop runs the Flask/Socket.IO vision and command server.
 3. A Raspberry Pi 2B runs the Python rover client.
-4. A browser dashboard sends map goals and displays alerts.
+4. An ESP32-S3 remains part of the hardware plan while the final microcontroller split is decided.
+5. A browser dashboard sends map goals and displays alerts.
 
-The ESP32-S3 rover firmware is kept in the repo as a legacy reference, but the active rover controller is now `rover/rpi2b/rover_client.py`.
+The Raspberry Pi client is the active high-level rover controller in this branch. The ESP32-S3 firmware is kept as the existing embedded path and can still be used for experiments, fallback control, or low-level helper duties once the hardware split is confirmed.
+
+The demo does not depend on GPS. Navigation should stay local: manual dashboard driving, clicked goals, return-to-home, obstacle avoidance, scan commands, and marker-directed patrols.
 
 ## File Locations
 
 ```text
 firmware/esp32cam/esp32_cam_mjpeg_stream/esp32_cam_mjpeg_stream.ino
-firmware/esp32s3/esp32s3_rover_ws/esp32s3_rover_ws.ino      legacy reference only
+firmware/esp32s3/esp32s3_rover_ws/esp32s3_rover_ws.ino      ESP32-S3 rover firmware path
 rover/rpi2b/rover_client.py
 rover/rpi2b/config.example.json
 rover/rpi2b/requirements.txt
@@ -68,16 +71,28 @@ When the rover finishes, it sends:
 {"status":"goal_reached"}
 ```
 
-When Gemma detects activity, the server saves an image in `alerts/` and emits `new_alert` to the dashboard. Physical sound alerts are not part of the rover hardware. Gemma setup details live in `docs/GEMMA_VISION.md`.
+When Gemma detects a relevant forest-monitoring event, the server saves an image in `alerts/` and emits `new_alert` to the dashboard. Target events include humans/intruders, animals, visible track or soil changes, fire/smoke/flame, and custom colored markers such as red strips. Gemma setup details live in `docs/GEMMA_VISION.md`.
+
+The server accepts alerts only for these categories:
+
+```text
+human
+animal
+track
+fire
+marker
+```
+
+If Gemma returns a category outside that list, the server suppresses the alert.
 
 ## Raspberry Pi 2B Rover Responsibilities
 
-The Python client replaces the major ESP32-S3 rover functions:
+The Python client handles the major rover-control functions on the Raspberry Pi:
 
 ```text
 Wi-Fi/server setup       -> config.json, CLI flags, or STASIS_SERVER_HOST
 WebSocket registration   -> websocket-client
-L9110S motor control     -> RPi.GPIO PWM
+L911S/L9110S motor control -> RPi.GPIO PWM
 MPU6050 gyro yaw         -> smbus2 I2C
 GY-271 compass heading   -> smbus2 I2C
 HC-SR04 scan distance    -> RPi.GPIO timing
@@ -86,22 +101,38 @@ Telemetry heartbeat      -> JSON over WebSocket
 Goto and scan commands   -> Python command worker
 ```
 
+The ESP32-S3 role should be kept explicit during hardware testing. Good candidate roles are low-level motor/sensor coprocessor, fallback rover controller, or removed-from-control once the Pi wiring is proven stable.
+
+The default Pi config starts in minimal-wire mode:
+
+```text
+Direct motor control: enabled
+I2C heading sensors: disabled
+Ultrasonic sensor: disabled
+Scanner servo: disabled
+Goto turning: timed open-loop fallback
+```
+
+Enable optional sensors in `rover/rpi2b/config.json` only after they are physically connected.
+
 ## Raspberry Pi Wiring
 
 Default pin numbers use Raspberry Pi BCM numbering. You can change them in `rover/rpi2b/config.json`.
 
-L9110S motor driver:
+L911S/L9110S motor driver:
 
 ```text
-BCM 5   -> Left motor forward input
-BCM 6   -> Left motor reverse input
-BCM 13  -> Right motor forward input
-BCM 19  -> Right motor reverse input
-GND     -> L9110S GND and motor battery negative
+BCM 5   -> A-IA / IA, left motor forward input
+BCM 6   -> A-IB / IB, left motor reverse input
+BCM 13  -> B-IA, right motor forward input
+BCM 19  -> B-IB, right motor reverse input
+GND     -> L911S/L9110S GND and motor battery negative
 VM/VCC  -> Motor battery positive, matched to your motors/driver board
 Motor A -> Left motor terminals
 Motor B -> Right motor terminals
 ```
+
+Some L911S boards label the two channels as `A-IA`, `A-IB`, `B-IA`, and `B-IB`. Smaller boards may label a single channel as only `IA` and `IB`; use that pair for the left motor channel and the second pair for the right motor channel.
 
 MPU6050 and GY-271/HMC5883L:
 
@@ -163,7 +194,12 @@ Edit `config.json`:
 ```json
 {
   "server_host": "192.168.1.10",
-  "rover_id": "rpi2b_rover"
+  "rover_id": "rpi2b_rover",
+  "hardware": {
+    "i2c_enabled": false,
+    "ultrasonic_enabled": false,
+    "scanner_servo_enabled": false
+  }
 }
 ```
 
@@ -341,6 +377,21 @@ const ESP32_CAM_IP = "<ESP32_CAM_IP>";
 9. Run `python rover_client.py --config config.json` on the Pi.
 10. Open `http://<WINDOWS_LAPTOP_IP>:5000` in the browser.
 11. Click the map to send a rover goal.
+
+## Demo Behavior Targets
+
+The dashboard and rover protocol now support the core demo actions:
+
+```text
+Manual dashboard control
+Clicked map goals
+Immediate stop
+Return-to-home
+Ultrasonic scan
+Gemma-based event alerts
+```
+
+The dashboard includes red-strip search and go-to-red-strip controls. Gemma marker detections are stored against the rover's current map position, so the rover can drive back to the last seen strip when commanded. The next behavior layer should add richer patrol scripts around those stored marker points.
 
 ## Calibration Notes
 

@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Security Rover</title>
+    <title>STASIS Forest Rover</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
       :root {
@@ -83,6 +83,12 @@
 
       .telemetry {
         margin-top: 10px;
+        color: #c5d6cc;
+        font-size: 0.92rem;
+      }
+
+      .event-status {
+        margin-bottom: 12px;
         color: #c5d6cc;
         font-size: 0.92rem;
       }
@@ -229,6 +235,17 @@
         line-height: 1.35;
       }
 
+      .alert .category {
+        display: inline-block;
+        margin: 10px 12px 0;
+        border: 1px solid rgba(237, 244, 239, 0.16);
+        border-radius: 999px;
+        padding: 3px 8px;
+        color: #d9e8dd;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+      }
+
       @media (max-width: 860px) {
         main {
           grid-template-columns: 1fr;
@@ -240,14 +257,17 @@
     <main>
       <section class="panel">
         <div class="topbar">
-          <h1>Security Rover</h1>
+          <h1>STASIS Forest Rover</h1>
           <div id="status" class="status">offline</div>
         </div>
         <div class="controls">
           <button id="stopRover" type="button">Stop</button>
           <button id="returnHome" type="button">Return to Home</button>
           <button id="scanArea" type="button">Scan Area</button>
+          <button id="searchRedStrip" type="button">Search Red Strip</button>
+          <button id="goToRedStrip" type="button">Go to Red Strip</button>
         </div>
+        <div class="event-status">Rover status: <span id="roverStatus">waiting</span></div>
         <div id="map" aria-label="Rover map">
           <div id="goal"></div>
           <div id="rover"></div>
@@ -289,7 +309,10 @@
       const stopRoverBtn = document.getElementById("stopRover");
       const returnHomeBtn = document.getElementById("returnHome");
       const scanAreaBtn = document.getElementById("scanArea");
+      const searchRedStripBtn = document.getElementById("searchRedStrip");
+      const goToRedStripBtn = document.getElementById("goToRedStrip");
       const scanResultsEl = document.getElementById("scanResults");
+      const roverStatusEl = document.getElementById("roverStatus");
 
       const mapSize = 800;
       let roverPose = { x: 400, y: 400, yaw: 0 };
@@ -323,7 +346,7 @@
           const row = document.createElement("tr");
           const angle = document.createElement("td");
           const distance = document.createElement("td");
-          angle.textContent = `${Math.round(point.angle)}°`;
+          angle.textContent = `${Math.round(point.angle)} deg`;
           distance.textContent = point.distance < 0 ? "No echo" : `${Math.round(point.distance)} cm`;
           row.append(angle, distance);
           scanResultsEl.append(row);
@@ -345,6 +368,20 @@
 
       socket.on("scan_data", renderScan);
 
+      socket.on("rover_status", (payload) => {
+        roverStatusEl.textContent = payload.message
+          ? `${payload.status}: ${payload.message}`
+          : payload.status || "waiting";
+      });
+
+      socket.on("marker_seen", (marker) => {
+        roverStatusEl.textContent = `marker seen: ${marker.name}`;
+      });
+
+      socket.on("marker_error", (payload) => {
+        roverStatusEl.textContent = payload.message || `Marker not found: ${payload.marker}`;
+      });
+
       socket.on("new_alert", (alert) => {
         const item = document.createElement("article");
         item.className = "alert";
@@ -353,10 +390,14 @@
         img.src = `/${alert.image_path}`;
         img.alt = "Alert snapshot";
 
+        const category = document.createElement("span");
+        category.className = "category";
+        category.textContent = alert.category || "event";
+
         const message = document.createElement("p");
         message.textContent = alert.message || "Activity detected";
 
-        item.append(img, message);
+        item.append(img, category, message);
         alertsEl.prepend(item);
       });
 
@@ -380,6 +421,14 @@
 
       scanAreaBtn.addEventListener("click", () => {
         socket.emit("request_scan");
+      });
+
+      searchRedStripBtn.addEventListener("click", () => {
+        socket.emit("search_marker", { marker: "red_strip" });
+      });
+
+      goToRedStripBtn.addEventListener("click", () => {
+        socket.emit("go_to_marker", { marker: "red_strip" });
       });
 
       renderPose();

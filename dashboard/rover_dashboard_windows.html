@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Windows Rover Control Dashboard</title>
+    <title>STASIS Forest Rover Dashboard</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
       * { box-sizing: border-box; }
@@ -19,6 +19,7 @@
       canvas { display: block; width: 100%; max-width: 800px; aspect-ratio: 1; margin: 0 auto; border: 1px solid #343c47; border-radius: 6px; cursor: crosshair; background: #e6e6e6; }
       .camera { display: block; width: 100%; max-width: 800px; min-height: 240px; margin: 0 auto; border: 1px solid #343c47; border-radius: 6px; background: #0d1117; object-fit: contain; }
       .note { max-width: 800px; margin: 10px auto 0; color: #aab6c5; font-size: 14px; }
+      .rover-status { max-width: 800px; margin: 0 auto 12px; color: #aab6c5; font-size: 14px; }
       #alertLog { max-height: 260px; overflow-y: auto; display: grid; gap: 12px; }
       .alert { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; border: 1px solid #343c47; border-radius: 8px; padding: 10px; background: #151a20; }
       .alert img { width: 150px; height: 96px; object-fit: cover; border-radius: 5px; background: #0d1117; }
@@ -26,8 +27,8 @@
   </head>
   <body>
     <div class="wrap">
-      <header><h1>Windows Rover Control Dashboard</h1><div id="connectionStatus" class="status">Connecting...</div></header>
-      <section class="panel"><div class="controls"><button id="stopRover" type="button">Stop</button><button id="returnHome" type="button">Return to Home</button><button id="scanArea" type="button">Scan Area</button></div><canvas id="mapCanvas" width="800" height="800"></canvas></section>
+      <header><h1>STASIS Forest Rover Dashboard</h1><div id="connectionStatus" class="status">Connecting...</div></header>
+      <section class="panel"><div class="controls"><button id="stopRover" type="button">Stop</button><button id="returnHome" type="button">Return to Home</button><button id="scanArea" type="button">Scan Area</button><button id="searchRedStrip" type="button">Search Red Strip</button><button id="goToRedStrip" type="button">Go to Red Strip</button></div><p class="rover-status">Rover status: <span id="roverStatus">waiting</span></p><canvas id="mapCanvas" width="800" height="800"></canvas></section>
       <h2>Live Camera Feed</h2>
       <section class="panel"><img id="cameraFeed" class="camera" src="http://<ESP32_CAM_IP>/stream" alt="ESP32-CAM live stream" /><p class="note">Replace with your ESP32-CAM IP after uploading its firmware.</p></section>
       <h2>Alert Log</h2><section id="alertLog" class="panel"></section>
@@ -37,8 +38,8 @@
       const ESP32_CAM_IP = "<ESP32_CAM_IP>";
       const socket = io(`http://${WINDOWS_LAPTOP_IP}:5000`);
       const canvas = document.getElementById("mapCanvas"); const ctx = canvas.getContext("2d");
-      const statusEl = document.getElementById("connectionStatus"); const alertLog = document.getElementById("alertLog"); const cameraFeed = document.getElementById("cameraFeed");
-      const stopRoverBtn = document.getElementById("stopRover"); const returnHomeBtn = document.getElementById("returnHome"); const scanAreaBtn = document.getElementById("scanArea");
+      const statusEl = document.getElementById("connectionStatus"); const alertLog = document.getElementById("alertLog"); const cameraFeed = document.getElementById("cameraFeed"); const roverStatusEl = document.getElementById("roverStatus");
+      const stopRoverBtn = document.getElementById("stopRover"); const returnHomeBtn = document.getElementById("returnHome"); const scanAreaBtn = document.getElementById("scanArea"); const searchRedStripBtn = document.getElementById("searchRedStrip"); const goToRedStripBtn = document.getElementById("goToRedStrip");
       let roverPos = { x: 400, y: 400 }; let goalPos = null;
       if (!ESP32_CAM_IP.includes("<")) cameraFeed.src = `http://${ESP32_CAM_IP}/stream`;
       function drawMap() { ctx.fillStyle = "#e6e6e6"; ctx.fillRect(0,0,800,800); ctx.strokeStyle = "#c4c4c4"; ctx.lineWidth = 1; for (let p=0;p<=800;p+=50){ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,800);ctx.stroke();ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(800,p);ctx.stroke();} ctx.fillStyle="#1565c0";ctx.beginPath();ctx.arc(400,400,7,0,Math.PI*2);ctx.fill();ctx.fillStyle="#1f2937";ctx.font="16px Arial";ctx.fillText("Home Base",412,395); if(goalPos){ctx.strokeStyle="#d32f2f";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(goalPos.x-14,goalPos.y-14);ctx.lineTo(goalPos.x+14,goalPos.y+14);ctx.moveTo(goalPos.x+14,goalPos.y-14);ctx.lineTo(goalPos.x-14,goalPos.y+14);ctx.stroke();} ctx.fillStyle="#0d47a1";ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();ctx.arc(roverPos.x,roverPos.y,16,0,Math.PI*2);ctx.fill();ctx.stroke(); }
@@ -46,8 +47,13 @@
       stopRoverBtn.addEventListener("click", () => socket.emit("stop_rover"));
       returnHomeBtn.addEventListener("click", () => socket.emit("return_home"));
       scanAreaBtn.addEventListener("click", () => socket.emit("request_scan"));
+      searchRedStripBtn.addEventListener("click", () => socket.emit("search_marker", { marker: "red_strip" }));
+      goToRedStripBtn.addEventListener("click", () => socket.emit("go_to_marker", { marker: "red_strip" }));
       socket.on("connect", () => statusEl.textContent = "Connected"); socket.on("disconnect", () => statusEl.textContent = "Disconnected");
-      socket.on("new_alert", p => { const item = document.createElement("article"); item.className = "alert"; const img = document.createElement("img"); img.src = p.image_path.startsWith("http") ? p.image_path : `http://${WINDOWS_LAPTOP_IP}:5000/${p.image_path}`; const text = document.createElement("p"); text.textContent = p.message || "Activity detected."; item.append(img, text); alertLog.prepend(item); });
+      socket.on("rover_status", p => { roverStatusEl.textContent = p.message ? `${p.status}: ${p.message}` : (p.status || "waiting"); });
+      socket.on("marker_seen", p => { roverStatusEl.textContent = `marker seen: ${p.name}`; });
+      socket.on("marker_error", p => { roverStatusEl.textContent = p.message || `Marker not found: ${p.marker}`; });
+      socket.on("new_alert", p => { const item = document.createElement("article"); item.className = "alert"; const img = document.createElement("img"); img.src = p.image_path.startsWith("http") ? p.image_path : `http://${WINDOWS_LAPTOP_IP}:5000/${p.image_path}`; const text = document.createElement("p"); text.textContent = `${p.category || "event"}: ${p.message || "Activity detected."}`; item.append(img, text); alertLog.prepend(item); });
       socket.on("rover_position", p => { roverPos = { x: Number(p.x) || 400, y: Number(p.y) || 400 }; drawMap(); });
       drawMap();
     </script>

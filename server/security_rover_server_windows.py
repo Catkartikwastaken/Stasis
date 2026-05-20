@@ -67,14 +67,38 @@ ANALYSIS_INTERVAL_SECONDS = env_float("STASIS_ANALYSIS_INTERVAL_SECONDS", 2.0)
 PIXEL_TO_CM = 1.0
 ROVER_CLIENT_ID = "rpi2b_rover"
 LEGACY_ROVER_CLIENT_IDS = {"esp32s3_rover"}
+ALLOWED_EVENT_CATEGORIES = {"human", "animal", "track", "fire", "marker"}
+PROJECT_KEYWORDS = {
+    "human",
+    "person",
+    "people",
+    "intruder",
+    "animal",
+    "wildlife",
+    "track",
+    "trail",
+    "footprint",
+    "soil",
+    "disturbed",
+    "fire",
+    "flame",
+    "smoke",
+    "marker",
+    "strip",
+}
+MARKER_COLORS = {"red", "blue", "green", "yellow", "orange", "white", "black"}
 
 DEFAULT_ANALYSIS_PROMPT = (
-    "Analyze this security-rover camera frame. Look for humans, dogs, cats, birds, plastic bottles, "
-    "open doors, spilled objects, scratches, footprints, or other unusual indoor activity. "
+    "Analyze this STASIS forest-monitoring rover frame. The demo may be indoors, but the scene is "
+    "staged like a forest patrol area. Look for humans or intruders, animals or wildlife stand-ins, "
+    "soil differences, footprints, trails, disturbed ground, fire, smoke, flame, and custom colored "
+    "navigation markers such as red strips. Ignore ordinary indoor doors and windows unless they are "
+    "relevant to the demo. "
     "Respond with exactly one JSON object and no Markdown. Use this schema: "
-    "{\"detected\": boolean, \"message\": string}. Set detected to true only when a relevant "
-    "security or inspection event is visible. Keep message short and specific; use an empty string "
-    "when detected is false."
+    "{\"detected\": boolean, \"category\": \"human|animal|track|fire|marker\", "
+    "\"message\": string}. Set detected to true only when a relevant STASIS monitoring event or "
+    "marker is visible. Intruders are category human. Use category marker for colored strips. "
+    "Keep message short and specific; use an empty string when detected is false."
 )
 ANALYSIS_PROMPT = os.getenv("STASIS_ANALYSIS_PROMPT", DEFAULT_ANALYSIS_PROMPT)
 
@@ -92,6 +116,7 @@ last_distance_traveled: float | None = None
 latest_scan: list[dict[str, float]] = []
 rover_pose = {"x": 400.0, "y": 400.0, "yaw": 0.0, "heading": 0.0, "distance_from_home": 0.0}
 pending_goal: dict[str, float] | None = None
+known_markers: dict[str, dict[str, Any]] = {}
 
 
 def get_vision_device() -> str:
@@ -245,8 +270,74 @@ def parse_json_response(text: str) -> dict[str, Any]:
     detected = detected_value.strip().lower() == "true" if isinstance(detected_value, str) else bool(detected_value)
     message = str(parsed.get("message", "")).strip()
     if not detected:
-        message = ""
-    return {"detected": detected, "message": message[:500]}
+        return {"detected": False, "category": "", "message": ""}
+
+    category = normalize_event_category(parsed.get("category"), message)
+    if category not in ALLOWED_EVENT_CATEGORIES:
+        logging.info("Suppressing out-of-scope Gemma alert: category=%r message=%r", category, message)
+        return {"detected": False, "category": "", "message": ""}
+
+    message = normalize_event_message(category, message)
+    if not message_has_project_context(message):
+        logging.info("Suppressing alert without STASIS project context: %r", message)
+        return {"detected": False, "category": "", "message": ""}
+
+    return {
+        "detected": True,
+        "category": category,
+        "message": message[:500],
+        "marker": extract_marker_name(message) if category == "marker" else "",
+    }
+
+
+def normalize_event_category(category_value: Any, message: str) -> str:
+    category = str(category_value or "").strip().lower()
+    category = category.split(":", 1)[0].strip()
+    if category in ALLOWED_EVENT_CATEGORIES:
+        return category
+
+    lowered = message.lower().strip()
+    prefix = lowered.split(":", 1)[0].strip()
+    if prefix in ALLOWED_EVENT_CATEGORIES:
+        return prefix
+
+    keyword_categories = {
+        "human": ("human", "person", "people", "intruder"),
+        "animal": ("animal", "wildlife", "dog", "cat", "bird"),
+        "track": ("track", "trail", "footprint", "soil", "disturbed"),
+        "fire": ("fire", "flame", "smoke"),
+        "marker": ("marker", "strip"),
+    }
+    for candidate, keywords in keyword_categories.items():
+        if any(keyword in lowered for keyword in keywords):
+            return candidate
+    return ""
+
+
+def normalize_event_message(category: str, message: str) -> str:
+    message = " ".join(message.split())
+    if not message:
+        return ""
+
+    lowered = message.lower()
+    if lowered.startswith(f"{category}:"):
+        return f"{category}: {message.split(':', 1)[1].strip()}"
+    return f"{category}: {message}"
+
+
+def message_has_project_context(message: str) -> bool:
+    lowered = message.lower()
+    return any(keyword in lowered for keyword in PROJECT_KEYWORDS)
+
+
+def extract_marker_name(message: str) -> str:
+    lowered = message.lower()
+    for color in MARKER_COLORS:
+        if color in lowered and ("strip" in lowered or "marker" in lowered):
+            return f"{color}_strip"
+    if "strip" in lowered or "marker" in lowered:
+        return "unknown_marker"
+    return ""
 
 
 def extract_json_object(text: str) -> dict[str, Any]:
@@ -355,7 +446,14 @@ def vision_analysis_loop() -> None:
             continue
 
         image_path = save_alert_frame(frame)
-        payload = {"message": analysis["message"], "image_path": image_path}
+        payload = {
+            "category": analysis["category"],
+            "message": analysis["message"],
+            "image_path": image_path,
+        }
+        if analysis.get("marker"):
+            payload["marker"] = analysis["marker"]
+            remember_marker(analysis["marker"], image_path)
         socketio.emit("new_alert", payload)
         # Physical sound hardware was removed; alerts now stay in the web dashboard.
 
@@ -385,6 +483,20 @@ def build_goto_command(target_x: float, target_y: float) -> dict[str, Any]:
     angle_to_goal = normalize_heading_degrees((home_heading or 0.0) + map_angle_to_goal)
     distance_cm = math.sqrt(dx**2 + dy**2) * PIXEL_TO_CM
     return {"cmd": "goto", "angle": angle_to_goal, "distance": distance_cm}
+
+
+def remember_marker(marker_name: str, image_path: str) -> None:
+    if not marker_name:
+        return
+    known_markers[marker_name] = {
+        "name": marker_name,
+        "x": rover_pose["x"],
+        "y": rover_pose["y"],
+        "heading": rover_pose["heading"],
+        "image_path": image_path,
+        "seen_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    socketio.emit("marker_seen", known_markers[marker_name])
 
 
 def handle_rover_telemetry(payload: dict[str, Any]) -> None:
@@ -453,6 +565,12 @@ def handle_rover_report(payload: Any) -> None:
 
     if payload.get("type") == "scan":
         handle_scan_report(payload)
+
+    status = payload.get("status")
+    if isinstance(status, str):
+        socketio.emit("rover_status", {"status": status, "message": payload.get("message", "")})
+        if status in {"stopped", "obstacle_detected", "imu_error", "command_error"}:
+            pending_goal = None
 
     if payload.get("status") == "goal_reached":
         if pending_goal is not None:
@@ -572,6 +690,36 @@ def on_return_home():
 def on_request_scan():
     sent = send_rover_command({"cmd": "scan"})
     emit("scan_requested", {"sent": sent})
+
+
+@socketio.on("search_marker")
+def on_search_marker(payload=None):
+    marker = "red_strip"
+    if isinstance(payload, dict):
+        marker = str(payload.get("marker") or marker).strip().lower().replace(" ", "_")
+    sent = send_rover_command({"cmd": "scan", "target": marker})
+    emit("marker_search_started", {"sent": sent, "marker": marker})
+
+
+@socketio.on("go_to_marker")
+def on_go_to_marker(payload=None):
+    global pending_goal
+
+    marker = "red_strip"
+    if isinstance(payload, dict):
+        marker = str(payload.get("marker") or marker).strip().lower().replace(" ", "_")
+
+    target = known_markers.get(marker)
+    if target is None:
+        emit("marker_error", {"marker": marker, "message": "Marker has not been seen yet"})
+        return
+
+    pending_goal = {"x": target["x"], "y": target["y"]}
+    command = build_goto_command(target["x"], target["y"])
+    sent = send_rover_command(command)
+    if not sent:
+        pending_goal = None
+    emit("marker_goal_commanded", {"sent": sent, "marker": marker, "command": command})
 
 
 @socketio.on("stop_rover")

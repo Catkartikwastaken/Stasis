@@ -1,8 +1,10 @@
 # STASIS Raspberry Pi 2B Rover Client
 
-This Python client replaces the ESP32-S3 rover firmware. It connects to the existing STASIS Flask server at `ws://<SERVER_IP>:5000/ws/rover`, registers as `rpi2b_rover`, accepts `goto` and `scan` commands, drives the L9110S motor driver, reads the MPU6050 and GY-271/HMC5883L sensors, scans with the HC-SR04 and servo, and sends telemetry back to the dashboard.
+This Python client runs the Raspberry Pi 2B side of the STASIS rover. It connects to the existing STASIS Flask server at `ws://<SERVER_IP>:5000/ws/rover`, registers as `rpi2b_rover`, accepts `goto`, `scan`, and `stop` commands, drives the L911S/L9110S motor driver, reads optional MPU6050 and GY-271/HMC5883L sensors, scans with optional HC-SR04 and servo hardware, and sends telemetry back to the dashboard.
 
-The ESP32-CAM can still be used for the MJPEG camera stream. This client replaces only the ESP32-S3 rover controller.
+The ESP32-CAM remains the current MJPEG camera source. The ESP32-S3 firmware path is still kept in the repo until the final Pi/ESP32-S3 hardware split is confirmed.
+
+The default config is intentionally minimal-wire: the Pi drives motors directly, but I2C heading sensors, ultrasonic, and the scanner servo are disabled until you enable them. With no heading sensor, the client uses timed open-loop turns for the indoor demo.
 
 ## Raspberry Pi Setup
 
@@ -32,6 +34,20 @@ cp config.example.json config.json
 
 Edit `server_host` to the IP address of the laptop running `server/security_rover_server_windows.py` or `server/security_rover_server.py`.
 
+Enable optional hardware only when it is actually connected:
+
+```json
+{
+  "hardware": {
+    "i2c_enabled": true,
+    "mpu6050_enabled": true,
+    "compass_enabled": true,
+    "ultrasonic_enabled": true,
+    "scanner_servo_enabled": true
+  }
+}
+```
+
 Run the rover:
 
 ```bash
@@ -56,16 +72,18 @@ sudo systemctl status stasis-rover
 
 The default config uses Raspberry Pi BCM pin numbers.
 
-L9110S motor driver:
+L911S/L9110S motor driver:
 
 ```text
-BCM 5   -> Left motor forward input
-BCM 6   -> Left motor reverse input
-BCM 13  -> Right motor forward input
-BCM 19  -> Right motor reverse input
-GND     -> L9110S GND and motor battery negative
+BCM 5   -> A-IA / IA, left motor forward input
+BCM 6   -> A-IB / IB, left motor reverse input
+BCM 13  -> B-IA, right motor forward input
+BCM 19  -> B-IB, right motor reverse input
+GND     -> L911S/L9110S GND and motor battery negative
 VM/VCC  -> Motor battery positive, matched to your motors/driver board
 ```
+
+If your board labels the first channel as only `IA` and `IB`, wire those to the left motor inputs above and use the second channel for the right motor.
 
 I2C sensors:
 
@@ -101,10 +119,13 @@ Use a common ground between the Pi, motor driver, motor battery, sensors, and se
 
 ## Tuning
 
-Open-loop distance is still approximate because the rover has no wheel encoders. Tune these values in `config.json`:
+Open-loop distance and minimal-wire turning are approximate because the rover has no wheel encoders. Tune these values in `config.json`:
 
 ```json
 {
+  "hardware": {
+    "open_loop_turn_degrees_per_second": 90.0
+  },
   "motion": {
     "drive_ms_per_cm": 50.0,
     "drive_pwm": 70.0,

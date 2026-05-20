@@ -4,6 +4,18 @@
   "websocket_path": "/ws/rover",
   "rover_id": "rpi2b_rover",
   "simulate": false,
+  "hardware": {
+    "direct_motor_control": true,
+    "i2c_enabled": false,
+    "mpu6050_enabled": false,
+    "compass_enabled": false,
+    "ultrasonic_enabled": false,
+    "scanner_servo_enabled": false,
+    "require_heading_for_goto": false,
+    "open_loop_turn_degrees_per_second": 90.0,
+    "obstacle_stop_distance_cm": 25.0,
+    "obstacle_check_interval_seconds": 0.1
+  },
   "pins": {
     "left_motor_forward": 5,
     "left_motor_reverse": 6,

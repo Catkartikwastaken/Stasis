@@ -1,6 +1,6 @@
 # Gemma Vision Integration
 
-STASIS uses Gemma on the laptop/server to inspect ESP32-CAM frames and create dashboard alerts. The rover does not run Gemma; the Raspberry Pi 2B only drives the rover and sends telemetry.
+STASIS uses Gemma on the laptop/server to inspect ESP32-CAM frames and create dashboard alerts. The rover does not run Gemma; the Raspberry Pi 2B drives the rover and sends telemetry.
 
 ## Default Model
 
@@ -20,13 +20,13 @@ This is a multimodal Gemma instruct model that supports image + text input throu
 The expected model response is:
 
 ```json
-{"detected": true, "message": "Person visible near the doorway"}
+{"detected": true, "category": "human", "message": "person visible beside the patrol marker"}
 ```
 
 or:
 
 ```json
-{"detected": false, "message": ""}
+{"detected": false, "category": "", "message": ""}
 ```
 
 The server calls the pipeline with `return_full_text=False` and deterministic generation settings so the parser sees only Gemma's new answer, not the original prompt.
@@ -122,20 +122,32 @@ python security_rover_server_windows.py
 The server prompt asks Gemma to return only one JSON object:
 
 ```json
-{"detected": boolean, "message": string}
+{"detected": boolean, "category": "human|animal|track|fire|marker", "message": string}
 ```
 
-The parser accepts plain JSON or the first valid JSON object embedded in extra model text. If `detected` is false, the server clears `message` before broadcasting. If the response cannot be parsed, the error is logged and no alert is emitted for that frame.
+The parser accepts plain JSON or the first valid JSON object embedded in extra model text. If `detected` is false, the server clears `message` before broadcasting. If the category is missing or outside the STASIS categories, the alert is suppressed. If the response cannot be parsed, the error is logged and no alert is emitted for that frame.
+
+The default categories for the forest-monitoring demo are:
+
+```text
+human   -> humans, intruders, people in the test area
+animal  -> animals or wildlife stand-ins
+track   -> footprints, trails, soil changes, disturbed ground, track marks
+fire    -> flame, smoke, fire-like hazards
+marker  -> custom navigation markers such as red strips
+```
+
+The demo is indoors, but the prompt treats the scene as a staged forest floor. It intentionally avoids alerting on ordinary doors or windows unless they matter to the demo setup.
 
 To customize the prompt:
 
 PowerShell:
 
 ```powershell
-$env:STASIS_ANALYSIS_PROMPT = "Analyze this frame for open doors or people. Return only JSON with detected and message."
+$env:STASIS_ANALYSIS_PROMPT = "Analyze this STASIS forest-monitoring rover frame for humans, animals, tracks, fire, or red navigation strips. Return only JSON with detected and message."
 ```
 
-Keep the same JSON schema so the dashboard continues to work.
+Keep the same JSON schema so the dashboard and category filter continue to work.
 
 ## Troubleshooting
 

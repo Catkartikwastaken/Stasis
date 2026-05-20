@@ -57,6 +57,20 @@ class SensorConfig:
 
 
 @dataclass
+class HardwareConfig:
+    direct_motor_control: bool = True
+    i2c_enabled: bool = False
+    mpu6050_enabled: bool = False
+    compass_enabled: bool = False
+    ultrasonic_enabled: bool = False
+    scanner_servo_enabled: bool = False
+    require_heading_for_goto: bool = False
+    open_loop_turn_degrees_per_second: float = 90.0
+    obstacle_stop_distance_cm: float = 25.0
+    obstacle_check_interval_seconds: float = 0.1
+
+
+@dataclass
 class RoverConfig:
     server_host: str = ""
     server_port: int = 5000
@@ -66,6 +80,7 @@ class RoverConfig:
     pins: PinConfig = field(default_factory=PinConfig)
     motion: MotionConfig = field(default_factory=MotionConfig)
     sensors: SensorConfig = field(default_factory=SensorConfig)
+    hardware: HardwareConfig = field(default_factory=HardwareConfig)
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> "RoverConfig":
@@ -77,6 +92,8 @@ class RoverConfig:
             values["motion"] = _dataclass_from_mapping(MotionConfig, values["motion"])
         if "sensors" in values:
             values["sensors"] = _dataclass_from_mapping(SensorConfig, values["sensors"])
+        if "hardware" in values:
+            values["hardware"] = _dataclass_from_mapping(HardwareConfig, values["hardware"])
         return cls(**values)
 
 
@@ -130,6 +147,9 @@ class HardwareBase:
     def scan(self) -> list[dict[str, float]]:
         raise NotImplementedError
 
+    def front_distance_cm(self) -> float | None:
+        raise NotImplementedError
+
     def cleanup(self) -> None:
         raise NotImplementedError
 
@@ -160,6 +180,9 @@ class SimulatedHardware(HardwareBase):
             {"angle": float(angle), "distance": 120.0 + angle / 3.0}
             for angle in range(0, 181, self.config.motion.scan_step_deg)
         ]
+
+    def front_distance_cm(self) -> float | None:
+        return None
 
     def cleanup(self) -> None:
         self.stop_motors()
@@ -377,6 +400,7 @@ class RealRoverHardware(HardwareBase):
         self.motors: MotorDriver | None = None
         self.imu: MPU6050 | None = None
         self.compass: HMC5883L | None = None
+        self.ultrasonic: UltrasonicSensor | None = None
         self.scanner: ServoScanner | None = None
 
     def setup(self) -> None:
@@ -389,13 +413,20 @@ class RealRoverHardware(HardwareBase):
         GPIO.setmode(GPIO.BCM)
         GPIO.setwarnings(False)
 
-        self.motors = MotorDriver(GPIO, self.config.pins)
-        self.motors.setup()
+        if self.config.hardware.direct_motor_control:
+            self.motors = MotorDriver(GPIO, self.config.pins)
+            self.motors.setup()
+        else:
+            logging.warning("Direct Pi motor control is disabled; motor commands will be no-ops")
 
         self._setup_i2c()
         self._setup_scanner()
 
     def _setup_i2c(self) -> None:
+        if not self.config.hardware.i2c_enabled:
+            logging.info("I2C sensors disabled by config; using minimal-wire rover mode")
+            return
+
         try:
             from smbus2 import SMBus
         except ImportError:
@@ -408,35 +439,46 @@ class RealRoverHardware(HardwareBase):
             logging.exception("Could not open I2C bus %s", self.config.sensors.i2c_bus)
             return
 
-        self.imu = MPU6050(self.bus, self.config.sensors.mpu6050_address, self.config.sensors)
-        try:
-            self.imu.setup()
-        except OSError:
-            logging.exception("MPU6050 not found; gyro yaw is disabled")
-            self.imu = None
+        if self.config.hardware.mpu6050_enabled:
+            self.imu = MPU6050(self.bus, self.config.sensors.mpu6050_address, self.config.sensors)
+            try:
+                self.imu.setup()
+            except OSError:
+                logging.exception("MPU6050 not found; gyro yaw is disabled")
+                self.imu = None
 
-        self.compass = HMC5883L(
-            self.bus,
-            self.config.sensors.hmc5883l_address,
-            self.config.sensors.compass_declination_deg,
-        )
-        try:
-            self.compass.setup()
-        except OSError:
-            logging.exception("GY-271/HMC5883L compass not found; compass heading is disabled")
-            self.compass = None
+        if self.config.hardware.compass_enabled:
+            self.compass = HMC5883L(
+                self.bus,
+                self.config.sensors.hmc5883l_address,
+                self.config.sensors.compass_declination_deg,
+            )
+            try:
+                self.compass.setup()
+            except OSError:
+                logging.exception("GY-271/HMC5883L compass not found; compass heading is disabled")
+                self.compass = None
 
     def _setup_scanner(self) -> None:
-        ultrasonic = UltrasonicSensor(
+        if not self.config.hardware.ultrasonic_enabled:
+            logging.info("Ultrasonic obstacle sensor disabled by config")
+            return
+
+        self.ultrasonic = UltrasonicSensor(
             self.gpio,
             self.config.pins.ultrasonic_trig,
             self.config.pins.ultrasonic_echo,
         )
-        ultrasonic.setup()
+        self.ultrasonic.setup()
+
+        if not self.config.hardware.scanner_servo_enabled:
+            logging.info("Scanner servo disabled by config; using fixed forward ultrasonic only")
+            return
+
         self.scanner = ServoScanner(
             self.gpio,
             self.config.pins.scanner_servo,
-            ultrasonic,
+            self.ultrasonic,
             self.config.motion,
         )
         self.scanner.setup()
@@ -469,8 +511,19 @@ class RealRoverHardware(HardwareBase):
 
     def scan(self) -> list[dict[str, float]]:
         if self.scanner is None:
-            return []
+            distance = self.front_distance_cm()
+            if distance is None:
+                return []
+            return [{"angle": 90.0, "distance": distance}]
         return self.scanner.scan()
+
+    def front_distance_cm(self) -> float | None:
+        if self.ultrasonic is None:
+            return None
+        distance = self.ultrasonic.distance_cm()
+        if distance < 0:
+            return None
+        return distance
 
     def cleanup(self) -> None:
         if self.motors is not None:
@@ -585,7 +638,10 @@ class RoverClient:
         if cmd == "goto":
             self.handle_goto(float(command.get("angle", 0.0)), float(command.get("distance", 0.0)))
         elif cmd == "scan":
-            self.send_json({"type": "scan", "data": self.hardware.scan()})
+            report: dict[str, Any] = {"type": "scan", "data": self.hardware.scan()}
+            if command.get("target"):
+                report["target"] = str(command["target"])
+            self.send_json(report)
         elif cmd == "stop":
             self.hardware.stop_motors()
             self.send_json({"status": "stopped"})
@@ -594,21 +650,30 @@ class RoverClient:
 
     def handle_goto(self, angle: float, distance_cm: float) -> None:
         self.movement_cancel.clear()
-        if self.hardware.read_heading() is None:
+        heading = self.hardware.read_heading()
+        if heading is None and self.config.hardware.require_heading_for_goto:
             self.hardware.stop_motors()
             self.send_json(
                 {
                     "status": "imu_error",
-                    "message": "No MPU6050 or HMC5883L heading source available",
+                    "message": "No heading source available and require_heading_for_goto is enabled",
                 }
             )
             return
 
-        self.turn_to_angle(angle)
+        if heading is None:
+            self.open_loop_turn_to_angle(angle)
+        else:
+            self.last_heading = heading
+            self.turn_to_angle(angle)
+
         time.sleep(0.1)
+        drive_status = "goal_reached"
         if not self.movement_cancel.is_set():
-            self.drive_forward(distance_cm)
-        self.send_json({"status": "stopped" if self.movement_cancel.is_set() else "goal_reached"})
+            drive_status = self.drive_forward(distance_cm)
+        if self.movement_cancel.is_set():
+            drive_status = "stopped"
+        self.send_json({"status": drive_status})
 
     def turn_to_angle(self, target_angle: float) -> None:
         motion = self.config.motion
@@ -638,11 +703,40 @@ class RoverClient:
 
         self.hardware.stop_motors()
 
-    def drive_forward(self, distance_cm: float) -> None:
+    def open_loop_turn_to_angle(self, target_angle: float) -> None:
+        motion = self.config.motion
+        target_angle = normalize_heading_degrees(target_angle)
+        error = normalize_angle_degrees(target_angle - self.last_heading)
+        turn_rate = max(1.0, self.config.hardware.open_loop_turn_degrees_per_second)
+        duration = abs(error) / turn_rate
+        if duration <= 0:
+            return
+
+        speed = max(motion.turn_min_pwm, min(motion.turn_max_pwm, abs(error) * motion.turn_kp))
+        if error > 0:
+            left_speed, right_speed = speed, -speed
+        else:
+            left_speed, right_speed = -speed, speed
+
+        start = time.monotonic()
+        while (
+            time.monotonic() - start < duration
+            and not self.stop_requested.is_set()
+            and not self.movement_cancel.is_set()
+        ):
+            self.hardware.set_motors(left_speed, right_speed)
+            time.sleep(0.01)
+
+        self.hardware.stop_motors()
+        if not self.movement_cancel.is_set():
+            self.last_heading = target_angle
+
+    def drive_forward(self, distance_cm: float) -> str:
         distance_cm = max(0.0, distance_cm)
         duration = distance_cm * self.config.motion.drive_ms_per_cm / 1000.0
         start = time.monotonic()
         start_distance = self.distance_traveled_cm
+        last_obstacle_check = 0.0
 
         while (
             time.monotonic() - start < duration
@@ -650,6 +744,17 @@ class RoverClient:
             and not self.movement_cancel.is_set()
         ):
             self.hardware.update()
+            now = time.monotonic()
+            if now - last_obstacle_check >= self.config.hardware.obstacle_check_interval_seconds:
+                last_obstacle_check = now
+                front_distance = self.hardware.front_distance_cm()
+                if (
+                    front_distance is not None
+                    and front_distance <= self.config.hardware.obstacle_stop_distance_cm
+                ):
+                    self.hardware.stop_motors()
+                    return "obstacle_detected"
+
             progress = min(1.0, (time.monotonic() - start) / duration) if duration > 0 else 1.0
             self.distance_traveled_cm = start_distance + distance_cm * progress
             self.hardware.set_motors(self.config.motion.drive_pwm, self.config.motion.drive_pwm)
@@ -657,6 +762,7 @@ class RoverClient:
 
         self.distance_traveled_cm = start_distance + distance_cm
         self.hardware.stop_motors()
+        return "goal_reached"
 
     def request_stop(self, *_args: Any) -> None:
         self.stop_requested.set()
