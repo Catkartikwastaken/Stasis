@@ -1,3 +1,20 @@
+"""
+Stasis Forest Monitoring Rover - Raspberry Pi Client
+
+This module runs on the Raspberry Pi (Rover Client) and establishes a WebSocket
+connection with the host monitoring server. It receives navigation targets
+and scanning requests, executing closed-loop PID turning, open-loop driving,
+ultrasonic scanning, and sensor telemetry gathering.
+
+Hardware Support:
+- Direct DC Motor control via L911S H-Bridge connected directly to Pi GPIOs.
+- ESP32-S3-delegated DC Motor control via UART/Serial interface (using SerialMotorDriver).
+- Gyroscope yaw/imu sensing using MPU6050 over I2C.
+- Compass heading sensing using HMC5883L/GY-271 over I2C.
+- HC-SR04 Ultrasonic Distance Sensor for obstacle detection and scanning.
+- SG90 servo motor for sweeping the ultrasonic sensor.
+"""
+
 from __future__ import annotations
 
 import argparse
@@ -15,13 +32,16 @@ from typing import Any
 
 import websocket
 
-
+# Identifies the client device type to the server during WebSocket registration
 ROVER_TYPE = "rover"
 
 
 @dataclass
 class PinConfig:
-    # BCM numbering on the Raspberry Pi 2B 40-pin header.
+    """
+    GPIO Pin Allocations based on Broadcom (BCM) numbering on the 40-pin header.
+    These are only used if direct Raspberry Pi GPIO hardware interfaces are enabled.
+    """
     left_motor_forward: int = 5
     left_motor_reverse: int = 6
     right_motor_forward: int = 13
@@ -33,21 +53,27 @@ class PinConfig:
 
 @dataclass
 class MotionConfig:
-    turn_kp: float = 0.8
-    turn_tolerance_deg: float = 5.0
-    turn_min_pwm: float = 35.0
-    turn_max_pwm: float = 85.0
-    drive_pwm: float = 70.0
-    drive_ms_per_cm: float = 50.0
-    turn_timeout_seconds: float = 12.0
-    telemetry_interval_seconds: float = 0.5
-    heartbeat_interval_seconds: float = 5.0
-    scan_step_deg: int = 30
-    scan_settle_seconds: float = 0.25
+    """
+    Configuration parameters for movement calibration, PID constants, and timing timeouts.
+    """
+    turn_kp: float = 0.8                      # Proportional gain for closed-loop PID turning
+    turn_tolerance_deg: float = 5.0           # Acceptable angular error margin to declare a turn complete
+    turn_min_pwm: float = 35.0                # Minimum duty cycle to overcome static friction during turning
+    turn_max_pwm: float = 85.0                # Cap on motor speed duty cycle during high-error PID turns
+    drive_pwm: float = 70.0                   # Default forward driving speed duty cycle
+    drive_ms_per_cm: float = 50.0             # Open-loop calibration constant mapping drive duration to distance
+    turn_timeout_seconds: float = 12.0        # Timeout limit before aborting a closed-loop turn operation
+    telemetry_interval_seconds: float = 0.5   # Periodicity of sending status packets back to the dashboard
+    heartbeat_interval_seconds: float = 5.0   # Periodicity of keep-alive signals
+    scan_step_deg: int = 30                   # Angle step increment during ultrasonic sonar sweep
+    scan_settle_seconds: float = 0.25         # Delay to let servo stabilize before firing ultrasound trigger
 
 
 @dataclass
 class SensorConfig:
+    """
+    Configuration for onboard I2C sensors (MPU6050 Gyro, HMC5883L Compass).
+    """
     i2c_bus: int = 1
     mpu6050_address: int = 0x68
     hmc5883l_address: int = 0x1E
@@ -58,20 +84,29 @@ class SensorConfig:
 
 @dataclass
 class HardwareConfig:
-    direct_motor_control: bool = True
-    i2c_enabled: bool = False
-    mpu6050_enabled: bool = False
-    compass_enabled: bool = False
-    ultrasonic_enabled: bool = False
-    scanner_servo_enabled: bool = False
-    require_heading_for_goto: bool = False
-    open_loop_turn_degrees_per_second: float = 90.0
-    obstacle_stop_distance_cm: float = 25.0
-    obstacle_check_interval_seconds: float = 0.1
+    """
+    Switches to toggle physical hardware subsystems on/off, or enable serial communication delegation.
+    """
+    direct_motor_control: bool = True                     # Directly drive L911S from Raspberry Pi GPIO pins
+    esp32_serial_control: bool = False                    # Delegate L911S motor driving to ESP32-S3 over Serial
+    esp32_serial_port: str = "/dev/ttyUSB0"               # Serial port device node (e.g. COM3 on Win, /dev/ttyUSB0 on Linux)
+    esp32_baudrate: int = 115200                          # Baud rate matching ESP32 controller firmware
+    i2c_enabled: bool = False                             # Master toggle for I2C communication
+    mpu6050_enabled: bool = False                         # MPU6050 Inertial Measurement Unit toggle
+    compass_enabled: bool = False                         # GY-271 / HMC5883L Magnetometer toggle
+    ultrasonic_enabled: bool = False                      # HC-SR04 ultrasonic rangefinder toggle
+    scanner_servo_enabled: bool = False                   # SG90 sweep servo toggle
+    require_heading_for_goto: bool = False                # Reject navigation goals if no active IMU/Compass exists
+    open_loop_turn_degrees_per_second: float = 90.0       # Fallback calibration constant for non-IMU turns
+    obstacle_stop_distance_cm: float = 25.0               # Minimum distance threshold before emergency stopping
+    obstacle_check_interval_seconds: float = 0.1          # Polling rate of ultrasonic sensor during drive forward
 
 
 @dataclass
 class RoverConfig:
+    """
+    Aggregated configuration structure containing system settings and sub-component configs.
+    """
     server_host: str = ""
     server_port: int = 5000
     websocket_path: str = "/ws/rover"
@@ -83,7 +118,10 @@ class RoverConfig:
     hardware: HardwareConfig = field(default_factory=HardwareConfig)
 
     @classmethod
-    def from_mapping(cls, data: dict[str, Any]) -> "RoverConfig":
+    def from_mapping(cls, data: dict[str, Any]) -> RoverConfig:
+        """
+        Dynamically instantiates configurations from a nested dictionary structure.
+        """
         allowed = {field.name for field in fields(cls)}
         values = {key: value for key, value in data.items() if key in allowed}
         if "pins" in values:
@@ -98,11 +136,17 @@ class RoverConfig:
 
 
 def _dataclass_from_mapping(dataclass_type: Any, data: dict[str, Any]) -> Any:
+    """
+    Helper function to safely construct dataclasses from dynamic dictionaries.
+    """
     allowed = {field.name for field in fields(dataclass_type)}
     return dataclass_type(**{key: value for key, value in data.items() if key in allowed})
 
 
 def normalize_angle_degrees(angle: float) -> float:
+    """
+    Normalizes an angle to the [-180.0, 180.0] range.
+    """
     while angle > 180.0:
         angle -= 360.0
     while angle < -180.0:
@@ -111,24 +155,43 @@ def normalize_angle_degrees(angle: float) -> float:
 
 
 def normalize_heading_degrees(angle: float) -> float:
+    """
+    Normalizes an angle to the [0.0, 360.0) range for compass headings.
+    """
     return angle % 360.0
 
 
 def read_config(path: Path | None) -> RoverConfig:
+    """
+    Loads JSON configuration files and overlays environment variable settings.
+    
+    @param path The filepath to read config from.
+    @return Fully initialized RoverConfig object.
+    """
     config = RoverConfig()
-    if path is not None and path.exists():
-        config = RoverConfig.from_mapping(json.loads(path.read_text(encoding="utf-8")))
+    try:
+        if path is not None and path.exists():
+            config = RoverConfig.from_mapping(json.loads(path.read_text(encoding="utf-8")))
+            logging.info("Configuration successfully loaded from %s", path)
+    except Exception as exc:
+        logging.error("Failed to parse config file: %s. Using safe defaults.", exc)
 
     env_server = os.getenv("STASIS_SERVER_HOST")
     env_rover_id = os.getenv("STASIS_ROVER_ID")
     if env_server:
         config.server_host = env_server
+        logging.info("Overlayed server_host from environment: %s", env_server)
     if env_rover_id:
         config.rover_id = env_rover_id
+        logging.info("Overlayed rover_id from environment: %s", env_rover_id)
     return config
 
 
 class HardwareBase:
+    """
+    Abstract Hardware Base Class defining the mandatory interface for all
+    physical and simulated rover platforms.
+    """
     def setup(self) -> None:
         raise NotImplementedError
 
@@ -155,13 +218,18 @@ class HardwareBase:
 
 
 class SimulatedHardware(HardwareBase):
+    """
+    Provides mock telemetry, simulated motor movement kinematics, and synthetic
+    sensor output to support development and testing on personal computers without
+    physical hardware dependencies.
+    """
     def __init__(self, config: RoverConfig) -> None:
         self.config = config
         self.heading = 0.0
         self.last_update = time.monotonic()
 
     def setup(self) -> None:
-        logging.info("Simulation mode enabled; no GPIO or I2C hardware will be used")
+        logging.info("Simulation mode enabled; no GPIO, I2C, or Serial hardware will be used")
 
     def update(self) -> None:
         self.last_update = time.monotonic()
@@ -170,12 +238,14 @@ class SimulatedHardware(HardwareBase):
         return self.heading
 
     def set_motors(self, left_speed: float, right_speed: float) -> None:
-        if left_speed == 0 and right_speed == 0:
+        if left_speed == 0.0 and right_speed == 0.0:
             return
+        # Basic differential drive simulation mapping motor power mismatch to turn rate
         turn_rate = (right_speed - left_speed) * 0.8
         self.heading = normalize_heading_degrees(self.heading + turn_rate * 0.02)
 
     def scan(self) -> list[dict[str, float]]:
+        # Returns a nice synthetic dome pattern of distance readings
         return [
             {"angle": float(angle), "distance": 120.0 + angle / 3.0}
             for angle in range(0, 181, self.config.motion.scan_step_deg)
@@ -186,28 +256,45 @@ class SimulatedHardware(HardwareBase):
 
     def cleanup(self) -> None:
         self.stop_motors()
+        logging.info("Simulated hardware cleaned up.")
 
 
 class MotorDriver:
+    """
+    Drives dual DC motors directly connected to Raspberry Pi BCM GPIO pins
+    utilizing hardware-simulated software PWM via RPi.GPIO.
+    """
     def __init__(self, gpio: Any, pins: PinConfig) -> None:
         self.gpio = gpio
         self.pins = pins
         self.pwm_by_pin: dict[int, Any] = {}
 
     def setup(self) -> None:
-        for pin in (
-            self.pins.left_motor_forward,
-            self.pins.left_motor_reverse,
-            self.pins.right_motor_forward,
-            self.pins.right_motor_reverse,
-        ):
-            self.gpio.setup(pin, self.gpio.OUT)
-            pwm = self.gpio.PWM(pin, 1000)
-            pwm.start(0)
-            self.pwm_by_pin[pin] = pwm
-        self.stop()
+        """
+        Configures specified GPIO pins to output and starts PWM.
+        """
+        logging.info("Configuring direct Raspberry Pi GPIO motor pins...")
+        try:
+            for pin in (
+                self.pins.left_motor_forward,
+                self.pins.left_motor_reverse,
+                self.pins.right_motor_forward,
+                self.pins.right_motor_reverse,
+            ):
+                self.gpio.setup(pin, self.gpio.OUT)
+                pwm = self.gpio.PWM(pin, 1000)  # 1 kHz frequency limit
+                pwm.start(0)
+                self.pwm_by_pin[pin] = pwm
+            self.stop()
+            logging.info("Direct GPIO motor driver setup complete.")
+        except Exception as exc:
+            logging.exception("Failed to configure RPi.GPIO pins for direct motor control")
+            raise RuntimeError("Direct GPIO motor setup failed.") from exc
 
     def _set_pair(self, forward_pin: int, reverse_pin: int, speed: float) -> None:
+        """
+        Applies PWM signal based on motor direction.
+        """
         speed = max(-100.0, min(100.0, speed))
         forward = self.pwm_by_pin[forward_pin]
         reverse = self.pwm_by_pin[reverse_pin]
@@ -223,6 +310,9 @@ class MotorDriver:
             reverse.ChangeDutyCycle(0)
 
     def set_speeds(self, left_speed: float, right_speed: float) -> None:
+        """
+        Updates PWM duty cycles on both channels.
+        """
         self._set_pair(self.pins.left_motor_forward, self.pins.left_motor_reverse, left_speed)
         self._set_pair(self.pins.right_motor_forward, self.pins.right_motor_reverse, right_speed)
 
@@ -230,12 +320,121 @@ class MotorDriver:
         self.set_speeds(0.0, 0.0)
 
     def cleanup(self) -> None:
+        logging.info("Cleaning up MotorDriver...")
         self.stop()
         for pwm in self.pwm_by_pin.values():
-            pwm.stop()
+            try:
+                pwm.stop()
+            except Exception:
+                pass
+        self.pwm_by_pin.clear()
+
+
+class SerialMotorDriver:
+    """
+    Drives motors by delegating commands to an ESP32-S3 over a Serial connection.
+    
+    This implements serial motor control protocol which offloads PWM generation
+    and low-level driver switching from the Pi CPU.
+    """
+    def __init__(self, port: str, baudrate: int) -> None:
+        self.port = port
+        self.baudrate = baudrate
+        self.serial: Any = None
+        self.lock = threading.Lock()
+
+    def setup(self) -> None:
+        """
+        Initializes connection over UART/Serial port.
+        """
+        try:
+            import serial
+        except ImportError as exc:
+            raise RuntimeError(
+                "pyserial is required to use ESP32 Serial Motor Control. "
+                "Please run 'pip install pyserial' or verify your requirements installation."
+            ) from exc
+
+        logging.info("Connecting to ESP32 motor controller at %s (%d baud)...", self.port, self.baudrate)
+        try:
+            # We open with a timeout so read operations don't block indefinitely
+            self.serial = serial.Serial(
+                port=self.port,
+                baudrate=self.baudrate,
+                timeout=0.1,
+                write_timeout=0.5
+            )
+            # Allow the ESP32-S3 USB stack or UART driver to stabilize after DTR toggles
+            time.sleep(1.0)
+            self.serial.reset_input_buffer()
+            self.serial.reset_output_buffer()
+            logging.info("Successfully connected to ESP32 motor controller.")
+        except Exception as e:
+            logging.exception("Failed to open serial port %s", self.port)
+            raise RuntimeError(f"Could not connect to ESP32 motor controller on {self.port}. Verify port and permissions.") from e
+
+    def set_speeds(self, left_speed: float, right_speed: float) -> None:
+        """
+        Constructs and transmits the motor speed command packet over Serial.
+        Format: "M:left_speed,right_speed\n"
+        """
+        if self.serial is None or not self.serial.is_open:
+            logging.error("Serial port is disconnected. Cannot set motor speeds.")
+            return
+
+        # Clamp and cast to integer speed percentages
+        left_int = int(max(-100.0, min(100.0, left_speed)))
+        right_int = int(max(-100.0, min(100.0, right_speed)))
+
+        command = f"M:{left_int},{right_int}\n"
+        with self.lock:
+            try:
+                self.serial.write(command.encode("utf-8"))
+                self.serial.flush()
+                logging.debug("Sent serial motor command: %s", command.strip())
+
+                # Empty the incoming buffer to receive diagnostic logging/ACK from ESP32
+                while self.serial.in_waiting > 0:
+                    line = self.serial.readline().decode("utf-8", errors="ignore").strip()
+                    if line:
+                        logging.debug("ESP32: %s", line)
+                        if "WARNING" in line or "ERR" in line:
+                            logging.warning("ESP32 Warning/Error reported: %s", line)
+            except Exception as exc:
+                logging.error("Failed to transmit serial speed commands: %s", exc)
+                self._handle_disconnection()
+
+    def _handle_disconnection(self) -> None:
+        logging.warning("Closing serial port due to communication failure...")
+        try:
+            if self.serial and self.serial.is_open:
+                self.serial.close()
+        except Exception:
+            pass
+        self.serial = None
+
+    def stop(self) -> None:
+        self.set_speeds(0.0, 0.0)
+
+    def cleanup(self) -> None:
+        logging.info("Cleaning up SerialMotorDriver...")
+        try:
+            self.stop()
+            time.sleep(0.05)
+            if self.serial and self.serial.is_open:
+                self.serial.close()
+                logging.info("Serial connection closed cleanly.")
+        except Exception as e:
+            logging.error("Error during serial driver cleanup: %s", e)
+        finally:
+            self.serial = None
 
 
 class MPU6050:
+    """
+    High-level driver for MPU6050 6-Axis Motion Tracking I2C sensor.
+    Uses integration over yaw gyro output (Z-axis) to estimate relative headings.
+    """
     GYRO_ZOUT_H = 0x47
     PWR_MGMT_1 = 0x6B
     GYRO_CONFIG = 0x1B
@@ -251,49 +450,78 @@ class MPU6050:
         self.ready = False
 
     def setup(self) -> None:
-        self.bus.write_byte_data(self.address, self.PWR_MGMT_1, 0x00)
-        self.bus.write_byte_data(self.address, self.GYRO_CONFIG, 0x08)  # +/- 500 deg/s
-        self.bus.write_byte_data(self.address, self.CONFIG, 0x04)  # roughly 21 Hz bandwidth
-        time.sleep(0.1)
-        self.calibrate()
-        self.ready = True
-        logging.info("MPU6050 ready")
+        """
+        Wakes up the sensor, configures gyro full-scale range and filtering.
+        """
+        try:
+            self.bus.write_byte_data(self.address, self.PWR_MGMT_1, 0x00)
+            self.bus.write_byte_data(self.address, self.GYRO_CONFIG, 0x08)  # +/- 500 deg/s
+            self.bus.write_byte_data(self.address, self.CONFIG, 0x04)  # 21 Hz low-pass filter
+            time.sleep(0.1)
+            self.calibrate()
+            self.ready = True
+            logging.info("MPU6050 IMU successfully initialized.")
+        except Exception as exc:
+            logging.exception("Failed to communicate with MPU6050 during setup")
+            raise OSError("MPU6050 initialization failed.") from exc
 
     def read_s16(self, register: int) -> int:
+        """
+        Reads a signed 16-bit word from a specified register.
+        """
         high = self.bus.read_byte_data(self.address, register)
         low = self.bus.read_byte_data(self.address, register + 1)
         value = (high << 8) | low
         return value - 65536 if value & 0x8000 else value
 
     def read_gyro_z_deg_per_sec(self) -> float:
-        return self.read_s16(self.GYRO_ZOUT_H) / 65.5
+        """
+        Queries Z gyro register and scales values to degrees per second.
+        """
+        return self.read_s16(self.GYRO_ZOUT_H) / 65.5  # Sensitivity scale factor for +/- 500 deg/s
 
     def calibrate(self) -> None:
+        """
+        Samples stationary gyro Z drift to establish a calibration bias offset.
+        """
         samples = max(1, self.sensor_config.gyro_calibration_samples)
-        logging.info("Calibrating MPU6050 gyro; keep the rover still")
+        logging.info("Calibrating MPU6050 gyro (sampling %d cycles)... Keep rover still.", samples)
         total = 0.0
         for _ in range(samples):
-            total += self.read_gyro_z_deg_per_sec()
+            try:
+                total += self.read_gyro_z_deg_per_sec()
+            except OSError:
+                pass
             time.sleep(0.005)
         self.gyro_z_bias = total / samples
         self.yaw_deg = 0.0
         self.last_update = time.monotonic()
-        logging.info("Gyro Z bias: %.3f deg/s", self.gyro_z_bias)
+        logging.info("Gyro Z Calibration completed. Bias offset: %.3f deg/s", self.gyro_z_bias)
 
     def update(self) -> None:
+        """
+        Integrates gyro velocity over delta time to compute estimated yaw change.
+        """
         if not self.ready:
             return
 
-        now = time.monotonic()
-        dt = now - self.last_update
-        self.last_update = now
-        gyro_z = self.read_gyro_z_deg_per_sec() - self.gyro_z_bias
-        if abs(gyro_z) < self.sensor_config.gyro_deadband_deg_per_sec:
-            gyro_z = 0.0
-        self.yaw_deg = normalize_angle_degrees(self.yaw_deg + gyro_z * dt)
+        try:
+            now = time.monotonic()
+            dt = now - self.last_update
+            self.last_update = now
+            gyro_z = self.read_gyro_z_deg_per_sec() - self.gyro_z_bias
+            if abs(gyro_z) < self.sensor_config.gyro_deadband_deg_per_sec:
+                gyro_z = 0.0
+            self.yaw_deg = normalize_angle_degrees(self.yaw_deg + gyro_z * dt)
+        except OSError:
+            logging.debug("MPU6050 update failed. Skipping reading slice.")
 
 
 class HMC5883L:
+    """
+    Driver for GY-271 / HMC5883L 3-Axis Magnetometer.
+    Computes absolute orientation headings using earth magnetic fields.
+    """
     def __init__(self, bus: Any, address: int, declination_deg: float) -> None:
         self.bus = bus
         self.address = address
@@ -301,11 +529,18 @@ class HMC5883L:
         self.ready = False
 
     def setup(self) -> None:
-        self.bus.write_byte_data(self.address, 0x00, 0x70)
-        self.bus.write_byte_data(self.address, 0x01, 0x20)
-        self.bus.write_byte_data(self.address, 0x02, 0x00)
-        self.ready = True
-        logging.info("GY-271/HMC5883L compass ready")
+        """
+        Configures sample averaging, gain settings, and sets operating mode.
+        """
+        try:
+            self.bus.write_byte_data(self.address, 0x00, 0x70)  # 8-sample avg, 15 Hz default
+            self.bus.write_byte_data(self.address, 0x01, 0x20)  # Gain setting
+            self.bus.write_byte_data(self.address, 0x02, 0x00)  # Continuous-measurement mode
+            self.ready = True
+            logging.info("GY-271/HMC5883L Compass initialized.")
+        except Exception as exc:
+            logging.exception("Failed to initialize HMC5883L compass")
+            raise OSError("HMC5883L Compass setup failed.") from exc
 
     def read_s16_pair(self, high_register: int) -> int:
         high = self.bus.read_byte_data(self.address, high_register)
@@ -314,50 +549,83 @@ class HMC5883L:
         return value - 65536 if value & 0x8000 else value
 
     def heading(self) -> float | None:
+        """
+        Calculates magnetic azimuth, applies magnetic declination offset,
+        and returns heading degrees in [0, 360).
+        """
         if not self.ready:
             return None
 
-        x = self.read_s16_pair(0x03)
-        y = self.read_s16_pair(0x07)
-        heading = math.degrees(math.atan2(y, x)) + self.declination_deg
-        return normalize_heading_degrees(heading)
+        try:
+            x = self.read_s16_pair(0x03)
+            y = self.read_s16_pair(0x07)
+            heading = math.degrees(math.atan2(y, x)) + self.declination_deg
+            return normalize_heading_degrees(heading)
+        except OSError:
+            logging.debug("HMC5883L compass read failed.")
+            return None
 
 
 class UltrasonicSensor:
+    """
+    Driver for HC-SR04 ultrasonic range finder sensor using high-precision
+    monotomic clock measurements of GPIO pin transits.
+    """
     def __init__(self, gpio: Any, trig_pin: int, echo_pin: int) -> None:
         self.gpio = gpio
         self.trig_pin = trig_pin
         self.echo_pin = echo_pin
 
     def setup(self) -> None:
-        self.gpio.setup(self.trig_pin, self.gpio.OUT)
-        self.gpio.setup(self.echo_pin, self.gpio.IN)
-        self.gpio.output(self.trig_pin, False)
-        time.sleep(0.05)
+        try:
+            self.gpio.setup(self.trig_pin, self.gpio.OUT)
+            self.gpio.setup(self.echo_pin, self.gpio.IN)
+            self.gpio.output(self.trig_pin, False)
+            time.sleep(0.05)
+        except Exception as exc:
+            logging.error("Failed to setup HC-SR04 GPIO: %s", exc)
+            raise RuntimeError("Ultrasonic GPIO setup error.") from exc
 
     def distance_cm(self) -> float:
-        self.gpio.output(self.trig_pin, False)
-        time.sleep(0.000002)
-        self.gpio.output(self.trig_pin, True)
-        time.sleep(0.00001)
-        self.gpio.output(self.trig_pin, False)
+        """
+        Triggers ultrasonic sensor burst and measures pulse width to compute distance.
+        @return Obstacle distance in centimeters, or -1.0 if timeout occurred.
+        """
+        try:
+            # Clear trigger pin
+            self.gpio.output(self.trig_pin, False)
+            time.sleep(0.000002)
+            # Assert 10us trigger pulse
+            self.gpio.output(self.trig_pin, True)
+            time.sleep(0.00001)
+            self.gpio.output(self.trig_pin, False)
 
-        deadline = time.monotonic() + 0.03
-        while self.gpio.input(self.echo_pin) == 0:
-            if time.monotonic() > deadline:
-                return -1.0
-        pulse_start = time.monotonic()
+            # Wait for Echo pin to rise
+            deadline = time.monotonic() + 0.03
+            while self.gpio.input(self.echo_pin) == 0:
+                if time.monotonic() > deadline:
+                    return -1.0
+            pulse_start = time.monotonic()
 
-        deadline = time.monotonic() + 0.03
-        while self.gpio.input(self.echo_pin) == 1:
-            if time.monotonic() > deadline:
-                return -1.0
-        pulse_end = time.monotonic()
+            # Wait for Echo pin to fall
+            deadline = time.monotonic() + 0.03
+            while self.gpio.input(self.echo_pin) == 1:
+                if time.monotonic() > deadline:
+                    return -1.0
+            pulse_end = time.monotonic()
 
-        return (pulse_end - pulse_start) * 34300.0 / 2.0
+            # Calculate distance using speed of sound (343 m/s)
+            return (pulse_end - pulse_start) * 34300.0 / 2.0
+        except Exception as e:
+            logging.error("Error reading HC-SR04 distance: %s", e)
+            return -1.0
 
 
 class ServoScanner:
+    """
+    Drives an SG90 sweep servo to position the HC-SR04 sensor at angular offsets
+    for generating sonar-like spatial distance map sweeps.
+    """
     def __init__(self, gpio: Any, servo_pin: int, sensor: UltrasonicSensor, motion: MotionConfig) -> None:
         self.gpio = gpio
         self.servo_pin = servo_pin
@@ -366,71 +634,119 @@ class ServoScanner:
         self.pwm: Any = None
 
     def setup(self) -> None:
-        self.gpio.setup(self.servo_pin, self.gpio.OUT)
-        self.pwm = self.gpio.PWM(self.servo_pin, 50)
-        self.pwm.start(0)
-        self.write_angle(90)
+        try:
+            self.gpio.setup(self.servo_pin, self.gpio.OUT)
+            self.pwm = self.gpio.PWM(self.servo_pin, 50)  # SG90 50 Hz PWM frequency
+            self.pwm.start(0)
+            self.write_angle(90)  # Face forward immediately
+        except Exception as exc:
+            logging.error("Failed to setup SG90 servo PWM: %s", exc)
+            raise RuntimeError("Servo PWM initialization failed.") from exc
 
     def write_angle(self, angle: int) -> None:
+        """
+        Positions servo to specific angle between 0 and 180 degrees.
+        """
+        if self.pwm is None:
+            return
         angle = max(0, min(180, angle))
-        duty_cycle = 2.5 + angle / 18.0
-        self.pwm.ChangeDutyCycle(duty_cycle)
-        time.sleep(0.05)
-        self.pwm.ChangeDutyCycle(0)
+        duty_cycle = 2.5 + angle / 18.0  # standard mapping to 0.5ms - 2.5ms pulse widths
+        try:
+            self.pwm.ChangeDutyCycle(duty_cycle)
+            time.sleep(0.05)
+            self.pwm.ChangeDutyCycle(0)  # Stop sending signal pulse to avoid servo jitter
+        except Exception as exc:
+            logging.error("Failed to command servo: %s", exc)
 
     def scan(self) -> list[dict[str, float]]:
+        """
+        Performs sweeping sonar sweep of environment and centers forward again.
+        """
         readings = []
         for angle in range(0, 181, self.motion.scan_step_deg):
             self.write_angle(angle)
             time.sleep(self.motion.scan_settle_seconds)
             readings.append({"angle": float(angle), "distance": self.sensor.distance_cm()})
-        self.write_angle(90)
+        self.write_angle(90)  # Return to forward position
         return readings
 
     def cleanup(self) -> None:
+        logging.info("Cleaning up SG90 sweep servo...")
         if self.pwm is not None:
-            self.pwm.stop()
+            try:
+                self.pwm.stop()
+            except Exception:
+                pass
+            self.pwm = None
 
 
 class RealRoverHardware(HardwareBase):
+    """
+    Bridges all physical hardware drivers, configuring them per user configurations
+    and handling cascading runtime errors gracefully.
+    """
     def __init__(self, config: RoverConfig) -> None:
         self.config = config
         self.gpio: Any = None
         self.bus: Any = None
-        self.motors: MotorDriver | None = None
+        self.motors: MotorDriver | SerialMotorDriver | None = None
         self.imu: MPU6050 | None = None
         self.compass: HMC5883L | None = None
         self.ultrasonic: UltrasonicSensor | None = None
         self.scanner: ServoScanner | None = None
 
     def setup(self) -> None:
+        """
+        Initializes Raspberry Pi physical interfaces and sub-drivers.
+        """
         try:
             import RPi.GPIO as GPIO
         except ImportError as exc:
-            raise RuntimeError("RPi.GPIO is required on the Raspberry Pi. Use --simulate on a laptop.") from exc
+            # If ESP32 serial motor control is enabled, we don't strictly require RPi.GPIO
+            # unless sweep sensors are also toggled. This allows running motor control
+            # directly from a PC/Mac for testing!
+            if not self.config.hardware.esp32_serial_control or self.config.hardware.ultrasonic_enabled or self.config.hardware.scanner_servo_enabled:
+                raise RuntimeError(
+                    "RPi.GPIO is required on the physical Raspberry Pi platform. "
+                    "Use --simulate to run virtual hardware simulation on a laptop."
+                ) from exc
+            GPIO = None
 
         self.gpio = GPIO
-        GPIO.setmode(GPIO.BCM)
-        GPIO.setwarnings(False)
+        if GPIO is not None:
+            GPIO.setmode(GPIO.BCM)
+            GPIO.setwarnings(False)
 
-        if self.config.hardware.direct_motor_control:
+        # 1. Configure Motors (either ESP32 Serial delegated or direct Pi GPIO)
+        if self.config.hardware.esp32_serial_control:
+            self.motors = SerialMotorDriver(
+                self.config.hardware.esp32_serial_port,
+                self.config.hardware.esp32_baudrate
+            )
+            self.motors.setup()
+        elif self.config.hardware.direct_motor_control:
+            if GPIO is None:
+                raise RuntimeError("RPi.GPIO library is missing; direct motor control impossible.")
             self.motors = MotorDriver(GPIO, self.config.pins)
             self.motors.setup()
         else:
-            logging.warning("Direct Pi motor control is disabled; motor commands will be no-ops")
+            logging.warning("Motor drivers disabled in configuration; speeds will be ignored.")
 
+        # 2. Configure I2C Sensors
         self._setup_i2c()
+
+        # 3. Configure Sonar sweeps
         self._setup_scanner()
 
     def _setup_i2c(self) -> None:
         if not self.config.hardware.i2c_enabled:
-            logging.info("I2C sensors disabled by config; using minimal-wire rover mode")
+            logging.info("I2C sensors disabled by config.")
             return
 
         try:
             from smbus2 import SMBus
         except ImportError:
-            logging.warning("smbus2 is not installed; MPU6050 and compass are disabled")
+            logging.warning("smbus2 is not installed; MPU6050 and HMC5883L compass disabled.")
             return
 
         try:
@@ -444,7 +760,7 @@ class RealRoverHardware(HardwareBase):
             try:
                 self.imu.setup()
             except OSError:
-                logging.exception("MPU6050 not found; gyro yaw is disabled")
+                logging.exception("MPU6050 sensor not found on I2C bus; heading tracking disabled.")
                 self.imu = None
 
         if self.config.hardware.compass_enabled:
@@ -456,12 +772,16 @@ class RealRoverHardware(HardwareBase):
             try:
                 self.compass.setup()
             except OSError:
-                logging.exception("GY-271/HMC5883L compass not found; compass heading is disabled")
+                logging.exception("HMC5883L compass sensor not found on I2C bus; compass disabled.")
                 self.compass = None
 
     def _setup_scanner(self) -> None:
         if not self.config.hardware.ultrasonic_enabled:
-            logging.info("Ultrasonic obstacle sensor disabled by config")
+            logging.info("Ultrasonic sensor disabled by config.")
+            return
+
+        if self.gpio is None:
+            logging.warning("GPIO interface unavailable. Cannot initialize HC-SR04.")
             return
 
         self.ultrasonic = UltrasonicSensor(
@@ -469,10 +789,15 @@ class RealRoverHardware(HardwareBase):
             self.config.pins.ultrasonic_trig,
             self.config.pins.ultrasonic_echo,
         )
-        self.ultrasonic.setup()
+        try:
+            self.ultrasonic.setup()
+        except Exception:
+            logging.exception("Failed to configure Ultrasonic rangefinder.")
+            self.ultrasonic = None
+            return
 
         if not self.config.hardware.scanner_servo_enabled:
-            logging.info("Scanner servo disabled by config; using fixed forward ultrasonic only")
+            logging.info("Scanner servo sweeping disabled by config.")
             return
 
         self.scanner = ServoScanner(
@@ -481,26 +806,36 @@ class RealRoverHardware(HardwareBase):
             self.ultrasonic,
             self.config.motion,
         )
-        self.scanner.setup()
+        try:
+            self.scanner.setup()
+        except Exception:
+            logging.exception("Failed to configure SG90 scanner servo.")
+            self.scanner = None
 
     def update(self) -> None:
+        """
+        Invoked periodically by the main loops to run heading calculations.
+        """
         if self.imu is not None:
             try:
                 self.imu.update()
             except OSError:
-                logging.exception("MPU6050 read failed; disabling gyro yaw")
+                logging.exception("MPU6050 read failure during update; disabling IMU.")
                 self.imu = None
 
     def read_heading(self) -> float | None:
+        """
+        Checks available heading telemetry. Prefers Compass, falls back to integrated IMU yaw.
+        """
         if self.compass is not None:
             try:
                 heading = self.compass.heading()
+                if heading is not None:
+                    return heading
             except OSError:
-                logging.exception("Compass read failed; disabling compass heading")
+                logging.exception("Compass read error; disabling compass sensor.")
                 self.compass = None
-                heading = None
-            if heading is not None:
-                return heading
+
         if self.imu is not None:
             return normalize_heading_degrees(self.imu.yaw_deg)
         return None
@@ -526,17 +861,38 @@ class RealRoverHardware(HardwareBase):
         return distance
 
     def cleanup(self) -> None:
+        """
+        Performs safe teardown of motor PWM, close serial links, and resets GPIO.
+        """
+        logging.info("Shutting down physical hardware devices...")
         if self.motors is not None:
-            self.motors.cleanup()
+            try:
+                self.motors.cleanup()
+            except Exception:
+                pass
         if self.scanner is not None:
-            self.scanner.cleanup()
+            try:
+                self.scanner.cleanup()
+            except Exception:
+                pass
         if self.bus is not None:
-            self.bus.close()
+            try:
+                self.bus.close()
+            except Exception:
+                pass
         if self.gpio is not None:
-            self.gpio.cleanup()
+            try:
+                self.gpio.cleanup()
+            except Exception:
+                pass
+        logging.info("Hardware teardown complete.")
 
 
 class RoverClient:
+    """
+    Main Thread supervisor managing remote communications, telemetry transmissions,
+    and delegating navigational command packets.
+    """
     def __init__(self, config: RoverConfig, hardware: HardwareBase) -> None:
         self.config = config
         self.hardware = hardware
@@ -554,47 +910,57 @@ class RoverClient:
         return f"ws://{self.config.server_host}:{self.config.server_port}{self.config.websocket_path}"
 
     def send_json(self, payload: dict[str, Any]) -> None:
+        """
+        Safely serializes and sends JSON messages over the WebSocket link.
+        """
         if not self.connected.is_set() or self.ws is None:
             return
         message = json.dumps(payload, separators=(",", ":"))
         with self.send_lock:
             try:
                 self.ws.send(message)
-            except Exception:
-                logging.exception("Could not send rover message")
+            except Exception as exc:
+                logging.error("Failed to transmit WebSocket message: %s", exc)
                 self.connected.clear()
 
     def on_open(self, ws: websocket.WebSocketApp) -> None:
-        logging.info("Connected to %s", self.websocket_url)
+        logging.info("WebSocket handshake successful. Connected to %s", self.websocket_url)
         self.connected.set()
+        # Identity registration packet
         self.send_json({"id": self.config.rover_id, "type": ROVER_TYPE})
         self.send_json({"status": "ready"})
 
     def on_close(self, ws: websocket.WebSocketApp, status_code: int, message: str) -> None:
-        logging.warning("WebSocket closed: %s %s", status_code, message)
+        logging.warning("WebSocket link severed: Status: %s - %s", status_code, message)
         self.connected.clear()
         self.hardware.stop_motors()
 
     def on_error(self, ws: websocket.WebSocketApp, error: Exception) -> None:
-        logging.warning("WebSocket error: %s", error)
+        logging.warning("WebSocket exception occurred: %s", error)
 
     def on_message(self, ws: websocket.WebSocketApp, message: str) -> None:
         try:
             payload = json.loads(message)
         except json.JSONDecodeError:
-            logging.warning("Ignoring non-JSON message: %s", message)
+            logging.warning("Received invalid non-JSON telemetry packet: %s", message)
             return
 
         if isinstance(payload, dict) and payload.get("cmd") == "stop":
+            # Interrupt active operations instantly
+            logging.info("Received immediate EMERGENCY STOP directive from server.")
             self.movement_cancel.set()
             self.hardware.stop_motors()
             self.send_json({"status": "stopped"})
         elif isinstance(payload, dict) and "cmd" in payload:
+            logging.debug("Enqueued command packet: %s", payload.get("cmd"))
             self.command_queue.put(payload)
         else:
-            logging.debug("Server message: %s", payload)
+            logging.debug("Non-executable server dispatch: %s", payload)
 
     def telemetry_loop(self) -> None:
+        """
+        Fires periodic state telemetry reports and keeps the connection active.
+        """
         last_heartbeat = 0.0
         last_telemetry = 0.0
         while not self.stop_requested.is_set():
@@ -605,6 +971,7 @@ class RoverClient:
             if heading is not None:
                 self.last_heading = heading
 
+            # 1. Periodically transmit heading and spatial movement metrics
             if now - last_telemetry >= self.config.motion.telemetry_interval_seconds:
                 last_telemetry = now
                 self.send_json(
@@ -614,6 +981,7 @@ class RoverClient:
                     }
                 )
 
+            # 2. Periodically transmit server status heartbeats
             if now - last_heartbeat >= self.config.motion.heartbeat_interval_seconds:
                 last_heartbeat = now
                 self.send_json({"status": "ready"})
@@ -621,19 +989,26 @@ class RoverClient:
             time.sleep(0.02)
 
     def command_loop(self) -> None:
+        """
+        Pulls command packets from queue and dispatches execution targets sequentially.
+        """
         while not self.stop_requested.is_set():
             try:
                 command = self.command_queue.get(timeout=0.2)
             except queue.Empty:
                 continue
             try:
+                logging.info("Executing commanded task: %s", command.get("cmd"))
                 self.handle_command(command)
             except Exception:
-                logging.exception("Command failed: %s", command)
+                logging.exception("Exception occurred during commanded execution block")
                 self.hardware.stop_motors()
                 self.send_json({"status": "command_error"})
 
     def handle_command(self, command: dict[str, Any]) -> None:
+        """
+        Handles routing and execution of enqueued commands.
+        """
         cmd = command.get("cmd")
         if cmd == "goto":
             self.handle_goto(float(command.get("angle", 0.0)), float(command.get("distance", 0.0)))
@@ -646,12 +1021,18 @@ class RoverClient:
             self.hardware.stop_motors()
             self.send_json({"status": "stopped"})
         else:
-            logging.warning("Unknown command: %s", command)
+            logging.warning("Unrecognized routing target requested: %s", command)
 
     def handle_goto(self, angle: float, distance_cm: float) -> None:
+        """
+        Closed-loop navigator that coordinates turning towards target azimuth,
+        followed by driving straight for a given distance while checking for obstacles.
+        """
         self.movement_cancel.clear()
         heading = self.hardware.read_heading()
+        
         if heading is None and self.config.hardware.require_heading_for_goto:
+            logging.error("IMU/Compass headings missing! Rejecting Goto command.")
             self.hardware.stop_motors()
             self.send_json(
                 {
@@ -661,21 +1042,33 @@ class RoverClient:
             )
             return
 
+        # 1. Adjust orientation heading
         if heading is None:
+            # Fallback to open-loop timed turn
+            logging.warning("Compass/IMU readings absent. Executing timed open-loop alignment.")
             self.open_loop_turn_to_angle(angle)
         else:
             self.last_heading = heading
+            logging.info("Executing closed-loop PID alignment to target: %.1f deg", angle)
             self.turn_to_angle(angle)
 
-        time.sleep(0.1)
+        time.sleep(0.1)  # Settling buffer delay
+        
+        # 2. Advance forward safely
         drive_status = "goal_reached"
         if not self.movement_cancel.is_set():
+            logging.info("Driving forward %.1f cm...", distance_cm)
             drive_status = self.drive_forward(distance_cm)
+            
         if self.movement_cancel.is_set():
             drive_status = "stopped"
+            
         self.send_json({"status": drive_status})
 
     def turn_to_angle(self, target_angle: float) -> None:
+        """
+        Closed-loop PID turning loop. Drives differential motors to match target heading.
+        """
         motion = self.config.motion
         target_angle = normalize_heading_degrees(target_angle)
         deadline = time.monotonic() + motion.turn_timeout_seconds
@@ -688,12 +1081,18 @@ class RoverClient:
             self.hardware.update()
             heading = self.hardware.read_heading()
             if heading is None:
+                logging.error("Lost heading feedback midpoint of turning. Aborting turn.")
                 break
+            
             self.last_heading = heading
             error = normalize_angle_degrees(target_angle - heading)
+            
+            # Escape criteria
             if abs(error) <= motion.turn_tolerance_deg:
+                logging.info("PID turning target reached. Margin error: %.2f deg.", error)
                 break
 
+            # Calculate proportional power
             speed = max(motion.turn_min_pwm, min(motion.turn_max_pwm, abs(error) * motion.turn_kp))
             if error > 0:
                 self.hardware.set_motors(speed, -speed)
@@ -704,6 +1103,9 @@ class RoverClient:
         self.hardware.stop_motors()
 
     def open_loop_turn_to_angle(self, target_angle: float) -> None:
+        """
+        Fallback open-loop turning method based on time estimations.
+        """
         motion = self.config.motion
         target_angle = normalize_heading_degrees(target_angle)
         error = normalize_angle_degrees(target_angle - self.last_heading)
@@ -732,6 +1134,9 @@ class RoverClient:
             self.last_heading = target_angle
 
     def drive_forward(self, distance_cm: float) -> str:
+        """
+        Drives forward, continuously checking ultrasonic sensor for obstacles.
+        """
         distance_cm = max(0.0, distance_cm)
         duration = distance_cm * self.config.motion.drive_ms_per_cm / 1000.0
         start = time.monotonic()
@@ -745,6 +1150,8 @@ class RoverClient:
         ):
             self.hardware.update()
             now = time.monotonic()
+            
+            # Periodically poll obstacle avoidance scanner
             if now - last_obstacle_check >= self.config.hardware.obstacle_check_interval_seconds:
                 last_obstacle_check = now
                 front_distance = self.hardware.front_distance_cm()
@@ -752,6 +1159,10 @@ class RoverClient:
                     front_distance is not None
                     and front_distance <= self.config.hardware.obstacle_stop_distance_cm
                 ):
+                    logging.warning(
+                        "Obstacle detected at %.1f cm! Executing emergency stop.", 
+                        front_distance
+                    )
                     self.hardware.stop_motors()
                     return "obstacle_detected"
 
@@ -765,20 +1176,38 @@ class RoverClient:
         return "goal_reached"
 
     def request_stop(self, *_args: Any) -> None:
+        """
+        Clean signal handler triggered by termination events (SIGINT, SIGTERM).
+        """
+        logging.info("RoverClient termination request received. Safely stopping motors.")
         self.stop_requested.set()
         self.movement_cancel.set()
         self.connected.clear()
         self.hardware.stop_motors()
         if self.ws is not None:
-            self.ws.close()
+            try:
+                self.ws.close()
+            except Exception:
+                pass
 
     def run(self) -> None:
-        self.hardware.setup()
+        """
+        Initializes hardware hooks, spawns command & telemetry loops, and starts
+        the blocking WebSocket auto-reconnect cycle.
+        """
+        try:
+            self.hardware.setup()
+        except Exception as exc:
+            logging.exception("Fatal error setting up rover client hardware components")
+            return
+
+        # Start communication supervisor threads
         threading.Thread(target=self.command_loop, name="command-loop", daemon=True).start()
         threading.Thread(target=self.telemetry_loop, name="telemetry-loop", daemon=True).start()
 
+        # Connect / reconnect loop
         while not self.stop_requested.is_set():
-            logging.info("Connecting to %s as %s", self.websocket_url, self.config.rover_id)
+            logging.info("Initiating connection to server %s as %s", self.websocket_url, self.config.rover_id)
             self.ws = websocket.WebSocketApp(
                 self.websocket_url,
                 on_open=self.on_open,
@@ -786,9 +1215,15 @@ class RoverClient:
                 on_error=self.on_error,
                 on_message=self.on_message,
             )
-            self.ws.run_forever(ping_interval=15, ping_timeout=3)
+            try:
+                self.ws.run_forever(ping_interval=15, ping_timeout=3)
+            except Exception as e:
+                logging.error("WebSocket run_forever experienced an exception: %s", e)
+            
             self.connected.clear()
             self.hardware.stop_motors()
+            
+            # Wait briefly before attempting reconnect
             if not self.stop_requested.is_set():
                 time.sleep(3)
 
@@ -796,12 +1231,12 @@ class RoverClient:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="STASIS Raspberry Pi 2B rover client")
+    parser = argparse.ArgumentParser(description="STASIS Raspberry Pi rover client")
     parser.add_argument("--config", type=Path, default=Path("config.json"))
     parser.add_argument("--server", help="Laptop/server IP or hostname running Flask on port 5000")
     parser.add_argument("--port", type=int, help="Server WebSocket port")
     parser.add_argument("--rover-id", help="Rover client id expected by the server")
-    parser.add_argument("--simulate", action="store_true", help="Run without GPIO/I2C hardware")
+    parser.add_argument("--simulate", action="store_true", help="Run without physical sensor interfaces")
     parser.add_argument("--log-level", default="INFO")
     return parser.parse_args()
 
@@ -809,8 +1244,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     logging.basicConfig(level=args.log_level.upper(), format="%(asctime)s %(levelname)s %(message)s")
+    
+    # Read config file safely
     config = read_config(args.config)
 
+    # Command line overrides
     if args.server:
         config.server_host = args.server
     if args.port:
@@ -821,13 +1259,22 @@ def main() -> None:
         config.simulate = True
 
     if not config.server_host:
-        raise SystemExit("Set server_host in config.json or pass --server <SERVER_IP>.")
+        raise SystemExit("STASIS server host ip is unspecified. Use config.json or specify via --server <IP>.")
 
+    # Select hardware implementation
     hardware: HardwareBase = SimulatedHardware(config) if config.simulate else RealRoverHardware(config)
     client = RoverClient(config, hardware)
+    
+    # Register termination signals for graceful stopping
     signal.signal(signal.SIGINT, client.request_stop)
     signal.signal(signal.SIGTERM, client.request_stop)
-    client.run()
+    
+    try:
+        client.run()
+    except Exception as exc:
+        logging.critical("Stasis rover client terminated with a fatal exception: %s", exc)
+    finally:
+        logging.info("Stasis client session terminated safely.")
 
 
 if __name__ == "__main__":
