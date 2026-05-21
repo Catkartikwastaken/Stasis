@@ -34,11 +34,15 @@ cp config.example.json config.json
 
 Edit `server_host` to the IP address of the laptop running `server/security_rover_server_windows.py` or `server/security_rover_server.py`.
 
-Enable optional hardware only when it is actually connected:
+Enable optional hardware and ESP32 serial motor control only when they are physically connected:
 
 ```json
 {
   "hardware": {
+    "direct_motor_control": false,
+    "esp32_serial_control": true,
+    "esp32_serial_port": "/dev/ttyUSB0",
+    "esp32_baudrate": 115200,
     "i2c_enabled": true,
     "mpu6050_enabled": true,
     "compass_enabled": true,
@@ -68,11 +72,12 @@ sudo systemctl enable --now stasis-rover
 sudo systemctl status stasis-rover
 ```
 
-## Wiring
+## Wiring Diagrams
 
-The default config uses Raspberry Pi BCM pin numbers.
+The rover supports two motor driving methods: direct GPIO control and mediated ESP32-S3 control.
 
-L911S/L9110S motor driver:
+### Option A: Direct Raspberry Pi GPIO L911S Control
+Uses Raspberry Pi BCM GPIO pin allocations:
 
 ```text
 BCM 5   -> A-IA / IA, left motor forward input
@@ -83,7 +88,25 @@ GND     -> L911S/L9110S GND and motor battery negative
 VM/VCC  -> Motor battery positive, matched to your motors/driver board
 ```
 
-If your board labels the first channel as only `IA` and `IB`, wire those to the left motor inputs above and use the second channel for the right motor.
+### Option B: ESP32-S3 Mediated L911S Control (Recommended)
+Raspberry Pi communicates with the ESP32-S3 via USB-Serial. The ESP32-S3 drives the H-bridge directly:
+
+**1. USB Link:**
+- USB port of the Raspberry Pi 2B connected via USB cable to the ESP32-S3's UART/USB port.
+
+**2. ESP32-S3 to L911S Wiring:**
+```text
+ESP32 Pin 4 (GPIO4) -> A-IA, left motor forward input
+ESP32 Pin 5 (GPIO5) -> A-IB, left motor reverse input
+ESP32 Pin 6 (GPIO6) -> B-IA, right motor forward input
+ESP32 Pin 7 (GPIO7) -> B-IB, right motor reverse input
+GND                 -> L911S GND and motor battery negative
+VM/VCC              -> Motor battery positive
+```
+
+---
+
+### Onboard I2C Sensors & Sonar Sweep Peripherals
 
 I2C sensors:
 

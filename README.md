@@ -11,6 +11,7 @@ The server enforces that scope in code: Gemma alerts are accepted only for `huma
 ## What Is Included
 
 ```text
+rover/esp32_s3/stasis_motor_controller.ino                  ESP32 S3 motor driver firmware
 rover/rpi2b/rover_client.py                                 active rover controller
 rover/rpi2b/config.example.json
 rover/rpi2b/requirements.txt
@@ -42,13 +43,12 @@ Position event:         rover_position
 
 Only the laptop and Raspberry Pi need to be on the same Wi-Fi network for the demo. The webcam plugs into the laptop, the laptop runs Gemma, and the Pi receives rover commands over WebSocket.
 
-## Raspberry Pi 2B Rover Hardware
+## Rover Hardware Plans (Pi Direct & ESP32-S3 Options)
 
-Default pin numbers use Raspberry Pi BCM numbering.
+Default BCM pin numbers are used for physical direct Pi connections, but the system now supports delegating motor control to a dedicated ESP32-S3 microcontroller to ensure high-accuracy PWM mapping and lower timing noise on the Pi.
 
-The default Pi config is minimal-wire: direct motor control is enabled, but I2C sensors, ultrasonic, and the scanner servo start disabled. Enable only the hardware that is actually connected in `rover/rpi2b/config.json`.
-
-L911S/L9110S motor driver:
+### Option A: Direct Raspberry Pi 2B Motor Control
+Direct connection to the L911S/L9110S motor driver from Raspberry Pi BCM GPIO pins:
 
 ```text
 BCM 5   -> A-IA / IA, left motor forward input
@@ -59,7 +59,27 @@ GND     -> L911S/L9110S GND and motor battery negative
 VM/VCC  -> Motor battery positive, matched to your motors/driver board
 ```
 
-MPU6050 and GY-271/HMC5883L I2C sensors:
+### Option B: ESP32-S3 Delegated Motor Control (Recommended)
+The Raspberry Pi communicates with the ESP32-S3 over a USB/UART Serial connection. The ESP32-S3 then drives the L911S H-Bridge.
+
+**1. Pi-to-ESP32 Connection:**
+- USB Cable connecting the Raspberry Pi USB port directly to the ESP32-S3's USB/UART Port (usually mounts as `/dev/ttyUSB0` or `/dev/ttyACM0` on the Pi, or `COMx` on Windows).
+
+**2. ESP32-S3 to L911S Driver Wiring:**
+```text
+ESP32 Pin 4 (GPIO4) -> A-IA, left motor forward input
+ESP32 Pin 5 (GPIO5) -> A-IB, left motor reverse input
+ESP32 Pin 6 (GPIO6) -> B-IA, right motor forward input
+ESP32 Pin 7 (GPIO7) -> B-IB, right motor reverse input
+GND                 -> L911S GND and motor battery negative
+VM/VCC              -> Motor battery positive
+```
+
+---
+
+### Onboard Sensors & Peripherals
+
+MPU6050 and GY-271/HMC5883L I2C sensors (connected to the active I2C bus on the Pi):
 
 ```text
 BCM 2 / physical pin 3  -> SDA
@@ -89,7 +109,7 @@ BCM 18 -> Signal
 GND    -> Ground
 ```
 
-Use a common ground between the Raspberry Pi, motor driver, motor battery, sensors, and servo. Use a separate motor/servo supply where possible.
+Use a common ground between the Raspberry Pi, ESP32-S3, motor driver, motor battery, sensors, and servo. Use a separate motor/servo supply where possible.
 
 ## Raspberry Pi Rover Setup
 

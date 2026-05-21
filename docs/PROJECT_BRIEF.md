@@ -25,14 +25,15 @@ Current hardware assumptions:
 ```text
 Laptop              -> Flask/Socket.IO server, dashboard, Gemma model
 USB webcam          -> Camera input captured by laptop Python/OpenCV
-Raspberry Pi 2B     -> High-level rover client, motion, scan, telemetry
-L911S motor driver  -> A-IA/A-IB and B-IA/B-IB motor inputs
+Raspberry Pi 2B     -> High-level rover client, logic, state, and telemetry
+ESP32-S3 (Optional) -> Low-level serial motor driver (serial control mode)
+L911S motor driver  -> A-IA/A-IB and B-IA/B-IB motor inputs (driven by ESP32 or direct Pi)
 Sensors             -> Obstacle avoidance, heading, scan, and demo telemetry
 ```
 
-The old embedded camera path has been removed. The laptop now captures the webcam directly with OpenCV and serves the dashboard camera feed from `/camera.mjpg`.
+The old embedded camera path has been completely removed. The laptop now captures the webcam directly with OpenCV and serves the dashboard camera feed from `/camera.mjpg`. The ESP32-S3 code is now dedicated strictly to low-level motor driver controls, serving as a serial-to-PWM bridge for the L911S to ensure stable and highly precise timing.
 
-The current code defaults to a minimal-wire Raspberry Pi setup: motors can be driven directly, but optional I2C heading sensors, ultrasonic, and servo scanning are disabled until explicitly enabled in config. This keeps the first demo close to the current component limit instead of assuming extra boards and jumper wires.
+The current code supports two motor driver topologies: Option A (Direct Raspberry Pi BCM GPIO control) and Option B (ESP32-S3 USB/UART serial delegated control). The default configuration can be run in minimal-wire direct mode or serial-delegated mode; optional I2C heading sensors, ultrasonic, and servo scanning are disabled by default until explicitly enabled in the configuration file.
 
 ## Behavior Targets
 

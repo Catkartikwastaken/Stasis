@@ -7,13 +7,14 @@ This repository contains a complete starter setup for STASIS, a forest monitorin
 3. A Raspberry Pi 2B runs the Python rover client.
 4. A browser dashboard sends map goals and displays alerts.
 
-The Raspberry Pi client is the active high-level rover controller in this branch. Old embedded camera and microcontroller firmware paths have been removed so the active project stays Python-based.
+The Raspberry Pi client is the active high-level rover controller in this branch. Old embedded camera code has been fully removed from the ESP32-S3, and its firmware now serves exclusively as a low-level USB-to-Serial motor control delegator (serial-to-PWM bridge) for the L911S driver. This ensures precise PWM motor drive signals and offloads low-level timing tasks from the Raspberry Pi.
 
-The demo does not depend on GPS. Navigation should stay local: manual dashboard driving, clicked goals, return-to-home, obstacle avoidance, scan commands, and marker-directed patrols.
+The demo does not depend on GPS. Navigation stays local: manual dashboard driving, clicked goals, return-to-home, obstacle avoidance, scan commands, and marker-directed patrols.
 
 ## File Locations
 
 ```text
+rover/esp32_s3/stasis_motor_controller.ino
 rover/rpi2b/rover_client.py
 rover/rpi2b/config.example.json
 rover/rpi2b/requirements.txt
@@ -89,7 +90,8 @@ The Python client handles the major rover-control functions on the Raspberry Pi:
 ```text
 Wi-Fi/server setup       -> config.json, CLI flags, or STASIS_SERVER_HOST
 WebSocket registration   -> websocket-client
-L911S/L9110S motor control -> RPi.GPIO PWM
+Motor control (Option A) -> RPi.GPIO PWM direct connection to L911S
+Motor control (Option B) -> SerialMotorDriver delegator over USB-serial to ESP32-S3
 MPU6050 gyro yaw         -> smbus2 I2C
 GY-271 compass heading   -> smbus2 I2C
 HC-SR04 scan distance    -> RPi.GPIO timing
@@ -101,20 +103,21 @@ Goto and scan commands   -> Python command worker
 The default Pi config starts in minimal-wire mode:
 
 ```text
-Direct motor control: enabled
+Direct motor control: enabled (Option A) or delegated serial control (Option B)
 I2C heading sensors: disabled
 Ultrasonic sensor: disabled
 Scanner servo: disabled
 Goto turning: timed open-loop fallback
 ```
 
-Enable optional sensors in `rover/rpi2b/config.json` only after they are physically connected.
+Enable optional sensors and configure the active motor driving mode in `rover/rpi2b/config.json` only after the hardware is physically connected.
 
-## Raspberry Pi Wiring
+## Rover Wiring Diagrams
 
-Default pin numbers use Raspberry Pi BCM numbering. You can change them in `rover/rpi2b/config.json`.
+The default pin numbers use BCM numbering. You can change these allocations in `rover/rpi2b/config.json`. The rover supports two motor driving topologies: direct Pi control and delegated ESP32-S3 control.
 
-L911S/L9110S motor driver:
+### Option A: Direct Raspberry Pi GPIO Motor Control
+Direct connection to the L911S/L9110S motor driver from Raspberry Pi BCM GPIO pins:
 
 ```text
 BCM 5   -> A-IA / IA, left motor forward input
@@ -128,6 +131,28 @@ Motor B -> Right motor terminals
 ```
 
 Some L911S boards label the two channels as `A-IA`, `A-IB`, `B-IA`, and `B-IB`. Smaller boards may label a single channel as only `IA` and `IB`; use that pair for the left motor channel and the second pair for the right motor channel.
+
+### Option B: ESP32-S3 Delegated Motor Control (Recommended)
+The Raspberry Pi communicates with the ESP32-S3 over a USB/UART Serial connection. The ESP32-S3 then drives the L911S H-Bridge.
+
+**1. Pi-to-ESP32 Connection:**
+- USB Cable connecting a USB port on the Raspberry Pi directly to the ESP32-S3's USB/UART Port (mounts as `/dev/ttyUSB0` or `/dev/ttyACM0` on the Pi, or `COMx` on Windows).
+
+**2. ESP32-S3 to L911S Driver Wiring:**
+```text
+ESP32 Pin 4 (GPIO4) -> A-IA, left motor forward input
+ESP32 Pin 5 (GPIO5) -> A-IB, left motor reverse input
+ESP32 Pin 6 (GPIO6) -> B-IA, right motor forward input
+ESP32 Pin 7 (GPIO7) -> B-IB, right motor reverse input
+GND                 -> L911S GND and motor battery negative
+VM/VCC              -> Motor battery positive
+Motor A             -> Left motor terminals
+Motor B             -> Right motor terminals
+```
+
+---
+
+### Onboard I2C Sensors & Sonar Sweep Peripherals
 
 MPU6050 and GY-271/HMC5883L:
 
@@ -161,7 +186,7 @@ BCM 18 -> Signal
 GND    -> Ground/brown
 ```
 
-Use a common ground between the Pi, motor driver, motor battery, sensors, and servo. Use a separate motor/servo supply when possible because motor noise and voltage dips can reboot the Pi.
+Use a common ground between the Pi, ESP32-S3, motor driver, motor battery, sensors, and servo. Use a separate motor/servo supply when possible because motor noise and voltage dips can reboot the Pi.
 
 ## Raspberry Pi Setup
 
@@ -191,6 +216,10 @@ Edit `config.json`:
   "server_host": "192.168.1.10",
   "rover_id": "rpi2b_rover",
   "hardware": {
+    "direct_motor_control": false,
+    "esp32_serial_control": true,
+    "esp32_serial_port": "/dev/ttyUSB0",
+    "esp32_baudrate": 115200,
     "i2c_enabled": false,
     "ultrasonic_enabled": false,
     "scanner_servo_enabled": false
