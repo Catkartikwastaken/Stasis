@@ -494,6 +494,9 @@ def vision_analysis_loop() -> None:
             "category": analysis["category"],
             "message": analysis["message"],
             "image_path": image_path,
+            "x": rover_pose["x"],
+            "y": rover_pose["y"],
+            "heading": rover_pose["heading"],
         }
         if analysis.get("marker"):
             payload["marker"] = analysis["marker"]
