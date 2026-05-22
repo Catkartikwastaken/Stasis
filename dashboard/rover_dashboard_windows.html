@@ -16,6 +16,9 @@
       .panel { border: 1px solid #2c333d; border-radius: 8px; background: #1a1f26; padding: 14px; }
       .controls { display: flex; flex-wrap: wrap; gap: 8px; max-width: 800px; margin: 0 auto 12px; }
       .controls button { border: 1px solid #3a414b; border-radius: 8px; background: #242b35; color: #f2f4f7; cursor: pointer; font: inherit; padding: 8px 10px; }
+      .guidance { display: grid; gap: 6px; max-width: 800px; margin: 0 auto 12px; border: 1px solid #343c47; border-radius: 8px; padding: 12px; background: #151a20; }
+      .guidance strong { color: #f8e08e; font-size: 18px; }
+      .guidance span { color: #aab6c5; }
       canvas { display: block; width: 100%; max-width: 800px; aspect-ratio: 1; margin: 0 auto; border: 1px solid #343c47; border-radius: 6px; cursor: crosshair; background: #e6e6e6; }
       .camera { display: block; width: 100%; max-width: 800px; min-height: 240px; margin: 0 auto; border: 1px solid #343c47; border-radius: 6px; background: #0d1117; object-fit: contain; }
       .note { max-width: 800px; margin: 10px auto 0; color: #aab6c5; font-size: 14px; }
@@ -23,14 +26,15 @@
       #alertLog { max-height: 260px; overflow-y: auto; display: grid; gap: 12px; }
       .alert { display: grid; grid-template-columns: 150px 1fr; gap: 12px; align-items: start; border: 1px solid #343c47; border-radius: 8px; padding: 10px; background: #151a20; }
       .alert img { width: 150px; height: 96px; object-fit: cover; border-radius: 5px; background: #0d1117; }
+      .track-alert { width: fit-content; border: 1px solid #f8e08e; border-radius: 8px; background: #2f2a17; color: #f8e08e; cursor: pointer; font: inherit; padding: 8px 10px; }
     </style>
   </head>
   <body>
     <div class="wrap">
       <header><h1>STASIS Forest Rover Dashboard</h1><div id="connectionStatus" class="status">Connecting...</div></header>
-      <section class="panel"><div class="controls"><button id="stopRover" type="button">Stop</button><button id="returnHome" type="button">Return to Home</button><button id="scanArea" type="button">Scan Area</button><button id="searchRedStrip" type="button">Search Red Strip</button><button id="goToRedStrip" type="button">Go to Red Strip</button></div><p class="rover-status">Rover status: <span id="roverStatus">waiting</span></p><canvas id="mapCanvas" width="800" height="800"></canvas></section>
+      <section class="panel"><div class="controls"><button id="startRobot" type="button">Start Robot</button><button id="stopRover" type="button">Stop</button><button id="returnHome" type="button">Return to Home</button><button id="scanArea" type="button">Scan Area</button><button id="searchRedStrip" type="button">Search Red Strip</button><button id="goToRedStrip" type="button">Go to Red Strip</button></div><p class="rover-status">Rover status: <span id="roverStatus">waiting</span></p><section class="guidance" aria-label="Tracking guidance" aria-live="polite"><span>Tracking: <span id="trackingName">none</span></span><strong id="guidanceDirection">select a human alert</strong><span>Distance: <span id="guidanceDistance">--</span> cm</span></section><canvas id="mapCanvas" width="800" height="800"></canvas></section>
       <h2>Live Camera Feed</h2>
-      <section class="panel"><img id="cameraFeed" class="camera" src="http://<WINDOWS_LAPTOP_IP>:5000/camera.mjpg" alt="Laptop webcam stream" /><p class="note">The laptop server captures the USB webcam with Python/OpenCV and serves this feed.</p></section>
+      <section class="panel"><img id="cameraFeed" class="camera" src="http://<WINDOWS_LAPTOP_IP>:5000/camera.mjpg" alt="Raspberry Pi webcam stream" /><p class="note">The Raspberry Pi captures the USB webcam and sends frames to the Windows server for Gemma analysis.</p></section>
       <h2>Alert Log</h2><section id="alertLog" class="panel"></section>
     </div>
     <script>
@@ -38,11 +42,17 @@
       const socket = io(`http://${WINDOWS_LAPTOP_IP}:5000`);
       const canvas = document.getElementById("mapCanvas"); const ctx = canvas.getContext("2d");
       const statusEl = document.getElementById("connectionStatus"); const alertLog = document.getElementById("alertLog"); const cameraFeed = document.getElementById("cameraFeed"); const roverStatusEl = document.getElementById("roverStatus");
-      const stopRoverBtn = document.getElementById("stopRover"); const returnHomeBtn = document.getElementById("returnHome"); const scanAreaBtn = document.getElementById("scanArea"); const searchRedStripBtn = document.getElementById("searchRedStrip"); const goToRedStripBtn = document.getElementById("goToRedStrip");
-      let roverPos = { x: 400, y: 400 }; let goalPos = null;
+      const trackingNameEl = document.getElementById("trackingName"); const guidanceDirectionEl = document.getElementById("guidanceDirection"); const guidanceDistanceEl = document.getElementById("guidanceDistance");
+      const startRobotBtn = document.getElementById("startRobot"); const stopRoverBtn = document.getElementById("stopRover"); const returnHomeBtn = document.getElementById("returnHome"); const scanAreaBtn = document.getElementById("scanArea"); const searchRedStripBtn = document.getElementById("searchRedStrip"); const goToRedStripBtn = document.getElementById("goToRedStrip");
+      let roverPos = { x: 400, y: 400, yaw: 0 }; let goalPos = null; let trackedAlert = null; let lastSpokenGuidance = "";
       if (!WINDOWS_LAPTOP_IP.includes("<")) cameraFeed.src = `http://${WINDOWS_LAPTOP_IP}:5000/camera.mjpg`;
-      function drawMap() { ctx.fillStyle = "#e6e6e6"; ctx.fillRect(0,0,800,800); ctx.strokeStyle = "#c4c4c4"; ctx.lineWidth = 1; for (let p=0;p<=800;p+=50){ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,800);ctx.stroke();ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(800,p);ctx.stroke();} ctx.fillStyle="#1565c0";ctx.beginPath();ctx.arc(400,400,7,0,Math.PI*2);ctx.fill();ctx.fillStyle="#1f2937";ctx.font="16px Arial";ctx.fillText("Home Base",412,395); if(goalPos){ctx.strokeStyle="#d32f2f";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(goalPos.x-14,goalPos.y-14);ctx.lineTo(goalPos.x+14,goalPos.y+14);ctx.moveTo(goalPos.x+14,goalPos.y-14);ctx.lineTo(goalPos.x-14,goalPos.y+14);ctx.stroke();} ctx.fillStyle="#0d47a1";ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();ctx.arc(roverPos.x,roverPos.y,16,0,Math.PI*2);ctx.fill();ctx.stroke(); }
+      function drawMap() { ctx.fillStyle = "#e6e6e6"; ctx.fillRect(0,0,800,800); ctx.strokeStyle = "#c4c4c4"; ctx.lineWidth = 1; for (let p=0;p<=800;p+=50){ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,800);ctx.stroke();ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(800,p);ctx.stroke();} ctx.fillStyle="#1565c0";ctx.beginPath();ctx.arc(400,400,7,0,Math.PI*2);ctx.fill();ctx.fillStyle="#1f2937";ctx.font="16px Arial";ctx.fillText("Home Base",412,395); if(goalPos){ctx.strokeStyle="#d32f2f";ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(goalPos.x-14,goalPos.y-14);ctx.lineTo(goalPos.x+14,goalPos.y+14);ctx.moveTo(goalPos.x+14,goalPos.y-14);ctx.lineTo(goalPos.x-14,goalPos.y+14);ctx.stroke();} if(trackedAlert){ctx.strokeStyle="#b7791f";ctx.fillStyle="#f6d365";ctx.lineWidth=4;ctx.beginPath();ctx.arc(trackedAlert.x,trackedAlert.y,18,0,Math.PI*2);ctx.fill();ctx.stroke();} ctx.fillStyle="#0d47a1";ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.beginPath();ctx.arc(roverPos.x,roverPos.y,16,0,Math.PI*2);ctx.fill();ctx.stroke(); }
+      function normalizeTurn(value){let turn=value;while(turn>Math.PI)turn-=Math.PI*2;while(turn<-Math.PI)turn+=Math.PI*2;return turn;}
+      function guidanceTextForTarget(target){const dx=target.x-roverPos.x;const dy=target.y-roverPos.y;const distance=Math.max(0,Math.round(Math.hypot(dx,dy)));if(distance<=25)return{distance,direction:`${target.category||"target"} nearby`};const targetBearing=Math.atan2(dy,dx);const roverBearing=((Number(roverPos.yaw)||0)*Math.PI)/180;const turn=normalizeTurn(targetBearing-roverBearing);if(Math.abs(turn)<=0.44)return{distance,direction:"move forward"};if(Math.abs(turn)>=2.53)return{distance,direction:"turn back"};return{distance,direction:turn>0?"move right":"move left"};}
+      function speakGuidance(text){if(text===lastSpokenGuidance||!("speechSynthesis" in window))return;window.speechSynthesis.cancel();window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));lastSpokenGuidance=text;}
+      function updateGuidance(shouldSpeak){if(!trackedAlert){trackingNameEl.textContent="none";guidanceDirectionEl.textContent="select a human alert";guidanceDistanceEl.textContent="--";return;}const guidance=guidanceTextForTarget(trackedAlert);trackingNameEl.textContent=trackedAlert.category||"event";guidanceDirectionEl.textContent=guidance.direction;guidanceDistanceEl.textContent=guidance.distance;if(shouldSpeak)speakGuidance(`${guidance.direction}. ${guidance.distance} centimeters.`);}
       canvas.addEventListener("click", e => { const r = canvas.getBoundingClientRect(); goalPos = { x: Math.round(((e.clientX-r.left)/r.width)*800), y: Math.round(((e.clientY-r.top)/r.height)*800) }; drawMap(); socket.emit("set_goal", goalPos); });
+      startRobotBtn.addEventListener("click", () => { roverStatusEl.textContent = "robot started - scanning"; socket.emit("request_scan"); });
       stopRoverBtn.addEventListener("click", () => socket.emit("stop_rover"));
       returnHomeBtn.addEventListener("click", () => socket.emit("return_home"));
       scanAreaBtn.addEventListener("click", () => socket.emit("request_scan"));
@@ -52,8 +62,8 @@
       socket.on("rover_status", p => { roverStatusEl.textContent = p.message ? `${p.status}: ${p.message}` : (p.status || "waiting"); });
       socket.on("marker_seen", p => { roverStatusEl.textContent = `marker seen: ${p.name}`; });
       socket.on("marker_error", p => { roverStatusEl.textContent = p.message || `Marker not found: ${p.marker}`; });
-      socket.on("new_alert", p => { const item = document.createElement("article"); item.className = "alert"; const img = document.createElement("img"); img.src = p.image_path.startsWith("http") ? p.image_path : `http://${WINDOWS_LAPTOP_IP}:5000/${p.image_path}`; const text = document.createElement("p"); text.textContent = `${p.category || "event"}: ${p.message || "Activity detected."}`; item.append(img, text); alertLog.prepend(item); });
-      socket.on("rover_position", p => { roverPos = { x: Number(p.x) || 400, y: Number(p.y) || 400 }; drawMap(); });
+      socket.on("new_alert", p => { const item = document.createElement("article"); item.className = "alert"; const img = document.createElement("img"); img.src = p.image_path.startsWith("http") ? p.image_path : `http://${WINDOWS_LAPTOP_IP}:5000/${p.image_path}`; const text = document.createElement("p"); text.textContent = `${p.category || "event"}: ${p.message || "Activity detected."}`; item.append(img, text); const x=Number(p.x); const y=Number(p.y); if(Number.isFinite(x)&&Number.isFinite(y)){const button=document.createElement("button");button.className="track-alert";button.type="button";button.textContent="Track";button.addEventListener("click",()=>{trackedAlert={...p,x,y};roverStatusEl.textContent=p.category==="human"?"human detected - tracking":"event selected - tracking";updateGuidance(true);drawMap();});item.append(button);} if(p.category==="human")roverStatusEl.textContent="human detected - press Track"; alertLog.prepend(item); });
+      socket.on("rover_position", p => { roverPos = { x: Number(p.x) || 400, y: Number(p.y) || 400, yaw: Number(p.yaw) || 0 }; updateGuidance(false); drawMap(); });
       drawMap();
     </script>
   </body>

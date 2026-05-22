@@ -4,6 +4,15 @@
   "websocket_path": "/ws/rover",
   "rover_id": "rpi2b_rover",
   "simulate": false,
+  "camera": {
+    "enabled": true,
+    "index": 0,
+    "width": 640,
+    "height": 480,
+    "fps": 10,
+    "jpeg_quality": 70,
+    "upload_interval_seconds": 2.0
+  },
   "hardware": {
     "direct_motor_control": true,
     "i2c_enabled": false,

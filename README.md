@@ -1,119 +1,124 @@
 # STASIS Forest Monitoring Rover
 
-This repository contains the current working prototype for STASIS, a forest monitoring rover that is being demoed indoors in a forest-like test space.
+STASIS is a prototype forest-monitoring rover built for an indoor, forest-like demo space. It is designed to patrol a small area, watch through an onboard camera, detect important forest events, and show clear alerts on a web dashboard.
 
-The current architecture is Python-based: a laptop server captures a USB webcam with OpenCV, runs Gemma vision, serves the dashboard, and talks to a Raspberry Pi 2B Python rover client for motion control.
+The project focuses on a practical mission: help monitor places where humans, animals, fire, or unusual ground activity may need attention.
 
-STASIS is aimed at autonomous and manual forest patrol demos: detecting humans/intruders, animals, soil or track changes, fire/smoke, and custom colored navigation markers such as red strips. GPS is intentionally out of scope for the indoor demo.
+## What Judges Should Notice
 
-The server enforces that scope in code: Gemma alerts are accepted only for `human`, `animal`, `track`, `fire`, or `marker`. Other model output is suppressed so the project does not drift into unrelated indoor-security detections.
+| Area | What STASIS Demonstrates |
+| --- | --- |
+| Vision AI | Gemma analyzes live camera frames for humans, animals, tracks, fire, and colored markers. |
+| Rover control | Raspberry Pi 2B controls movement, telemetry, camera capture, and final action decisions. |
+| Remote dashboard | A browser dashboard shows the camera feed, rover position, alerts, and tracking guidance. |
+| Indoor demo ready | No GPS is required; the rover works in a controlled demo arena. |
+| Minimal wiring goal | Core responsibilities are split between the Raspberry Pi, Windows laptop, webcam, and optional ESP32-S3 motor controller. |
 
-## What Is Included
+## Current Demo Architecture
 
-```text
-rover/esp32_s3/stasis_motor_controller.ino                  ESP32 S3 motor driver firmware
-rover/rpi2b/rover_client.py                                 active rover controller
-rover/rpi2b/config.example.json
-rover/rpi2b/requirements.txt
-rover/rpi2b/README.md
-rover/rpi2b/stasis-rover.service.example
-server/security_rover_server.py
-server/security_rover_server_windows.py
-server/requirements.txt
-server/requirements-windows.txt
-server/templates/index.html
-dashboard/rover_dashboard.html
-dashboard/rover_dashboard_windows.html
-docs/GEMMA_VISION.md
-docs/README_ROVER_SYSTEM.md
-docs/PROJECT_BRIEF.md
+The webcam is connected to the Raspberry Pi, not the laptop. The Raspberry Pi sends camera frames to the Windows laptop, the laptop runs Gemma, and the Pi receives the result before deciding what action to take.
+
+```mermaid
+flowchart LR
+    Camera["USB webcam on Raspberry Pi"] --> Pi["Raspberry Pi 2B rover client"]
+    Pi -->|"camera_frame over WebSocket"| Server["Windows laptop server"]
+    Server -->|"Gemma vision_result"| Pi
+    Pi -->|"vision_decision"| Server
+    Server --> Dashboard["Web dashboard"]
+    Dashboard -->|"goals and controls"| Server
+    Server -->|"movement commands"| Pi
+    Pi --> Motors["L911S motors / optional ESP32-S3 bridge"]
 ```
 
-## Network Connections
+In plain words:
+
+1. The Pi sees through the webcam.
+2. The Pi sends the image to the Windows laptop.
+3. The laptop uses Gemma to understand the image.
+4. The laptop sends the result back to the Pi.
+5. The Pi decides whether to stop, alert, remember a marker, or continue.
+6. The dashboard shows the final result for the user.
+
+## What STASIS Detects
+
+Gemma output is filtered so the project stays focused on the forest-monitoring mission.
 
 ```text
-Laptop server:          http://<SERVER_IP>:5000
-Webcam feed:            http://<SERVER_IP>:5000/camera.mjpg
-Rover WebSocket:        ws://<SERVER_IP>:5000/ws/rover
-Raspberry Pi rover ID:  rpi2b_rover
-Dashboard goal event:   set_goal
-Alert event:            new_alert
-Position event:         rover_position
+human   -> humans, intruders, people in the demo area
+animal  -> animals or wildlife stand-ins
+track   -> footprints, soil changes, trails, disturbed ground
+fire    -> flame, smoke, or fire-like hazards
+marker  -> custom navigation markers such as red strips
 ```
 
-Only the laptop and Raspberry Pi need to be on the same Wi-Fi network for the demo. The webcam plugs into the laptop, the laptop runs Gemma, and the Pi receives rover commands over WebSocket.
+Ordinary indoor doors and windows are intentionally not treated as target classes for this demo.
 
-## Rover Hardware Plans (Pi Direct & ESP32-S3 Options)
+## Dashboard Features
 
-Default BCM pin numbers are used for physical direct Pi connections, but the system now supports delegating motor control to a dedicated ESP32-S3 microcontroller to ensure high-accuracy PWM mapping and lower timing noise on the Pi.
-
-### Option A: Direct Raspberry Pi 2B Motor Control
-Direct connection to the L911S/L9110S motor driver from Raspberry Pi BCM GPIO pins:
+The dashboard is served from the Windows laptop:
 
 ```text
-BCM 5   -> A-IA / IA, left motor forward input
-BCM 6   -> A-IB / IB, left motor reverse input
-BCM 13  -> B-IA, right motor forward input
-BCM 19  -> B-IB, right motor reverse input
-GND     -> L911S/L9110S GND and motor battery negative
-VM/VCC  -> Motor battery positive, matched to your motors/driver board
+http://<WINDOWS_LAPTOP_IP>:5000
 ```
 
-### Option B: ESP32-S3 Delegated Motor Control (Recommended)
-The Raspberry Pi communicates with the ESP32-S3 over a USB/UART Serial connection. The ESP32-S3 then drives the L911S H-Bridge.
+It provides:
 
-**1. Pi-to-ESP32 Connection:**
-- USB Cable connecting the Raspberry Pi USB port directly to the ESP32-S3's USB/UART Port (usually mounts as `/dev/ttyUSB0` or `/dev/ttyACM0` on the Pi, or `COMx` on Windows).
+- Live camera feed from the Raspberry Pi webcam.
+- Rover map and clicked goal control.
+- Stop, return-home, scan, red-strip search, and red-strip go-to controls.
+- Human/event alert cards with a `Track` button.
+- Tracking guidance in centimeters, using simple directions like `move forward`, `move left`, `move right`, and `turn back`.
+- No numeric turn-angle instructions in the dashboard guidance.
 
-**2. ESP32-S3 to L911S Driver Wiring:**
-```text
-ESP32 Pin 4 (GPIO4) -> A-IA, left motor forward input
-ESP32 Pin 5 (GPIO5) -> A-IB, left motor reverse input
-ESP32 Pin 6 (GPIO6) -> B-IA, right motor forward input
-ESP32 Pin 7 (GPIO7) -> B-IB, right motor reverse input
-GND                 -> L911S GND and motor battery negative
-VM/VCC              -> Motor battery positive
+## Hardware Used
+
+| Part | Role |
+| --- | --- |
+| Raspberry Pi 2B | Rover brain, webcam capture, telemetry, action decisions, motor control path. |
+| USB webcam | Connected to the Pi for the rover's point of view. |
+| Windows laptop | Runs Flask dashboard server and Gemma vision processing. |
+| L911S / L9110S motor driver | Drives the rover motors. |
+| ESP32-S3 | Optional low-level serial motor controller for cleaner PWM motor timing. |
+| Optional sensors | MPU6050, GY-271/HMC5883L, HC-SR04, and scanner servo support are included but can stay disabled for a minimal demo. |
+
+## Quick Start
+
+### 1. Start The Windows Server
+
+On the Windows laptop:
+
+```powershell
+cd server
+py -m venv .venv
+.\.venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements-windows.txt
+python security_rover_server_windows.py
 ```
 
----
-
-### Onboard Sensors & Peripherals
-
-MPU6050 and GY-271/HMC5883L I2C sensors (connected to the active I2C bus on the Pi):
-
-```text
-BCM 2 / physical pin 3  -> SDA
-BCM 3 / physical pin 5  -> SCL
-3V3                     -> VCC
-GND                     -> GND
-MPU6050 address         -> 0x68
-GY-271/HMC5883L address -> 0x1E
-```
-
-HC-SR04 ultrasonic sensor:
-
-```text
-BCM 23 -> Trig
-BCM 24 -> Echo
-VCC    -> 5V or 3V3
-GND    -> GND
-```
-
-Raspberry Pi GPIO is not 5V tolerant. If the HC-SR04 is powered from 5V, use a voltage divider or level shifter on Echo before connecting it to BCM 24.
-
-Scanner servo:
+The server will print an address like:
 
 ```text
-BCM 18 -> Signal
-5V     -> Servo power
-GND    -> Ground
+http://10.139.244.74:5000
 ```
 
-Use a common ground between the Raspberry Pi, ESP32-S3, motor driver, motor battery, sensors, and servo. Use a separate motor/servo supply where possible.
+Use that IP address on the Raspberry Pi.
 
-## Raspberry Pi Rover Setup
+If Hugging Face authentication is needed for Gemma:
 
-On the Pi, enable I2C with `sudo raspi-config`, then reboot.
+```powershell
+$env:HF_TOKEN = "hf_your_token_here"
+```
+
+The Windows server now waits for camera frames from the Raspberry Pi by default. For laptop-only testing, set:
+
+```powershell
+$env:STASIS_CAMERA_SOURCE = "local"
+```
+
+### 2. Start The Raspberry Pi Rover
+
+On the Raspberry Pi:
 
 ```bash
 cd rover/rpi2b
@@ -124,106 +129,98 @@ pip install -r requirements.txt
 cp config.example.json config.json
 ```
 
-Edit `config.json` and set `server_host` to the IP address of the laptop running the Flask server.
+Edit `config.json`:
 
-Run the rover client:
+```json
+{
+  "server_host": "10.139.244.74"
+}
+```
+
+Plug the USB webcam into the Raspberry Pi, then run:
 
 ```bash
 python rover_client.py --config config.json
 ```
 
-For a protocol-only test on a laptop:
+Use `--simulate` only for network testing. Do not use simulation for the real rover demo.
 
-```bash
-python rover_client.py --server <SERVER_IP> --simulate
-```
+### 3. Open The Dashboard
 
-## Laptop Server
-
-Use this server on Windows:
-
-```text
-server/security_rover_server_windows.py
-```
-
-Install dependencies from PowerShell:
-
-```powershell
-cd server
-py -m venv .venv
-.\.venv\Scripts\activate
-python -m pip install --upgrade pip
-pip install -r requirements-windows.txt
-```
-
-Gemma vision alerts use `google/gemma-4-E2B-it` through Hugging Face Transformers on the laptop. If your environment needs Hugging Face authentication for model downloads, set a token:
-
-```powershell
-$env:HF_TOKEN = "hf_your_token_here"
-$env:STASIS_VISION_REQUIRED = "true"
-```
-
-To test rover control without loading Gemma:
-
-```powershell
-$env:STASIS_VISION_ENABLED = "false"
-```
-
-Select a webcam if the default camera is not the one you want:
-
-```powershell
-$env:STASIS_CAMERA_INDEX = "0"
-$env:STASIS_CAMERA_WIDTH = "640"
-$env:STASIS_CAMERA_HEIGHT = "480"
-$env:STASIS_CAMERA_FPS = "15"
-```
-
-Run:
-
-```powershell
-python security_rover_server_windows.py
-```
-
-Open:
+In a browser on the laptop:
 
 ```text
 http://<WINDOWS_LAPTOP_IP>:5000
 ```
 
-## Command Protocol
+You should see the live Pi webcam feed. When Gemma detects a human or fire, the Pi receives the result, stops the rover, approves the alert, and the dashboard displays it.
 
-The server sends rover commands over WebSocket:
+## Demo Script
 
-```json
-{"cmd":"goto","angle":45.2,"distance":30.5}
-{"cmd":"scan"}
-{"cmd":"stop"}
+For a simple judging demonstration:
+
+1. Start the Windows server.
+2. Start the Raspberry Pi rover client.
+3. Open the dashboard.
+4. Show the live Pi webcam feed.
+5. Place a person or human stand-in in view.
+6. Wait for the alert card.
+7. Click `Track`.
+8. Show the distance in centimeters and simple guidance.
+9. Use stop, scan, or red-strip controls to show rover interaction.
+
+## Project Structure
+
+```text
+server/
+  security_rover_server_windows.py    Windows Flask + Socket.IO + Gemma server
+  templates/index.html                Main live dashboard
+
+rover/rpi2b/
+  rover_client.py                     Raspberry Pi rover, camera, telemetry, decisions
+  config.example.json                 Pi config template
+  requirements.txt                    Pi Python dependencies
+  README.md                           Pi-specific setup guide
+
+rover/esp32_s3/
+  stasis_motor_controller.ino         Optional serial motor controller firmware
+
+dashboard/
+  rover_dashboard_windows.html        Standalone dashboard option
+
+docs/
+  README_ROVER_SYSTEM.md              Full system setup and wiring guide
+  GEMMA_VISION.md                     Gemma setup and prompt contract
+  PROJECT_BRIEF.md                    Mission, scope, and demo assumptions
 ```
 
-The Raspberry Pi rover sends:
+## Documentation
 
-```json
-{"id":"rpi2b_rover","type":"rover"}
-{"status":"ready"}
-{"heading":92.4,"distance_traveled":18.0}
-{"status":"goal_reached"}
-{"type":"scan","data":[{"angle":0,"distance":77.5}]}
-```
-
-Read the full setup guide here:
+Start here for the full build guide:
 
 ```text
 docs/README_ROVER_SYSTEM.md
 ```
 
-Read the project assumptions and open hardware questions here:
+Gemma setup details:
+
+```text
+docs/GEMMA_VISION.md
+```
+
+Project mission and assumptions:
 
 ```text
 docs/PROJECT_BRIEF.md
 ```
 
-Read the Gemma vision setup guide here:
+## Current Limits
 
-```text
-docs/GEMMA_VISION.md
-```
+STASIS is a prototype. For the current indoor demo:
+
+- GPS is intentionally not used.
+- Distance is approximate without wheel encoders.
+- Gemma should run on the laptop, not on the Raspberry Pi 2B.
+- Optional sensors should only be enabled after the hardware is physically connected.
+
+These limits are documented so the demo stays honest, understandable, and focused.

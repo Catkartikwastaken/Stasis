@@ -18,6 +18,7 @@ Hardware Support:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import logging
 import math
@@ -103,6 +104,20 @@ class HardwareConfig:
 
 
 @dataclass
+class CameraConfig:
+    """
+    USB webcam capture settings for frames sent from Raspberry Pi to the Windows server.
+    """
+    enabled: bool = True
+    index: int = 0
+    width: int = 640
+    height: int = 480
+    fps: int = 10
+    jpeg_quality: int = 70
+    upload_interval_seconds: float = 2.0
+
+
+@dataclass
 class RoverConfig:
     """
     Aggregated configuration structure containing system settings and sub-component configs.
@@ -116,6 +131,7 @@ class RoverConfig:
     motion: MotionConfig = field(default_factory=MotionConfig)
     sensors: SensorConfig = field(default_factory=SensorConfig)
     hardware: HardwareConfig = field(default_factory=HardwareConfig)
+    camera: CameraConfig = field(default_factory=CameraConfig)
 
     @classmethod
     def from_mapping(cls, data: dict[str, Any]) -> RoverConfig:
@@ -132,6 +148,8 @@ class RoverConfig:
             values["sensors"] = _dataclass_from_mapping(SensorConfig, values["sensors"])
         if "hardware" in values:
             values["hardware"] = _dataclass_from_mapping(HardwareConfig, values["hardware"])
+        if "camera" in values:
+            values["camera"] = _dataclass_from_mapping(CameraConfig, values["camera"])
         return cls(**values)
 
 
@@ -951,11 +969,100 @@ class RoverClient:
             self.movement_cancel.set()
             self.hardware.stop_motors()
             self.send_json({"status": "stopped"})
+        elif isinstance(payload, dict) and payload.get("type") == "vision_result":
+            self.handle_vision_result(payload)
         elif isinstance(payload, dict) and "cmd" in payload:
             logging.debug("Enqueued command packet: %s", payload.get("cmd"))
             self.command_queue.put(payload)
         else:
             logging.debug("Non-executable server dispatch: %s", payload)
+
+    def camera_loop(self) -> None:
+        camera = self.config.camera
+        if not camera.enabled:
+            logging.info("Raspberry Pi webcam streaming disabled by config.")
+            return
+
+        try:
+            import cv2
+        except ImportError:
+            logging.error("opencv-python is required for Pi webcam streaming. Install rover/rpi2b requirements.")
+            return
+
+        while not self.stop_requested.is_set():
+            cap = cv2.VideoCapture(camera.index)
+            if not cap.isOpened():
+                logging.warning("Could not open Raspberry Pi webcam index %s; retrying.", camera.index)
+                time.sleep(3)
+                continue
+
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera.width)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
+            cap.set(cv2.CAP_PROP_FPS, camera.fps)
+            logging.info(
+                "Streaming Raspberry Pi webcam index %s to Windows server at %sx%s.",
+                camera.index,
+                camera.width,
+                camera.height,
+            )
+
+            while not self.stop_requested.is_set():
+                ok, frame = cap.read()
+                if not ok or frame is None:
+                    logging.warning("Pi webcam read failed; reconnecting camera.")
+                    break
+
+                if self.connected.is_set():
+                    quality = max(30, min(95, int(camera.jpeg_quality)))
+                    encoded_ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+                    if encoded_ok:
+                        self.send_json(
+                            {
+                                "type": "camera_frame",
+                                "format": "jpeg",
+                                "image_b64": base64.b64encode(encoded.tobytes()).decode("ascii"),
+                                "width": int(frame.shape[1]),
+                                "height": int(frame.shape[0]),
+                                "captured_at": time.time(),
+                            }
+                        )
+
+                time.sleep(max(0.1, float(camera.upload_interval_seconds)))
+
+            cap.release()
+            time.sleep(1)
+
+    def handle_vision_result(self, payload: dict[str, Any]) -> None:
+        if not payload.get("detected"):
+            return
+
+        category = str(payload.get("category") or "event").lower()
+        message = str(payload.get("message") or "Activity detected.")
+        action = "alert"
+
+        if category in {"human", "fire"}:
+            self.movement_cancel.set()
+            self.hardware.stop_motors()
+            action = "stop_and_alert"
+            self.send_json({"status": "stopped", "message": f"{category} detected by Gemma"})
+        elif category == "marker":
+            action = "remember_marker"
+
+        self.send_json(
+            {
+                "type": "vision_decision",
+                "detected": True,
+                "category": category,
+                "message": message,
+                "action": action,
+                "alert": True,
+                "marker": payload.get("marker", ""),
+                "image_path": payload.get("image_path", ""),
+                "x": payload.get("x", 400.0),
+                "y": payload.get("y", 400.0),
+                "heading": payload.get("heading", self.last_heading),
+            }
+        )
 
     def telemetry_loop(self) -> None:
         """
@@ -1204,6 +1311,7 @@ class RoverClient:
         # Start communication supervisor threads
         threading.Thread(target=self.command_loop, name="command-loop", daemon=True).start()
         threading.Thread(target=self.telemetry_loop, name="telemetry-loop", daemon=True).start()
+        threading.Thread(target=self.camera_loop, name="pi-camera-loop", daemon=True).start()
 
         # Connect / reconnect loop
         while not self.stop_requested.is_set():

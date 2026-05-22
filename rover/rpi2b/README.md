@@ -2,7 +2,7 @@
 
 This Python client runs the Raspberry Pi 2B side of the STASIS rover. It connects to the existing STASIS Flask server at `ws://<SERVER_IP>:5000/ws/rover`, registers as `rpi2b_rover`, accepts `goto`, `scan`, and `stop` commands, drives the L911S/L9110S motor driver, reads optional MPU6050 and GY-271/HMC5883L sensors, scans with optional HC-SR04 and servo hardware, and sends telemetry back to the dashboard.
 
-The camera path now lives on the laptop server. A USB webcam is captured by Python/OpenCV and served to the dashboard from `/camera.mjpg`.
+The USB webcam connects to the Raspberry Pi. The Pi captures frames with Python/OpenCV, sends them to the Windows laptop over the rover WebSocket, receives Gemma `vision_result` messages, and sends `vision_decision` back to the server/dashboard.
 
 The default config is intentionally minimal-wire: the Pi drives motors directly, but I2C heading sensors, ultrasonic, and the scanner servo are disabled until you enable them. With no heading sensor, the client uses timed open-loop turns for the indoor demo.
 
@@ -33,6 +33,22 @@ cp config.example.json config.json
 ```
 
 Edit `server_host` to the IP address of the laptop running `server/security_rover_server_windows.py` or `server/security_rover_server.py`.
+
+Keep the webcam section enabled for the real demo:
+
+```json
+{
+  "camera": {
+    "enabled": true,
+    "index": 0,
+    "width": 640,
+    "height": 480,
+    "upload_interval_seconds": 2.0
+  }
+}
+```
+
+If the Pi opens the wrong webcam, change `camera.index` to `1` or `2`.
 
 Enable optional hardware and ESP32 serial motor control only when they are physically connected:
 

@@ -1,6 +1,6 @@
 # Gemma Vision Integration
 
-STASIS uses Gemma on the laptop/server to inspect USB webcam frames and create dashboard alerts. The rover does not run Gemma; the Raspberry Pi 2B drives the rover and sends telemetry.
+STASIS uses Gemma on the Windows laptop/server to inspect USB webcam frames captured by the Raspberry Pi. The rover does not run Gemma; the Raspberry Pi 2B captures the webcam, streams frames to Windows, receives `vision_result`, decides the action, and sends `vision_decision` back to the dashboard/server.
 
 ## Default Model
 
@@ -13,7 +13,7 @@ google/gemma-4-E2B-it
 This is a multimodal Gemma instruct model that supports image + text input through Hugging Face Transformers. The server uses the documented `any-to-any` pipeline and sends a chat-style message containing:
 
 ```text
-1. The current camera frame as a PIL image.
+1. The latest Raspberry Pi webcam frame as a PIL image.
 2. A strict JSON instruction prompt.
 ```
 
@@ -85,10 +85,11 @@ STASIS_VISION_REQUIRED=false
 STASIS_VISION_MODEL=google/gemma-4-E2B-it
 STASIS_VISION_PIPELINE_TASK=any-to-any
 STASIS_VISION_DEVICE=auto
-STASIS_VISION_DEVICE_MAP=auto
+STASIS_VISION_DEVICE_MAP=none
 STASIS_VISION_TORCH_DTYPE=auto
 STASIS_VISION_MAX_NEW_TOKENS=160
 STASIS_ANALYSIS_INTERVAL_SECONDS=2
+STASIS_CAMERA_SOURCE=rover
 STASIS_CAMERA_INDEX=0
 STASIS_CAMERA_WIDTH=640
 STASIS_CAMERA_HEIGHT=480
@@ -178,7 +179,7 @@ If CUDA runs out of memory:
 4. Disable vision while testing rover control.
 ```
 
-If the wrong webcam opens, set `STASIS_CAMERA_INDEX` to `1`, `2`, or the index shown by your camera test tool, then restart the server.
+If the wrong webcam opens on the Raspberry Pi, change `camera.index` in `rover/rpi2b/config.json`, then restart the Pi rover client. If you intentionally test with a laptop webcam, set `STASIS_CAMERA_SOURCE=local` on Windows and then use `STASIS_CAMERA_INDEX`.
 
 If alerts are noisy, adjust `STASIS_ANALYSIS_PROMPT` to describe only the objects or events that matter for your test space.
 
