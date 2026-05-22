@@ -721,6 +721,84 @@ def analyze_with_ollama(config: Dict[str, Any], frame: Any) -> Dict[str, Any]:
     return parse_json_response(extract_model_text(content))
 
 
+def analyze_with_ollama_moondream_pipeline(config: Dict[str, Any], frame: Any) -> Dict[str, Any]:
+    """
+    Uses a small Ollama vision model as the eyes, then a tiny text model as the JSON formatter.
+    """
+    base_url = str(config.get("base_url", "http://127.0.0.1:11434")).rstrip("/")
+    vision_model = str(config.get("vision_model", "moondream"))
+    text_model = str(config.get("text_model", "qwen2.5:0.5b"))
+    image_b64 = frame_to_jpeg_b64(frame, int(config.get("jpeg_quality", 60)))
+    vision_prompt = str(
+        config.get(
+            "vision_prompt",
+            "Inspect this STASIS rover frame. List whether you see a person/human, animal, "
+            "fire/smoke/flame, footprints/tracks/soil disturbance, colored marker/red strip, "
+            "and important objects. Be concise.",
+        )
+    )
+
+    vision_payload = {
+        "model": vision_model,
+        "stream": False,
+        "messages": [
+            {
+                "role": "user",
+                "content": vision_prompt,
+                "images": [image_b64],
+            }
+        ],
+        "options": {
+            "temperature": float(config.get("vision_temperature", 0)),
+            "num_predict": int(config.get("vision_max_tokens", 96)),
+        },
+    }
+    vision_data = request_json(
+        f"{base_url}/api/chat",
+        {"Content-Type": "application/json"},
+        vision_payload,
+        float(config.get("vision_timeout_seconds", VISION_REQUEST_TIMEOUT)),
+    )
+    vision_text = extract_model_text(vision_data.get("message", {}).get("content", vision_data.get("response", "")))
+
+    if not config.get("use_text_formatter", True):
+        return parse_json_response(vision_text)
+
+    formatter_prompt = str(
+        config.get(
+            "formatter_prompt",
+            "Convert the vision notes into exactly one STASIS JSON object and no Markdown. "
+            "Allowed categories: human, animal, track, fire, marker. "
+            "Return detected true only for those STASIS events. Intruders are human. "
+            "Colored strips are marker. If no event is visible, return "
+            "{\"detected\": false, \"category\": \"\", \"message\": \"\"}. "
+            "Keep message short and specific.",
+        )
+    )
+    formatter_payload = {
+        "model": text_model,
+        "stream": False,
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{formatter_prompt}\n\nVision notes:\n{vision_text}",
+            }
+        ],
+        "options": {
+            "temperature": float(config.get("formatter_temperature", 0)),
+            "num_predict": int(config.get("formatter_max_tokens", VISION_CONFIG.get("max_output_tokens", 160))),
+        },
+    }
+    formatter_data = request_json(
+        f"{base_url}/api/chat",
+        {"Content-Type": "application/json"},
+        formatter_payload,
+        float(config.get("formatter_timeout_seconds", VISION_REQUEST_TIMEOUT)),
+    )
+    content = formatter_data.get("message", {}).get("content", formatter_data.get("response", ""))
+    return parse_json_response(extract_model_text(content))
+
+
 def analyze_with_local_gemma(frame: Any) -> Dict[str, Any]:
     """
     Invokes the pipeline to process a raw frame.
@@ -770,6 +848,8 @@ def analyze_frame(frame: Any) -> Dict[str, Any]:
                 result = analyze_with_anthropic(config, frame)
             elif provider_type == "ollama":
                 result = analyze_with_ollama(config, frame)
+            elif provider_type in {"ollama_moondream_pipeline", "moondream_pipeline"}:
+                result = analyze_with_ollama_moondream_pipeline(config, frame)
             else:
                 logging.warning("Unknown vision provider type %r for %s", provider_type, provider_name)
                 continue

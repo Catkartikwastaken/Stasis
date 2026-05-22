@@ -279,7 +279,7 @@ Use this server on Windows:
 server/security_rover_server_windows.py
 ```
 
-It can use cloud APIs, Ollama, LM Studio, or local Gemma. API/Ollama/LM Studio mode does not need Torch.
+It can use Moondream + a tiny text formatter through Ollama, cloud APIs, LM Studio, or local Gemma. API/Ollama/LM Studio mode does not need Torch.
 
 Install dependencies from PowerShell:
 
@@ -292,7 +292,7 @@ pip install -r requirements-api.txt
 copy vision_config.example.json vision_config.json
 ```
 
-Edit `vision_config.json`, enable one provider, and set the matching API key environment variable. Provider setup details are in `docs/VISION_PROVIDERS.md`.
+Edit `vision_config.json` and enable one provider. For the local competition setup, enable `moondream_stasis` and pull `moondream` plus `qwen2.5:0.5b` in Ollama. Provider setup details are in `docs/VISION_PROVIDERS.md`.
 
 Only install the heavier local Gemma dependencies if you enable `local_gemma`:
 
