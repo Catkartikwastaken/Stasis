@@ -3,6 +3,7 @@ flask-socketio
 simple-websocket
 opencv-python
 pillow
+requests
 torch
 torchvision
 transformers>=4.53.0

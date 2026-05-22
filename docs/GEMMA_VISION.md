@@ -2,6 +2,8 @@
 
 STASIS uses Gemma on the Windows laptop/server to inspect USB webcam frames captured by the Raspberry Pi. The rover does not run Gemma; the Raspberry Pi 2B captures the webcam, streams frames to Windows, receives `vision_result`, decides the action, and sends `vision_decision` back to the dashboard/server.
 
+Gemma is now one supported local provider, not the only vision option. For Gemini API, OpenAI, Anthropic, Qwen DashScope, Kimi, Zhipu, Ollama, or LM Studio, use `docs/VISION_PROVIDERS.md`.
+
 ## Default Model
 
 The server defaults to:
@@ -75,9 +77,11 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+If you are using only API providers, Ollama, or LM Studio, install `requirements-api.txt` instead. That lighter install does not require Torch.
+
 ## Configuration
 
-The defaults use Hugging Face device mapping automatically. Override these environment variables when needed:
+For local Gemma, copy `server/vision_config.example.json` to `server/vision_config.json`, enable `local_gemma`, and put it in `provider_order`. The legacy environment variables below still work for Gemma tuning when needed:
 
 ```text
 STASIS_VISION_ENABLED=true
