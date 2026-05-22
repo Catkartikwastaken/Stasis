@@ -6,12 +6,12 @@ STASIS has two main computers:
 
 ```text
 Raspberry Pi 2B  -> sits on the rover, uses the webcam, controls movement
-Windows laptop   -> runs the dashboard and Gemma vision model
+Windows laptop   -> runs the dashboard and selected multimodal vision provider
 ```
 
-The Raspberry Pi is the rover brain. It captures webcam frames, sends them to the Windows laptop, receives the Gemma result, and decides what the rover should do next.
+The Raspberry Pi is the rover brain. It captures webcam frames, sends them to the Windows laptop, receives the AI vision result, and decides what the rover should do next.
 
-The Windows laptop is the AI and dashboard station. It does the heavy Gemma processing, serves the web dashboard, and passes commands between the dashboard and the Pi.
+The Windows laptop is the AI and dashboard station. It calls the configured multimodal provider, serves the web dashboard, and passes commands between the dashboard and the Pi.
 
 The webcam should be connected to the Raspberry Pi for the real demo. The laptop webcam mode exists only for quick testing.
 
@@ -19,7 +19,7 @@ This repository contains a complete starter setup for STASIS, a forest monitorin
 
 1. A USB webcam connects to the Raspberry Pi.
 2. The Raspberry Pi 2B runs the Python rover client, captures webcam frames, and controls the rover.
-3. A laptop runs the Flask/Socket.IO Gemma vision and command server.
+3. A laptop runs the Flask/Socket.IO vision and command server.
 4. A browser dashboard sends map goals and displays alerts.
 
 The Raspberry Pi client is the active high-level rover controller in this branch. Old embedded camera code has been fully removed from the ESP32-S3, and its firmware now serves exclusively as a low-level USB-to-Serial motor control delegator (serial-to-PWM bridge) for the L911S driver. This ensures precise PWM motor drive signals and offloads low-level timing tasks from the Raspberry Pi.
@@ -37,12 +37,15 @@ rover/rpi2b/README.md
 rover/rpi2b/stasis-rover.service.example
 server/security_rover_server.py
 server/security_rover_server_windows.py
+server/vision_config.example.json
 server/requirements.txt
 server/requirements-windows.txt
+server/requirements-api.txt
 server/templates/index.html
 dashboard/rover_dashboard.html
 dashboard/rover_dashboard_windows.html
 docs/GEMMA_VISION.md
+docs/VISION_PROVIDERS.md
 docs/README_ROVER_SYSTEM.md
 ```
 
@@ -84,7 +87,7 @@ When the rover finishes, it sends:
 {"status":"goal_reached"}
 ```
 
-When Gemma detects a relevant forest-monitoring event, the laptop sends a `vision_result` back to the Raspberry Pi. The Pi decides the action, for example `stop_and_alert` for humans or fire, then returns `vision_decision`. The server uses that Pi decision to emit `new_alert` to the dashboard. Target events include humans/intruders, animals, visible track or soil changes, fire/smoke/flame, and custom colored markers such as red strips. Gemma setup details live in `docs/GEMMA_VISION.md`.
+When the selected multimodal provider detects a relevant forest-monitoring event, the laptop sends a `vision_result` back to the Raspberry Pi. The Pi decides the action, for example `stop_and_alert` for humans or fire, then returns `vision_decision`. The server uses that Pi decision to emit `new_alert` to the dashboard. Target events include humans/intruders, animals, visible track or soil changes, fire/smoke/flame, and custom colored markers such as red strips. API, Ollama, LM Studio, and local Gemma setup details live in `docs/VISION_PROVIDERS.md`.
 
 The server accepts alerts only for these categories:
 
@@ -96,7 +99,7 @@ fire
 marker
 ```
 
-If Gemma returns a category outside that list, the server suppresses the alert.
+If the selected model returns a category outside that list, the server suppresses the alert.
 
 ## Raspberry Pi 2B Rover Responsibilities
 
@@ -276,7 +279,7 @@ Use this server on Windows:
 server/security_rover_server_windows.py
 ```
 
-It uses CUDA if available, otherwise CPU.
+It can use cloud APIs, Ollama, LM Studio, or local Gemma. API/Ollama/LM Studio mode does not need Torch.
 
 Install dependencies from PowerShell:
 
@@ -285,17 +288,26 @@ cd server
 py -m venv .venv
 .\.venv\Scripts\activate
 python -m pip install --upgrade pip
+pip install -r requirements-api.txt
+copy vision_config.example.json vision_config.json
+```
+
+Edit `vision_config.json`, enable one provider, and set the matching API key environment variable. Provider setup details are in `docs/VISION_PROVIDERS.md`.
+
+Only install the heavier local Gemma dependencies if you enable `local_gemma`:
+
+```powershell
 pip install -r requirements-windows.txt
 ```
 
-Gemma vision alerts use `google/gemma-4-E2B-it` through Hugging Face Transformers. If your environment needs Hugging Face authentication for model downloads, set a token:
+Local Gemma alerts use `google/gemma-4-E2B-it` through Hugging Face Transformers. If your environment needs Hugging Face authentication for model downloads, set a token:
 
 ```powershell
 $env:HF_TOKEN = "hf_your_token_here"
 $env:STASIS_VISION_REQUIRED = "true"
 ```
 
-Useful vision settings:
+Useful local Gemma settings:
 
 ```powershell
 $env:STASIS_CAMERA_SOURCE = "rover"
@@ -305,7 +317,7 @@ $env:STASIS_VISION_TORCH_DTYPE = "bfloat16"
 $env:STASIS_ANALYSIS_INTERVAL_SECONDS = "2"
 ```
 
-To test rover control without loading Gemma:
+To test rover control without loading vision:
 
 ```powershell
 $env:STASIS_VISION_ENABLED = "false"
@@ -350,7 +362,7 @@ const WINDOWS_LAPTOP_IP = "<WINDOWS_LAPTOP_IP>";
 ## Recommended Startup Order
 
 1. Plug the USB webcam into the Raspberry Pi.
-2. Set `HF_TOKEN` on the laptop if Hugging Face authentication is needed.
+2. Configure `server/vision_config.json` and set the selected provider API key, or enable Ollama/LM Studio.
 3. Start `server/security_rover_server_windows.py` on the Windows laptop.
 4. Note the Windows IP printed by Flask, for example `10.139.244.74`.
 5. Edit `rover/rpi2b/config.json` with that Windows/server IP.
@@ -368,10 +380,10 @@ Clicked map goals
 Immediate stop
 Return-to-home
 Ultrasonic scan
-Gemma-based event alerts
+Multimodal event alerts
 ```
 
-The dashboard includes red-strip search and go-to-red-strip controls. Gemma marker detections are stored against the rover's current map position, so the rover can drive back to the last seen strip when commanded. The next behavior layer should add richer patrol scripts around those stored marker points.
+The dashboard includes red-strip search and go-to-red-strip controls. Marker detections are stored against the rover's current map position, so the rover can drive back to the last seen strip when commanded. The next behavior layer should add richer patrol scripts around those stored marker points.
 
 ## Calibration Notes
 
