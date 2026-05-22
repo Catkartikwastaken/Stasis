@@ -8,7 +8,7 @@ The project focuses on a practical mission: help monitor places where humans, an
 
 | Area | What STASIS Demonstrates |
 | --- | --- |
-| Vision AI | Gemma analyzes live camera frames for humans, animals, tracks, fire, and colored markers. |
+| Vision AI | A configurable multimodal AI provider analyzes live camera frames for humans, animals, tracks, fire, and colored markers. |
 | Rover control | Raspberry Pi 2B controls movement, telemetry, camera capture, and final action decisions. |
 | Remote dashboard | A browser dashboard shows the camera feed, rover position, alerts, and tracking guidance. |
 | Indoor demo ready | No GPS is required; the rover works in a controlled demo arena. |
@@ -16,13 +16,13 @@ The project focuses on a practical mission: help monitor places where humans, an
 
 ## Current Demo Architecture
 
-The webcam is connected to the Raspberry Pi, not the laptop. The Raspberry Pi sends camera frames to the Windows laptop, the laptop runs Gemma, and the Pi receives the result before deciding what action to take.
+The webcam is connected to the Raspberry Pi, not the laptop. The Raspberry Pi sends camera frames to the Windows laptop, the laptop runs the selected multimodal provider, and the Pi receives the result before deciding what action to take.
 
 ```mermaid
 flowchart LR
     Camera["USB webcam on Raspberry Pi"] --> Pi["Raspberry Pi 2B rover client"]
     Pi -->|"camera_frame over WebSocket"| Server["Windows laptop server"]
-    Server -->|"Gemma vision_result"| Pi
+    Server -->|"AI vision_result"| Pi
     Pi -->|"vision_decision"| Server
     Server --> Dashboard["Web dashboard"]
     Dashboard -->|"goals and controls"| Server
@@ -34,14 +34,14 @@ In plain words:
 
 1. The Pi sees through the webcam.
 2. The Pi sends the image to the Windows laptop.
-3. The laptop uses Gemma to understand the image.
+3. The laptop uses the configured multimodal model to understand the image.
 4. The laptop sends the result back to the Pi.
 5. The Pi decides whether to stop, alert, remember a marker, or continue.
 6. The dashboard shows the final result for the user.
 
 ## What STASIS Detects
 
-Gemma output is filtered so the project stays focused on the forest-monitoring mission.
+AI output is filtered so the project stays focused on the forest-monitoring mission.
 
 ```text
 human   -> humans, intruders, people in the demo area
@@ -76,7 +76,7 @@ It provides:
 | --- | --- |
 | Raspberry Pi 2B | Rover brain, webcam capture, telemetry, action decisions, motor control path. |
 | USB webcam | Connected to the Pi for the rover's point of view. |
-| Windows laptop | Runs Flask dashboard server and Gemma vision processing. |
+| Windows laptop | Runs Flask dashboard server and selected multimodal vision processing. |
 | L911S / L9110S motor driver | Drives the rover motors. |
 | ESP32-S3 | Optional low-level serial motor controller for cleaner PWM motor timing. |
 | Optional sensors | MPU6050, GY-271/HMC5883L, HC-SR04, and scanner servo support are included but can stay disabled for a minimal demo. |
@@ -92,8 +92,22 @@ cd server
 py -m venv .venv
 .\.venv\Scripts\activate
 python -m pip install --upgrade pip
-pip install -r requirements-windows.txt
+pip install -r requirements-api.txt
+copy vision_config.example.json vision_config.json
+```
+
+Edit `vision_config.json` and enable one provider. The recommended local competition setup is `moondream_stasis`, which uses Moondream for vision and a tiny text model for clean STASIS alert comments. Gemini, OpenAI, Anthropic, Qwen DashScope, Kimi, Zhipu, single-model Ollama, LM Studio, and local Gemma examples are also included.
+
+Then start the server:
+
+```powershell
 python security_rover_server_windows.py
+```
+
+Only install the heavier local Gemma dependencies if you enable `local_gemma`:
+
+```powershell
+pip install -r requirements-windows.txt
 ```
 
 The server will print an address like:
@@ -104,7 +118,7 @@ http://10.139.244.74:5000
 
 Use that IP address on the Raspberry Pi.
 
-If Hugging Face authentication is needed for Gemma:
+If Hugging Face authentication is needed for local Gemma:
 
 ```powershell
 $env:HF_TOKEN = "hf_your_token_here"
@@ -153,7 +167,7 @@ In a browser on the laptop:
 http://<WINDOWS_LAPTOP_IP>:5000
 ```
 
-You should see the live Pi webcam feed. When Gemma detects a human or fire, the Pi receives the result, stops the rover, approves the alert, and the dashboard displays it.
+You should see the live Pi webcam feed. When the selected AI provider detects a human, fire, marker, track, or animal, the Pi receives the result, stops or continues based on the event, approves the alert, and the dashboard displays it.
 
 ## Demo Script
 
@@ -173,7 +187,9 @@ For a simple judging demonstration:
 
 ```text
 server/
-  security_rover_server_windows.py    Windows Flask + Socket.IO + Gemma server
+  security_rover_server_windows.py    Windows Flask + Socket.IO + multimodal vision server
+  vision_config.example.json          Editable provider config template
+  requirements-api.txt                Lightweight API/Ollama/LM Studio server dependencies
   templates/index.html                Main live dashboard
 
 rover/rpi2b/
@@ -190,7 +206,8 @@ dashboard/
 
 docs/
   README_ROVER_SYSTEM.md              Full system setup and wiring guide
-  GEMMA_VISION.md                     Gemma setup and prompt contract
+  VISION_PROVIDERS.md                 API, Ollama, LM Studio, and Gemma provider setup
+  GEMMA_VISION.md                     Local Gemma setup and prompt contract
   PROJECT_BRIEF.md                    Mission, scope, and demo assumptions
 ```
 
@@ -202,7 +219,13 @@ Start here for the full build guide:
 docs/README_ROVER_SYSTEM.md
 ```
 
-Gemma setup details:
+Multimodal provider setup:
+
+```text
+docs/VISION_PROVIDERS.md
+```
+
+Local Gemma setup details:
 
 ```text
 docs/GEMMA_VISION.md
@@ -220,7 +243,7 @@ STASIS is a prototype. For the current indoor demo:
 
 - GPS is intentionally not used.
 - Distance is approximate without wheel encoders.
-- Gemma should run on the laptop, not on the Raspberry Pi 2B.
+- Multimodal AI should run on the laptop or through an API, not on the Raspberry Pi 2B.
 - Optional sensors should only be enabled after the hardware is physically connected.
 
 These limits are documented so the demo stays honest, understandable, and focused.

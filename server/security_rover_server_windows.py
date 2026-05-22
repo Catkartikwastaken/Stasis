@@ -6,9 +6,9 @@ typically executed on a laptop/workstation. It provides the following services:
 1. Web Dashboard: Host a real-time web control dashboard (HTML/JS/CSS).
 2. Rover Telemetry Hub: WebSocket endpoints for real-time telemetry registration 
    (IMU headings, distance logs, ultrasonic scanning data, and active goals).
-3. Vision Analytics: Receives Raspberry Pi webcam frames, pipelines images into
-   local Gemma VLMs, sends results back to the Pi for action decisions, and
-   dispatches approved dashboard notifications.
+3. Vision Analytics: Receives Raspberry Pi webcam frames, sends images to the
+   configured multimodal provider, sends results back to the Pi for action
+   decisions, and dispatches approved dashboard notifications.
 """
 
 from __future__ import annotations
@@ -26,18 +26,18 @@ from typing import Any, Generator, Dict, List, Optional, Union
 
 import cv2
 import numpy as np
-import torch
+import requests
 from flask import Flask, render_template, request, send_from_directory, Response
 from flask_socketio import SocketIO, emit
 from PIL import Image
 from simple_websocket import ConnectionClosed, Server
-from transformers import pipeline
 
 # ==========================================
 # FILE PATHS & WORKSPACE DEFINITIONS
 # ==========================================
 BASE_DIR: Path = Path(__file__).resolve().parent
 ALERTS_DIR: Path = BASE_DIR / "alerts"
+VISION_CONFIG_PATH: Path = Path(os.getenv("STASIS_VISION_CONFIG", BASE_DIR / "vision_config.json"))
 
 # ==========================================
 # ENV LOADING HELPERS (With safe fallbacks)
@@ -104,7 +104,7 @@ PIXEL_TO_CM: float = 1.0  # Mapping scale constant: pixels in UI to physical cm
 ROVER_CLIENT_ID: str = "rpi2b_rover"
 ALLOWED_EVENT_CATEGORIES: set[str] = {"human", "animal", "track", "fire", "marker"}
 
-# Lexicon mappings used to ensure Gemma alert relevance to the Stasis project
+# Lexicon mappings used to ensure vision alert relevance to the STASIS project
 PROJECT_KEYWORDS: set[str] = {
     "human", "person", "people", "intruder", "animal", "wildlife", "track", 
     "trail", "footprint", "soil", "disturbed", "fire", "flame", "smoke", 
@@ -123,6 +123,57 @@ DEFAULT_ANALYSIS_PROMPT: str = (
     "Keep message short and specific; use an empty string when detected is false."
 )
 ANALYSIS_PROMPT: str = os.getenv("STASIS_ANALYSIS_PROMPT", DEFAULT_ANALYSIS_PROMPT)
+
+
+def load_vision_config() -> Dict[str, Any]:
+    """
+    Loads provider configuration without requiring code edits.
+    """
+    default_config: Dict[str, Any] = {
+        "enabled": VISION_ENABLED,
+        "provider_order": ["local_gemma"],
+        "max_output_tokens": VISION_MAX_NEW_TOKENS,
+        "request_timeout_seconds": 45,
+        "providers": {
+            "local_gemma": {
+                "type": "local_gemma",
+                "enabled": True,
+                "model": VISION_MODEL,
+                "pipeline_task": VISION_PIPELINE_TASK,
+            }
+        },
+    }
+
+    if not VISION_CONFIG_PATH.exists():
+        return default_config
+
+    try:
+        loaded = json.loads(VISION_CONFIG_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        logging.warning("Could not read vision config %s: %s", VISION_CONFIG_PATH, exc)
+        return default_config
+
+    if not isinstance(loaded, dict):
+        logging.warning("Vision config must be a JSON object; using defaults.")
+        return default_config
+
+    merged = dict(default_config)
+    merged.update({key: value for key, value in loaded.items() if key != "providers"})
+    providers = dict(default_config["providers"])
+    providers.update(loaded.get("providers", {}) if isinstance(loaded.get("providers"), dict) else {})
+    merged["providers"] = providers
+    return merged
+
+
+VISION_CONFIG: Dict[str, Any] = load_vision_config()
+VISION_PROVIDER_ORDER: List[str] = [
+    str(provider) for provider in VISION_CONFIG.get("provider_order", ["local_gemma"])
+]
+VISION_PROVIDERS: Dict[str, Any] = (
+    VISION_CONFIG.get("providers", {}) if isinstance(VISION_CONFIG.get("providers"), dict) else {}
+)
+VISION_REQUEST_TIMEOUT: float = float(VISION_CONFIG.get("request_timeout_seconds", 45))
+ANALYSIS_PROMPT = os.getenv("STASIS_ANALYSIS_PROMPT", str(VISION_CONFIG.get("prompt", ANALYSIS_PROMPT)))
 
 # ==========================================
 # FLASK & INTERFACE REGISTRATIONS
@@ -175,13 +226,17 @@ def get_vision_device() -> str:
     """
     if VISION_DEVICE.lower() != "auto":
         return VISION_DEVICE
+    import torch
+
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
-def get_vision_dtype(device: str) -> torch.dtype:
+def get_vision_dtype(device: str) -> Any:
     """
     Resolves tensor data types matching selected execution hardware.
     """
+    import torch
+
     dtype_name = VISION_TORCH_DTYPE.lower()
     if dtype_name == "auto":
         return torch.bfloat16 if device.startswith("cuda") else torch.float32
@@ -214,17 +269,42 @@ def build_pipeline_kwargs() -> Dict[str, Any]:
     device_map = get_vision_device_map()
     if device_map is not None:
         return {
-            "model": VISION_MODEL,
+            "model": get_provider_config("local_gemma").get("model", VISION_MODEL),
             "device_map": device_map,
             "dtype": VISION_TORCH_DTYPE,
         }
 
     device = get_vision_device()
     return {
-        "model": VISION_MODEL,
+        "model": get_provider_config("local_gemma").get("model", VISION_MODEL),
         "device": device,
         "torch_dtype": get_vision_dtype(device),
     }
+
+
+def get_provider_config(name: str) -> Dict[str, Any]:
+    config = VISION_PROVIDERS.get(name, {})
+    return config if isinstance(config, dict) else {}
+
+
+def provider_enabled(name: str, config: Dict[str, Any]) -> bool:
+    if not VISION_CONFIG.get("enabled", VISION_ENABLED):
+        return False
+    if not config.get("enabled", False):
+        return False
+    key_env = str(config.get("api_key_env", "")).strip()
+    if key_env and not os.getenv(key_env):
+        logging.info("Skipping vision provider %s because %s is not set.", name, key_env)
+        return False
+    return True
+
+
+def local_gemma_enabled() -> bool:
+    for provider_name in VISION_PROVIDER_ORDER:
+        config = get_provider_config(provider_name)
+        if config.get("type") == "local_gemma" and provider_enabled(provider_name, config):
+            return True
+    return False
 
 
 def load_vision_model() -> None:
@@ -233,20 +313,28 @@ def load_vision_model() -> None:
     """
     global vision_pipe
 
-    if not VISION_ENABLED:
+    if not VISION_CONFIG.get("enabled", VISION_ENABLED):
         logging.warning("Vision model analysis is deactivated by user configs.")
+        return
+    if not local_gemma_enabled():
+        logging.info("Local Gemma is not enabled in vision_config; skipping Torch/Transformers load.")
         return
 
     pipeline_kwargs = build_pipeline_kwargs()
     logging.info(
         "Loading VLM model %s on task: %s...",
-        VISION_MODEL,
-        VISION_PIPELINE_TASK
+        pipeline_kwargs.get("model", VISION_MODEL),
+        get_provider_config("local_gemma").get("pipeline_task", VISION_PIPELINE_TASK),
     )
 
     load_error: Optional[Exception] = None
     try:
-        vision_pipe = pipeline(VISION_PIPELINE_TASK, **pipeline_kwargs)
+        from transformers import pipeline
+
+        vision_pipe = pipeline(
+            str(get_provider_config("local_gemma").get("pipeline_task", VISION_PIPELINE_TASK)),
+            **pipeline_kwargs,
+        )
         logging.info("VLM Model pipeline loaded successfully.")
     except TypeError as error:
         load_error = error
@@ -369,7 +457,7 @@ def parse_json_response(text: str) -> Dict[str, Any]:
 
     category = normalize_event_category(parsed.get("category"), message)
     if category not in ALLOWED_EVENT_CATEGORIES:
-        logging.info("Suppressing out-of-scope Gemma detection: category=%r message=%r", category, message)
+        logging.info("Suppressing out-of-scope vision detection: category=%r message=%r", category, message)
         return {"detected": False, "category": "", "message": ""}
 
     message = normalize_event_message(category, message)
@@ -486,12 +574,237 @@ def build_vision_messages(image: Image.Image) -> List[Dict[str, Any]]:
     ]
 
 
-def analyze_frame(frame: Any) -> Dict[str, Any]:
+def frame_to_jpeg_b64(frame: Any, quality: int = 70) -> str:
+    quality = max(30, min(95, int(quality)))
+    ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    if not ok:
+        raise RuntimeError("Could not encode camera frame as JPEG")
+    return base64.b64encode(encoded.tobytes()).decode("ascii")
+
+
+def request_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
+    response = requests.post(url, headers=headers, json=payload, timeout=timeout)
+    response.raise_for_status()
+    data = response.json()
+    if not isinstance(data, dict):
+        raise ValueError("Vision provider returned non-object JSON")
+    return data
+
+
+def analyze_with_openai_compatible(name: str, config: Dict[str, Any], frame: Any) -> Dict[str, Any]:
+    api_key_env = str(config.get("api_key_env", "")).strip()
+    api_key = os.getenv(api_key_env, "") if api_key_env else str(config.get("api_key", ""))
+    base_url = str(config.get("base_url", "https://api.openai.com/v1")).rstrip("/")
+    model = str(config.get("model", "gpt-4.1-nano"))
+    image_b64 = frame_to_jpeg_b64(frame, int(config.get("jpeg_quality", 70)))
+
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    payload: Dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {
+                "role": "system",
+                "content": "You are the STASIS rover vision module. Output strict JSON only.",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": ANALYSIS_PROMPT},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"},
+                    },
+                ],
+            },
+        ],
+        "temperature": float(config.get("temperature", 0)),
+        "max_tokens": int(config.get("max_output_tokens", VISION_CONFIG.get("max_output_tokens", 160))),
+    }
+    if config.get("json_mode", True):
+        payload["response_format"] = {"type": "json_object"}
+
+    data = request_json(f"{base_url}/chat/completions", headers, payload, VISION_REQUEST_TIMEOUT)
+    content = data["choices"][0]["message"]["content"]
+    logging.info("Vision provider %s returned a response.", name)
+    return parse_json_response(extract_model_text(content))
+
+
+def analyze_with_gemini(config: Dict[str, Any], frame: Any) -> Dict[str, Any]:
+    api_key_env = str(config.get("api_key_env", "GEMINI_API_KEY"))
+    api_key = os.getenv(api_key_env, "")
+    model = str(config.get("model", "gemini-2.5-flash-lite"))
+    base_url = str(config.get("base_url", "https://generativelanguage.googleapis.com/v1beta")).rstrip("/")
+    image_b64 = frame_to_jpeg_b64(frame, int(config.get("jpeg_quality", 70)))
+
+    payload = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [
+                    {"text": ANALYSIS_PROMPT},
+                    {"inline_data": {"mime_type": "image/jpeg", "data": image_b64}},
+                ],
+            }
+        ],
+        "generationConfig": {
+            "temperature": float(config.get("temperature", 0)),
+            "maxOutputTokens": int(config.get("max_output_tokens", VISION_CONFIG.get("max_output_tokens", 160))),
+            "responseMimeType": "application/json",
+        },
+    }
+    data = request_json(f"{base_url}/models/{model}:generateContent?key={api_key}", {}, payload, VISION_REQUEST_TIMEOUT)
+    parts = data["candidates"][0]["content"]["parts"]
+    content = "\n".join(str(part.get("text", "")) for part in parts if isinstance(part, dict))
+    return parse_json_response(content)
+
+
+def analyze_with_anthropic(config: Dict[str, Any], frame: Any) -> Dict[str, Any]:
+    api_key_env = str(config.get("api_key_env", "ANTHROPIC_API_KEY"))
+    api_key = os.getenv(api_key_env, "")
+    base_url = str(config.get("base_url", "https://api.anthropic.com/v1")).rstrip("/")
+    model = str(config.get("model", "claude-3-5-haiku-latest"))
+    image_b64 = frame_to_jpeg_b64(frame, int(config.get("jpeg_quality", 70)))
+
+    payload = {
+        "model": model,
+        "max_tokens": int(config.get("max_output_tokens", VISION_CONFIG.get("max_output_tokens", 160))),
+        "temperature": float(config.get("temperature", 0)),
+        "system": "You are the STASIS rover vision module. Output strict JSON only.",
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": ANALYSIS_PROMPT},
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": "image/jpeg",
+                            "data": image_b64,
+                        },
+                    },
+                ],
+            }
+        ],
+    }
+    headers = {
+        "Content-Type": "application/json",
+        "x-api-key": api_key,
+        "anthropic-version": str(config.get("anthropic_version", "2023-06-01")),
+    }
+    data = request_json(f"{base_url}/messages", headers, payload, VISION_REQUEST_TIMEOUT)
+    content = extract_model_text(data.get("content", ""))
+    return parse_json_response(content)
+
+
+def analyze_with_ollama(config: Dict[str, Any], frame: Any) -> Dict[str, Any]:
+    base_url = str(config.get("base_url", "http://127.0.0.1:11434")).rstrip("/")
+    model = str(config.get("model", "llava:7b"))
+    image_b64 = frame_to_jpeg_b64(frame, int(config.get("jpeg_quality", 70)))
+    payload = {
+        "model": model,
+        "stream": False,
+        "messages": [
+            {
+                "role": "user",
+                "content": ANALYSIS_PROMPT,
+                "images": [image_b64],
+            }
+        ],
+        "options": {"temperature": float(config.get("temperature", 0))},
+    }
+    data = request_json(f"{base_url}/api/chat", {"Content-Type": "application/json"}, payload, VISION_REQUEST_TIMEOUT)
+    content = data.get("message", {}).get("content", data.get("response", ""))
+    return parse_json_response(extract_model_text(content))
+
+
+def analyze_with_ollama_moondream_pipeline(config: Dict[str, Any], frame: Any) -> Dict[str, Any]:
+    """
+    Uses a small Ollama vision model as the eyes, then a tiny text model as the JSON formatter.
+    """
+    base_url = str(config.get("base_url", "http://127.0.0.1:11434")).rstrip("/")
+    vision_model = str(config.get("vision_model", "moondream"))
+    text_model = str(config.get("text_model", "qwen2.5:0.5b"))
+    image_b64 = frame_to_jpeg_b64(frame, int(config.get("jpeg_quality", 60)))
+    vision_prompt = str(
+        config.get(
+            "vision_prompt",
+            "Inspect this STASIS rover frame. List whether you see a person/human, animal, "
+            "fire/smoke/flame, footprints/tracks/soil disturbance, colored marker/red strip, "
+            "and important objects. Be concise.",
+        )
+    )
+
+    vision_payload = {
+        "model": vision_model,
+        "stream": False,
+        "messages": [
+            {
+                "role": "user",
+                "content": vision_prompt,
+                "images": [image_b64],
+            }
+        ],
+        "options": {
+            "temperature": float(config.get("vision_temperature", 0)),
+            "num_predict": int(config.get("vision_max_tokens", 96)),
+        },
+    }
+    vision_data = request_json(
+        f"{base_url}/api/chat",
+        {"Content-Type": "application/json"},
+        vision_payload,
+        float(config.get("vision_timeout_seconds", VISION_REQUEST_TIMEOUT)),
+    )
+    vision_text = extract_model_text(vision_data.get("message", {}).get("content", vision_data.get("response", "")))
+
+    if not config.get("use_text_formatter", True):
+        return parse_json_response(vision_text)
+
+    formatter_prompt = str(
+        config.get(
+            "formatter_prompt",
+            "Convert the vision notes into exactly one STASIS JSON object and no Markdown. "
+            "Allowed categories: human, animal, track, fire, marker. "
+            "Return detected true only for those STASIS events. Intruders are human. "
+            "Colored strips are marker. If no event is visible, return "
+            "{\"detected\": false, \"category\": \"\", \"message\": \"\"}. "
+            "Keep message short and specific.",
+        )
+    )
+    formatter_payload = {
+        "model": text_model,
+        "stream": False,
+        "messages": [
+            {
+                "role": "user",
+                "content": f"{formatter_prompt}\n\nVision notes:\n{vision_text}",
+            }
+        ],
+        "options": {
+            "temperature": float(config.get("formatter_temperature", 0)),
+            "num_predict": int(config.get("formatter_max_tokens", VISION_CONFIG.get("max_output_tokens", 160))),
+        },
+    }
+    formatter_data = request_json(
+        f"{base_url}/api/chat",
+        {"Content-Type": "application/json"},
+        formatter_payload,
+        float(config.get("formatter_timeout_seconds", VISION_REQUEST_TIMEOUT)),
+    )
+    content = formatter_data.get("message", {}).get("content", formatter_data.get("response", ""))
+    return parse_json_response(extract_model_text(content))
+
+
+def analyze_with_local_gemma(frame: Any) -> Dict[str, Any]:
     """
     Invokes the pipeline to process a raw frame.
     """
     if vision_pipe is None:
-        return {"detected": False, "message": ""}
+        raise RuntimeError("Local Gemma provider is enabled, but the pipeline is not loaded")
 
     image = frame_to_pil(frame)
     try:
@@ -509,6 +822,44 @@ def analyze_frame(frame: Any) -> Dict[str, Any]:
         )
 
     return parse_json_response(extract_model_text(result))
+
+
+def analyze_frame(frame: Any) -> Dict[str, Any]:
+    """
+    Tries configured vision providers in order until one succeeds.
+    """
+    if not VISION_CONFIG.get("enabled", VISION_ENABLED):
+        return {"detected": False, "message": ""}
+
+    for provider_name in VISION_PROVIDER_ORDER:
+        config = get_provider_config(provider_name)
+        if not provider_enabled(provider_name, config):
+            continue
+
+        provider_type = str(config.get("type", provider_name)).strip().lower()
+        try:
+            if provider_type == "local_gemma":
+                result = analyze_with_local_gemma(frame)
+            elif provider_type in {"openai", "openai_compatible", "lmstudio", "qwen", "kimi", "zhipu"}:
+                result = analyze_with_openai_compatible(provider_name, config, frame)
+            elif provider_type == "gemini":
+                result = analyze_with_gemini(config, frame)
+            elif provider_type == "anthropic":
+                result = analyze_with_anthropic(config, frame)
+            elif provider_type == "ollama":
+                result = analyze_with_ollama(config, frame)
+            elif provider_type in {"ollama_moondream_pipeline", "moondream_pipeline"}:
+                result = analyze_with_ollama_moondream_pipeline(config, frame)
+            else:
+                logging.warning("Unknown vision provider type %r for %s", provider_type, provider_name)
+                continue
+
+            logging.info("Vision provider %s succeeded.", provider_name)
+            return result
+        except Exception as exc:
+            logging.warning("Vision provider %s failed: %s", provider_name, exc)
+
+    return {"detected": False, "category": "", "message": ""}
 
 
 def save_alert_frame(frame: Any) -> str:
@@ -621,7 +972,7 @@ def vision_analysis_loop() -> None:
     while True:
         try:
             time.sleep(ANALYSIS_INTERVAL_SECONDS)
-            if not VISION_ENABLED or vision_pipe is None:
+            if not VISION_CONFIG.get("enabled", VISION_ENABLED):
                 continue
             if latest_frame is None:
                 continue
@@ -654,7 +1005,7 @@ def vision_analysis_loop() -> None:
             if analysis.get("marker"):
                 payload["marker"] = analysis["marker"]
 
-            logging.info("Gemma result ready for rover decision: Category=%s Message=%s", analysis["category"], analysis["message"])
+            logging.info("Vision result ready for rover decision: Category=%s Message=%s", analysis["category"], analysis["message"])
             sent = send_rover_command({"type": "vision_result", "detected": True, **payload})
             if not sent:
                 logging.warning("Vision result could not be sent to rover for decision.")
@@ -771,7 +1122,7 @@ def handle_scan_report(payload: Dict[str, Any]) -> None:
 
 def handle_vision_decision(payload: Dict[str, Any]) -> None:
     """
-    Applies the Raspberry Pi's decision after Windows/Gemma returns a vision result.
+    Applies the Raspberry Pi's decision after Windows returns a vision result.
     """
     if not payload.get("detected") or not payload.get("alert", True):
         return

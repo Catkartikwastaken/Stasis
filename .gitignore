@@ -5,4 +5,5 @@ venv/
 alerts/
 .env
 rover/rpi2b/config.json
+server/vision_config.json
 .DS_Store

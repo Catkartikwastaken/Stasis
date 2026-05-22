@@ -1,0 +1,7 @@
+flask
+flask-socketio
+simple-websocket
+opencv-python
+numpy
+pillow
+requests
