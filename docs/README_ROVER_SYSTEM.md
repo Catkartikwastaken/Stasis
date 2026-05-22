@@ -1,5 +1,20 @@
 # STASIS Forest Monitoring Rover System
 
+## Plain-English Overview
+
+STASIS has two main computers:
+
+```text
+Raspberry Pi 2B  -> sits on the rover, uses the webcam, controls movement
+Windows laptop   -> runs the dashboard and Gemma vision model
+```
+
+The Raspberry Pi is the rover brain. It captures webcam frames, sends them to the Windows laptop, receives the Gemma result, and decides what the rover should do next.
+
+The Windows laptop is the AI and dashboard station. It does the heavy Gemma processing, serves the web dashboard, and passes commands between the dashboard and the Pi.
+
+The webcam should be connected to the Raspberry Pi for the real demo. The laptop webcam mode exists only for quick testing.
+
 This repository contains a complete starter setup for STASIS, a forest monitoring rover that will be demonstrated indoors in a forest-like environment:
 
 1. A USB webcam connects to the Raspberry Pi.
