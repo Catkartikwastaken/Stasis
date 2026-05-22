@@ -96,7 +96,7 @@ pip install -r requirements-api.txt
 copy vision_config.example.json vision_config.json
 ```
 
-Edit `vision_config.json`, enable one provider, and set its API key environment variable. Gemini, OpenAI, Anthropic, Qwen DashScope, Kimi, Zhipu, Ollama, LM Studio, and local Gemma examples are included.
+Edit `vision_config.json` and enable one provider. The recommended local competition setup is `moondream_stasis`, which uses Moondream for vision and a tiny text model for clean STASIS alert comments. Gemini, OpenAI, Anthropic, Qwen DashScope, Kimi, Zhipu, single-model Ollama, LM Studio, and local Gemma examples are also included.
 
 Then start the server:
 
@@ -167,7 +167,7 @@ In a browser on the laptop:
 http://<WINDOWS_LAPTOP_IP>:5000
 ```
 
-You should see the live Pi webcam feed. When the selected AI provider detects a human or fire, the Pi receives the result, stops the rover, approves the alert, and the dashboard displays it.
+You should see the live Pi webcam feed. When the selected AI provider detects a human, fire, marker, track, or animal, the Pi receives the result, stops or continues based on the event, approves the alert, and the dashboard displays it.
 
 ## Demo Script
 

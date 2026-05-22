@@ -6,13 +6,14 @@ Use this when local Gemma is too heavy for your laptop, when Torch is not instal
 
 ## Recommended Demo Setup
 
-For the smoothest demo, start with an API provider first, then keep Ollama or LM Studio as the local fallback.
+For the smoothest local demo, start with the Moondream two-stage Ollama setup. Keep cloud APIs as backup if the competition network allows them.
 
 ```text
 Raspberry Pi webcam frame
   -> Windows server
-  -> Gemini / OpenAI / Qwen / Zhipu / Anthropic / Kimi API
-  -> if API fails, try Ollama or LM Studio
+  -> Moondream checks the image
+  -> tiny text model converts the notes into STASIS JSON
+  -> if local models fail, try Gemini / OpenAI / Qwen / Zhipu / Anthropic / Kimi API
   -> Raspberry Pi receives vision_result
   -> Raspberry Pi decides stop, alert, marker memory, or continue
 ```
@@ -68,6 +69,56 @@ The server tries providers in this order:
 
 Only enabled providers are used. If a provider fails, STASIS logs the error and tries the next enabled provider.
 
+## Recommended Local Setup: Moondream + Tiny Text Model
+
+Gemma 4 E2B is accurate but can be too slow on a laptop during a live robot demo. The recommended local setup splits the work into two smaller jobs:
+
+```text
+Moondream       -> looks at the camera frame
+qwen2.5:0.5b    -> converts Moondream notes into clean STASIS JSON
+```
+
+Install the models:
+
+```powershell
+ollama pull moondream
+ollama pull qwen2.5:0.5b
+```
+
+Enable this provider in `server/vision_config.json`:
+
+```json
+"moondream_stasis": {
+  "type": "ollama_moondream_pipeline",
+  "enabled": true,
+  "base_url": "http://127.0.0.1:11434",
+  "vision_model": "moondream",
+  "text_model": "qwen2.5:0.5b",
+  "jpeg_quality": 60,
+  "vision_timeout_seconds": 20,
+  "formatter_timeout_seconds": 15,
+  "vision_max_tokens": 96,
+  "formatter_max_tokens": 120,
+  "use_text_formatter": true
+}
+```
+
+Put it first:
+
+```json
+"provider_order": [
+  "moondream_stasis",
+  "gemini",
+  "zhipu",
+  "qwen_dashscope",
+  "ollama",
+  "lmstudio",
+  "local_gemma"
+]
+```
+
+Use this for the competition demo because it is faster and more focused than asking one large model to do every vision and explanation task.
+
 ## Supported Cloud Providers
 
 The example config includes:
@@ -87,12 +138,12 @@ Most of these providers use either the OpenAI-compatible chat format or their ow
 
 Prices and free quotas change, so check the official pricing page before the final demo. For your project, try them in this order:
 
-1. Gemini API free tier or Flash-Lite style models, if your quota works.
-2. Z.AI / Zhipu `glm-4.6v-flash`, which is a free vision model in their official pricing docs.
-3. Alibaba DashScope `qwen3-vl-8b-instruct`, which is a low-cost Chinese multimodal model.
-4. OpenAI small vision models, usually reliable and cheap but not normally free.
-5. Anthropic Haiku vision models, good quality but usually paid.
-6. Ollama or LM Studio, free after setup because it runs locally, but slower and limited by laptop RAM.
+1. Moondream + `qwen2.5:0.5b` through Ollama, free local setup with no API key.
+2. Gemini API free tier or Flash-Lite style models, if your quota works.
+3. Z.AI / Zhipu `glm-4.6v-flash`, which is a free vision model in their official pricing docs.
+4. Alibaba DashScope `qwen3-vl-8b-instruct`, which is a low-cost Chinese multimodal model.
+5. OpenAI small vision models, usually reliable and cheap but not normally free.
+6. Anthropic Haiku vision models, good quality but usually paid.
 
 If your Gemini quota is exhausted, keep Gemini in the config but put another provider before it in `provider_order`.
 
@@ -106,9 +157,9 @@ OpenAI:            https://platform.openai.com/docs/pricing
 Anthropic:         https://platform.claude.com/docs/en/about-claude/pricing
 ```
 
-## Ollama Fallback
+## Single-Model Ollama Fallback
 
-Install Ollama on the Windows laptop, then pull a vision-capable model:
+If you want one Ollama model instead of the Moondream pipeline, install Ollama on the Windows laptop, then pull a vision-capable model:
 
 ```powershell
 ollama pull llava:7b
