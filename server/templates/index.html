@@ -81,6 +81,25 @@
         padding: 8px 10px;
       }
 
+      .guidance {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 14px;
+        border: 1px solid rgba(237, 244, 239, 0.16);
+        border-radius: 8px;
+        padding: 12px;
+        background: rgba(237, 244, 239, 0.06);
+      }
+
+      .guidance strong {
+        color: #f5f0c9;
+        font-size: 1.15rem;
+      }
+
+      .guidance span {
+        color: #c5d6cc;
+      }
+
       .telemetry {
         margin-top: 10px;
         color: #c5d6cc;
@@ -177,6 +196,29 @@
         transform: translate(-50%, -50%);
       }
 
+      #trackedTarget {
+        position: absolute;
+        display: none;
+        width: 26px;
+        height: 26px;
+        border: 3px solid #ffcf5a;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 6px rgba(255, 207, 90, 0.2);
+      }
+
+      #trackedTarget::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 8px;
+        height: 8px;
+        content: "";
+        border-radius: 50%;
+        background: #ffcf5a;
+        transform: translate(-50%, -50%);
+      }
+
       #goal::before,
       #goal::after {
         position: absolute;
@@ -260,6 +302,17 @@
         text-transform: uppercase;
       }
 
+      .track-alert {
+        margin: 0 12px 12px;
+        border: 1px solid rgba(245, 240, 201, 0.35);
+        border-radius: 8px;
+        background: rgba(245, 240, 201, 0.1);
+        color: #f5f0c9;
+        cursor: pointer;
+        font: inherit;
+        padding: 8px 10px;
+      }
+
       @media (max-width: 860px) {
         main {
           grid-template-columns: 1fr;
@@ -275,6 +328,7 @@
           <div id="status" class="status">offline</div>
         </div>
         <div class="controls">
+          <button id="startRobot" type="button">Start Robot</button>
           <button id="stopRover" type="button">Stop</button>
           <button id="returnHome" type="button">Return to Home</button>
           <button id="scanArea" type="button">Scan Area</button>
@@ -282,11 +336,17 @@
           <button id="goToRedStrip" type="button">Go to Red Strip</button>
         </div>
         <div class="event-status">Rover status: <span id="roverStatus">waiting</span></div>
+        <section class="guidance" aria-label="Tracking guidance" aria-live="polite">
+          <span>Tracking: <span id="trackingName">none</span></span>
+          <strong id="guidanceDirection">select a human alert</strong>
+          <span>Distance: <span id="guidanceDistance">--</span> cm</span>
+        </section>
         <section class="camera-feed" aria-label="Webcam feed">
-          <img src="/camera.mjpg" alt="Laptop webcam feed" />
+          <img src="/camera.mjpg" alt="Raspberry Pi webcam feed" />
         </section>
         <div id="map" aria-label="Rover map">
           <div id="goal"></div>
+          <div id="trackedTarget"></div>
           <div id="rover"></div>
         </div>
         <div class="telemetry">Distance from home: <span id="homeDistance">0</span> cm</div>
@@ -294,7 +354,7 @@
           <table>
             <thead>
               <tr>
-                <th>Angle</th>
+                <th>Scan point</th>
                 <th>Distance</th>
               </tr>
             </thead>
@@ -322,7 +382,12 @@
       const roverEl = document.getElementById("rover");
       const goalEl = document.getElementById("goal");
       const alertsEl = document.getElementById("alerts");
+      const trackedTargetEl = document.getElementById("trackedTarget");
+      const trackingNameEl = document.getElementById("trackingName");
+      const guidanceDirectionEl = document.getElementById("guidanceDirection");
+      const guidanceDistanceEl = document.getElementById("guidanceDistance");
       const homeDistanceEl = document.getElementById("homeDistance");
+      const startRobotBtn = document.getElementById("startRobot");
       const stopRoverBtn = document.getElementById("stopRover");
       const returnHomeBtn = document.getElementById("returnHome");
       const scanAreaBtn = document.getElementById("scanArea");
@@ -333,6 +398,8 @@
 
       const mapSize = 800;
       let roverPose = { x: 400, y: 400, yaw: 0 };
+      let trackedAlert = null;
+      let lastSpokenGuidance = "";
 
       function positionMarker(marker, x, y) {
         marker.style.left = `${(x / mapSize) * 100}%`;
@@ -343,6 +410,69 @@
         positionMarker(roverEl, roverPose.x, roverPose.y);
         roverEl.style.setProperty("--yaw", `${roverPose.yaw || 0}deg`);
         homeDistanceEl.textContent = Math.round(roverPose.distance_from_home || 0);
+        updateGuidance(false);
+      }
+
+      function normalizeTurn(value) {
+        let turn = value;
+        while (turn > Math.PI) turn -= Math.PI * 2;
+        while (turn < -Math.PI) turn += Math.PI * 2;
+        return turn;
+      }
+
+      function guidanceTextForTarget(target) {
+        const dx = target.x - roverPose.x;
+        const dy = target.y - roverPose.y;
+        const distance = Math.max(0, Math.round(Math.hypot(dx, dy)));
+
+        if (distance <= 25) {
+          return { distance, direction: `${target.category || "target"} nearby` };
+        }
+
+        const targetBearing = Math.atan2(dy, dx);
+        const roverBearing = ((Number(roverPose.yaw) || 0) * Math.PI) / 180;
+        const turn = normalizeTurn(targetBearing - roverBearing);
+
+        if (Math.abs(turn) <= 0.44) return { distance, direction: "move forward" };
+        if (Math.abs(turn) >= 2.53) return { distance, direction: "turn back" };
+        return { distance, direction: turn > 0 ? "move right" : "move left" };
+      }
+
+      function speakGuidance(text) {
+        if (text === lastSpokenGuidance || !("speechSynthesis" in window)) return;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+        lastSpokenGuidance = text;
+      }
+
+      function updateGuidance(shouldSpeak) {
+        if (!trackedAlert) {
+          trackedTargetEl.style.display = "none";
+          trackingNameEl.textContent = "none";
+          guidanceDirectionEl.textContent = "select a human alert";
+          guidanceDistanceEl.textContent = "--";
+          return;
+        }
+
+        positionMarker(trackedTargetEl, trackedAlert.x, trackedAlert.y);
+        trackedTargetEl.style.display = "block";
+
+        const guidance = guidanceTextForTarget(trackedAlert);
+        trackingNameEl.textContent = trackedAlert.category || "event";
+        guidanceDirectionEl.textContent = guidance.direction;
+        guidanceDistanceEl.textContent = guidance.distance;
+
+        if (shouldSpeak) {
+          speakGuidance(`${guidance.direction}. ${guidance.distance} centimeters.`);
+        }
+      }
+
+      function scanPointLabel(angle) {
+        const value = Number(angle);
+        if (!Number.isFinite(value)) return "scan point";
+        if (value < 60) return "left side";
+        if (value > 120) return "right side";
+        return "front side";
       }
 
       function renderScan(scan) {
@@ -363,7 +493,7 @@
           const row = document.createElement("tr");
           const angle = document.createElement("td");
           const distance = document.createElement("td");
-          angle.textContent = `${Math.round(point.angle)} deg`;
+          angle.textContent = scanPointLabel(point.angle);
           distance.textContent = point.distance < 0 ? "No echo" : `${Math.round(point.distance)} cm`;
           row.append(angle, distance);
           scanResultsEl.append(row);
@@ -415,6 +545,26 @@
         message.textContent = alert.message || "Activity detected";
 
         item.append(img, category, message);
+
+        const x = Number(alert.x);
+        const y = Number(alert.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          const trackButton = document.createElement("button");
+          trackButton.className = "track-alert";
+          trackButton.type = "button";
+          trackButton.textContent = "Track";
+          trackButton.addEventListener("click", () => {
+            trackedAlert = { ...alert, x, y };
+            roverStatusEl.textContent =
+              alert.category === "human" ? "human detected - tracking" : "event selected - tracking";
+            updateGuidance(true);
+          });
+          item.append(trackButton);
+        }
+
+        if (alert.category === "human") {
+          roverStatusEl.textContent = "human detected - press Track";
+        }
         alertsEl.prepend(item);
       });
 
@@ -426,6 +576,11 @@
         positionMarker(goalEl, x, y);
         goalEl.style.display = "block";
         socket.emit("set_goal", { x, y });
+      });
+
+      startRobotBtn.addEventListener("click", () => {
+        roverStatusEl.textContent = "robot started - scanning";
+        socket.emit("request_scan");
       });
 
       stopRoverBtn.addEventListener("click", () => {

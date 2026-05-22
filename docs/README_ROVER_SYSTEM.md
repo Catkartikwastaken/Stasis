@@ -2,9 +2,9 @@
 
 This repository contains a complete starter setup for STASIS, a forest monitoring rover that will be demonstrated indoors in a forest-like environment:
 
-1. A USB webcam connects to the laptop.
-2. A laptop runs the Flask/Socket.IO vision and command server.
-3. A Raspberry Pi 2B runs the Python rover client.
+1. A USB webcam connects to the Raspberry Pi.
+2. The Raspberry Pi 2B runs the Python rover client, captures webcam frames, and controls the rover.
+3. A laptop runs the Flask/Socket.IO Gemma vision and command server.
 4. A browser dashboard sends map goals and displays alerts.
 
 The Raspberry Pi client is the active high-level rover controller in this branch. Old embedded camera code has been fully removed from the ESP32-S3, and its firmware now serves exclusively as a low-level USB-to-Serial motor control delegator (serial-to-PWM bridge) for the L911S driver. This ensures precise PWM motor drive signals and offloads low-level timing tasks from the Raspberry Pi.
@@ -33,7 +33,7 @@ docs/README_ROVER_SYSTEM.md
 
 ## How The Pieces Work Together
 
-The laptop server captures the USB webcam with OpenCV and serves it here:
+The Raspberry Pi captures the USB webcam with OpenCV and sends JPEG frames to the laptop over the rover WebSocket. The laptop serves the latest rover camera frame here:
 
 ```text
 http://<SERVER_IP>:5000/camera.mjpg
@@ -69,7 +69,7 @@ When the rover finishes, it sends:
 {"status":"goal_reached"}
 ```
 
-When Gemma detects a relevant forest-monitoring event, the server saves an image in `alerts/` and emits `new_alert` to the dashboard. Target events include humans/intruders, animals, visible track or soil changes, fire/smoke/flame, and custom colored markers such as red strips. Gemma setup details live in `docs/GEMMA_VISION.md`.
+When Gemma detects a relevant forest-monitoring event, the laptop sends a `vision_result` back to the Raspberry Pi. The Pi decides the action, for example `stop_and_alert` for humans or fire, then returns `vision_decision`. The server uses that Pi decision to emit `new_alert` to the dashboard. Target events include humans/intruders, animals, visible track or soil changes, fire/smoke/flame, and custom colored markers such as red strips. Gemma setup details live in `docs/GEMMA_VISION.md`.
 
 The server accepts alerts only for these categories:
 
@@ -283,10 +283,7 @@ $env:STASIS_VISION_REQUIRED = "true"
 Useful vision settings:
 
 ```powershell
-$env:STASIS_CAMERA_INDEX = "0"
-$env:STASIS_CAMERA_WIDTH = "640"
-$env:STASIS_CAMERA_HEIGHT = "480"
-$env:STASIS_CAMERA_FPS = "15"
+$env:STASIS_CAMERA_SOURCE = "rover"
 $env:STASIS_VISION_DEVICE = "cuda"
 $env:STASIS_VISION_DEVICE_MAP = "none"
 $env:STASIS_VISION_TORCH_DTYPE = "bfloat16"
@@ -299,7 +296,7 @@ To test rover control without loading Gemma:
 $env:STASIS_VISION_ENABLED = "false"
 ```
 
-If the wrong webcam opens, change `STASIS_CAMERA_INDEX` to `1` or `2`, then restart the server.
+If you are testing with a laptop webcam instead of the Pi webcam, set `STASIS_CAMERA_SOURCE=local`, then use `STASIS_CAMERA_INDEX=1` or `2` if the wrong laptop camera opens.
 
 Run:
 
@@ -337,15 +334,14 @@ const WINDOWS_LAPTOP_IP = "<WINDOWS_LAPTOP_IP>";
 
 ## Recommended Startup Order
 
-1. Plug the USB webcam into the laptop.
+1. Plug the USB webcam into the Raspberry Pi.
 2. Set `HF_TOKEN` on the laptop if Hugging Face authentication is needed.
-3. Set `STASIS_CAMERA_INDEX` if the webcam is not camera `0`.
-4. Start `server/security_rover_server_windows.py`.
-5. Power the Raspberry Pi rover.
-6. Edit `rover/rpi2b/config.json` with the laptop/server IP.
-7. Run `python rover_client.py --config config.json` on the Pi.
-8. Open `http://<WINDOWS_LAPTOP_IP>:5000` in the browser.
-9. Confirm the webcam feed appears, then click the map to send a rover goal.
+3. Start `server/security_rover_server_windows.py` on the Windows laptop.
+4. Note the Windows IP printed by Flask, for example `10.139.244.74`.
+5. Edit `rover/rpi2b/config.json` with that Windows/server IP.
+6. Run `python rover_client.py --config config.json` on the Pi.
+7. Open `http://<WINDOWS_LAPTOP_IP>:5000` in the browser.
+8. Confirm the Pi webcam feed appears, then click the map to send a rover goal.
 
 ## Demo Behavior Targets
 
@@ -396,9 +392,12 @@ If turning oscillates, lower `turn_kp`. If turning is too weak, raise `turn_min_
 ## Compatibility Checklist
 
 ```text
-Camera stream endpoint:      /camera.mjpg
+Camera stream endpoint:      /camera.mjpg from the latest Pi webcam frame
 Rover WebSocket endpoint:    /ws/rover
 Primary rover ID:            rpi2b_rover
+Pi camera frame event:       {"type":"camera_frame","format":"jpeg","image_b64":"..."}
+Server vision result event:  {"type":"vision_result","detected":true,...}
+Pi vision decision event:    {"type":"vision_decision","action":"stop_and_alert",...}
 Dashboard goal event:        set_goal
 Dashboard return event:      return_home
 Dashboard scan event:        request_scan

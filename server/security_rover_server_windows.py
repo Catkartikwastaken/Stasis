@@ -6,13 +6,14 @@ typically executed on a laptop/workstation. It provides the following services:
 1. Web Dashboard: Host a real-time web control dashboard (HTML/JS/CSS).
 2. Rover Telemetry Hub: WebSocket endpoints for real-time telemetry registration 
    (IMU headings, distance logs, ultrasonic scanning data, and active goals).
-3. Vision Analytics: Captures local webcam feed, pipelines images into local Gemma 
-   VLMs to detect fire, smoke, intruders, wildlife, or colored navigational markers,
-   and dispatches real-time web notifications.
+3. Vision Analytics: Receives Raspberry Pi webcam frames, pipelines images into
+   local Gemma VLMs, sends results back to the Pi for action decisions, and
+   dispatches approved dashboard notifications.
 """
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import math
@@ -24,6 +25,7 @@ from pathlib import Path
 from typing import Any, Generator, Dict, List, Optional, Union
 
 import cv2
+import numpy as np
 import torch
 from flask import Flask, render_template, request, send_from_directory, Response
 from flask_socketio import SocketIO, emit
@@ -86,7 +88,7 @@ VISION_REQUIRED: bool = env_bool("STASIS_VISION_REQUIRED", False)
 VISION_MODEL: str = os.getenv("STASIS_VISION_MODEL", "google/gemma-4-E2B-it")
 VISION_PIPELINE_TASK: str = os.getenv("STASIS_VISION_PIPELINE_TASK", "any-to-any")
 VISION_DEVICE: str = os.getenv("STASIS_VISION_DEVICE", "auto")
-VISION_DEVICE_MAP: str = os.getenv("STASIS_VISION_DEVICE_MAP", "auto")
+VISION_DEVICE_MAP: str = os.getenv("STASIS_VISION_DEVICE_MAP", "none")
 VISION_TORCH_DTYPE: str = os.getenv("STASIS_VISION_TORCH_DTYPE", "auto")
 VISION_MAX_NEW_TOKENS: int = env_int("STASIS_VISION_MAX_NEW_TOKENS", 160)
 ANALYSIS_INTERVAL_SECONDS: float = env_float("STASIS_ANALYSIS_INTERVAL_SECONDS", 2.0)
@@ -96,6 +98,7 @@ CAMERA_WIDTH: int = env_int("STASIS_CAMERA_WIDTH", 640)
 CAMERA_HEIGHT: int = env_int("STASIS_CAMERA_HEIGHT", 480)
 CAMERA_FPS: int = env_int("STASIS_CAMERA_FPS", 15)
 CAMERA_BACKEND: str = os.getenv("STASIS_CAMERA_BACKEND", "dshow")
+CAMERA_SOURCE: str = os.getenv("STASIS_CAMERA_SOURCE", "rover").strip().lower()
 
 PIXEL_TO_CM: float = 1.0  # Mapping scale constant: pixels in UI to physical cm
 ROVER_CLIENT_ID: str = "rpi2b_rover"
@@ -129,6 +132,7 @@ socketio: SocketIO = SocketIO(app, cors_allowed_origins="*", async_mode="threadi
 
 # Shared state variables accessed across threads
 latest_frame: Optional[Any] = None
+latest_frame_metadata: Dict[str, Any] = {}
 vision_pipe: Optional[Any] = None
 
 rover_ws: Optional[Server] = None
@@ -545,6 +549,39 @@ def camera_mjpeg_stream() -> Generator[bytes, None, None]:
         time.sleep(1.0 / max(1, CAMERA_FPS))
 
 
+def handle_camera_frame(payload: Dict[str, Any]) -> None:
+    """
+    Receives JPEG frames from the Raspberry Pi webcam over the rover WebSocket.
+    """
+    global latest_frame, latest_frame_metadata
+
+    if payload.get("format") != "jpeg":
+        logging.warning("Ignoring unsupported rover camera frame format: %r", payload.get("format"))
+        return
+
+    try:
+        raw = base64.b64decode(str(payload["image_b64"]), validate=True)
+        image_array = np.frombuffer(raw, dtype=np.uint8)
+        frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    except Exception as exc:
+        logging.warning("Could not decode rover camera frame: %s", exc)
+        return
+
+    if frame is None:
+        logging.warning("Decoded rover camera frame was empty.")
+        return
+
+    latest_frame = frame
+    latest_frame_metadata = {
+        "source": "rover",
+        "width": payload.get("width"),
+        "height": payload.get("height"),
+        "captured_at": payload.get("captured_at"),
+        "received_at": time.time(),
+    }
+    socketio.emit("camera_status", {"source": "rover", "connected": True})
+
+
 def send_rover_command(command: Dict[str, Any]) -> bool:
     """
     Transmits a command structure to the connected physical rover via WebSocket or Socket.IO.
@@ -610,13 +647,17 @@ def vision_analysis_loop() -> None:
                 "category": analysis["category"],
                 "message": analysis["message"],
                 "image_path": image_path,
+                "x": rover_pose["x"],
+                "y": rover_pose["y"],
+                "heading": rover_pose["heading"],
             }
             if analysis.get("marker"):
                 payload["marker"] = analysis["marker"]
-                remember_marker(analysis["marker"], image_path)
 
-            logging.info("ALERT DISPATCHED: Category=%s Message=%s", analysis["category"], analysis["message"])
-            socketio.emit("new_alert", payload)
+            logging.info("Gemma result ready for rover decision: Category=%s Message=%s", analysis["category"], analysis["message"])
+            sent = send_rover_command({"type": "vision_result", "detected": True, **payload})
+            if not sent:
+                logging.warning("Vision result could not be sent to rover for decision.")
         except Exception as loop_err:
             logging.error("Vision analytics thread encountered a catastrophic exception: %s", loop_err)
 
@@ -728,6 +769,41 @@ def handle_scan_report(payload: Dict[str, Any]) -> None:
     socketio.emit("scan_data", {"data": latest_scan})
 
 
+def handle_vision_decision(payload: Dict[str, Any]) -> None:
+    """
+    Applies the Raspberry Pi's decision after Windows/Gemma returns a vision result.
+    """
+    if not payload.get("detected") or not payload.get("alert", True):
+        return
+
+    category = str(payload.get("category") or "event").lower()
+    image_path = str(payload.get("image_path") or "")
+    alert_payload = {
+        "category": category,
+        "message": str(payload.get("message") or "Activity detected."),
+        "image_path": image_path,
+        "action": payload.get("action", "alert"),
+        "x": float(payload.get("x", rover_pose["x"])),
+        "y": float(payload.get("y", rover_pose["y"])),
+        "heading": float(payload.get("heading", rover_pose["heading"])),
+    }
+
+    marker = str(payload.get("marker") or "")
+    if marker:
+        alert_payload["marker"] = marker
+        remember_marker(marker, image_path)
+
+    logging.info("Rover approved alert: category=%s action=%s", category, alert_payload["action"])
+    socketio.emit("new_alert", alert_payload)
+    socketio.emit(
+        "rover_status",
+        {
+            "status": "vision_decision",
+            "message": f"{category}: {alert_payload['action']}",
+        },
+    )
+
+
 def handle_rover_report(payload: Any) -> None:
     """
     Validates, handles, and routes all raw message structures arriving from the rover.
@@ -741,6 +817,14 @@ def handle_rover_report(payload: Any) -> None:
             return
 
     if not isinstance(payload, dict):
+        return
+
+    if payload.get("type") == "camera_frame":
+        handle_camera_frame(payload)
+        return
+
+    if payload.get("type") == "vision_decision":
+        handle_vision_decision(payload)
         return
 
     # Parse telemetry updates
@@ -993,8 +1077,11 @@ def main() -> None:
     # Load neural models
     load_vision_model()
     
-    # Start concurrent threads for hardware capturing and visual processing
-    socketio.start_background_task(webcam_capture_loop)
+    # Start camera and vision processing. Default camera source is the Raspberry Pi rover.
+    if CAMERA_SOURCE == "local":
+        socketio.start_background_task(webcam_capture_loop)
+    else:
+        logging.info("Waiting for Raspberry Pi webcam frames over the rover WebSocket.")
     socketio.start_background_task(vision_analysis_loop)
     
     # Execute Flask SocketIO webserver

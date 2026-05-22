@@ -2,7 +2,7 @@
 
 This repository contains the current working prototype for STASIS, a forest monitoring rover that is being demoed indoors in a forest-like test space.
 
-The current architecture is Python-based: a laptop server captures a USB webcam with OpenCV, runs Gemma vision, serves the dashboard, and talks to a Raspberry Pi 2B Python rover client for motion control.
+The current architecture is Python-based: the Raspberry Pi 2B captures the USB webcam, sends compressed frames to the Windows laptop server, the laptop runs Gemma vision, and the Pi receives the vision result back before deciding whether to stop, alert, remember a marker, or continue rover control.
 
 STASIS is aimed at autonomous and manual forest patrol demos: detecting humans/intruders, animals, soil or track changes, fire/smoke, and custom colored navigation markers such as red strips. GPS is intentionally out of scope for the indoor demo.
 
@@ -41,7 +41,7 @@ Alert event:            new_alert
 Position event:         rover_position
 ```
 
-Only the laptop and Raspberry Pi need to be on the same Wi-Fi network for the demo. The webcam plugs into the laptop, the laptop runs Gemma, and the Pi receives rover commands over WebSocket.
+Only the laptop and Raspberry Pi need to be on the same Wi-Fi network for the demo. The webcam plugs into the Raspberry Pi, the Pi streams frames over the rover WebSocket, the laptop runs Gemma, and the Pi receives each `vision_result` before sending a `vision_decision` back to the dashboard/server.
 
 ## Rover Hardware Plans (Pi Direct & ESP32-S3 Options)
 
@@ -169,13 +169,10 @@ To test rover control without loading Gemma:
 $env:STASIS_VISION_ENABLED = "false"
 ```
 
-Select a webcam if the default camera is not the one you want:
+By default, the Windows server waits for webcam frames from the Raspberry Pi. Use local camera mode only for laptop-only testing:
 
 ```powershell
-$env:STASIS_CAMERA_INDEX = "0"
-$env:STASIS_CAMERA_WIDTH = "640"
-$env:STASIS_CAMERA_HEIGHT = "480"
-$env:STASIS_CAMERA_FPS = "15"
+$env:STASIS_CAMERA_SOURCE = "local"
 ```
 
 Run:
@@ -205,6 +202,8 @@ The Raspberry Pi rover sends:
 ```json
 {"id":"rpi2b_rover","type":"rover"}
 {"status":"ready"}
+{"type":"camera_frame","format":"jpeg","image_b64":"..."}
+{"type":"vision_decision","detected":true,"category":"human","action":"stop_and_alert"}
 {"heading":92.4,"distance_traveled":18.0}
 {"status":"goal_reached"}
 {"type":"scan","data":[{"angle":0,"distance":77.5}]}
