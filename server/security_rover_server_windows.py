@@ -443,7 +443,10 @@ def parse_json_response(text: str) -> Dict[str, Any]:
     try:
         parsed = json.loads(stripped)
     except json.JSONDecodeError:
-        parsed = extract_json_object(stripped)
+        try:
+            parsed = extract_json_object(stripped)
+        except ValueError:
+            return parse_plain_text_detection(stripped)
 
     if not isinstance(parsed, dict):
         raise ValueError(f"Vision model response parsed to {type(parsed).__name__}, expected dictionary.")
@@ -470,6 +473,48 @@ def parse_json_response(text: str) -> Dict[str, Any]:
         "category": category,
         "message": message[:500],
         "marker": extract_marker_name(message) if category == "marker" else "",
+    }
+
+
+def parse_plain_text_detection(text: str) -> Dict[str, Any]:
+    """
+    Converts non-JSON provider replies into the STASIS alert schema.
+    Some OpenAI-compatible providers ignore JSON mode under rate/load pressure.
+    """
+    message = " ".join(text.strip().split())
+    if not message:
+        return {"detected": False, "category": "", "message": ""}
+
+    lowered = message.lower()
+    negative_phrases = {
+        "no person",
+        "no people",
+        "no human",
+        "no humans",
+        "not visible",
+        "nothing detected",
+        "no relevant",
+        "does not show",
+        "unable to determine",
+        "cannot determine",
+    }
+    if any(phrase in lowered for phrase in negative_phrases):
+        return {"detected": False, "category": "", "message": ""}
+
+    category = normalize_event_category("", message)
+    if category not in ALLOWED_EVENT_CATEGORIES:
+        logging.info("Suppressing non-JSON vision text outside STASIS scope: %r", message[:240])
+        return {"detected": False, "category": "", "message": ""}
+
+    normalized = normalize_event_message(category, message)
+    if not message_has_project_context(normalized):
+        normalized = f"{category} detected: {normalized}"
+
+    return {
+        "detected": True,
+        "category": category,
+        "message": normalized[:500],
+        "marker": extract_marker_name(normalized) if category == "marker" else "",
     }
 
 
