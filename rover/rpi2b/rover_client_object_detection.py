@@ -14,9 +14,7 @@ import argparse
 import base64
 import json
 import logging
-import os
 import signal
-import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -243,8 +241,13 @@ class ObjectDetectionRoverClient(base.RoverClient):
 
 
 def parse_args() -> argparse.Namespace:
-    parser = base.parse_args()
-    parser.description = "STASIS Raspberry Pi rover client with Pi-side object detection"
+    parser = argparse.ArgumentParser(description="STASIS Raspberry Pi rover client with Pi-side object detection")
+    parser.add_argument("--config", type=Path, default=Path("config.json"))
+    parser.add_argument("--server", help="Laptop/server IP or hostname running Flask on port 5000")
+    parser.add_argument("--port", type=int, help="Server WebSocket port")
+    parser.add_argument("--rover-id", help="Rover client id expected by the server")
+    parser.add_argument("--simulate", action="store_true", help="Run without physical sensor interfaces")
+    parser.add_argument("--log-level", default="INFO")
     return parser.parse_args()
 
 
