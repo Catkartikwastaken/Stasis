@@ -14,7 +14,7 @@
   ],
   "max_output_tokens": 160,
   "request_timeout_seconds": 45,
-  "prompt": "Analyze this STASIS forest-monitoring rover frame. Look for humans or intruders, animals or wildlife stand-ins, soil differences, footprints, trails, disturbed ground, fire, smoke, flame, and custom colored navigation markers such as red strips. Respond with exactly one JSON object and no Markdown. Use this schema: {\"detected\": boolean, \"category\": \"human|animal|track|fire|marker\", \"message\": string}. Set detected to true only when a relevant STASIS monitoring event or marker is visible. Intruders are category human. Use category marker for colored strips. Keep message short and specific; use an empty string when detected is false.",
+  "prompt": "Analyze this STASIS forest-monitoring rover frame. Look for humans or intruders, animals or wildlife stand-ins, soil differences, footprints, trails, disturbed ground, fire, smoke, flame, and custom colored navigation markers such as red strips. Return ONLY valid minified JSON. Do not explain. Do not use Markdown. Use exactly this schema: {\"detected\": boolean, \"category\": \"human|animal|track|fire|marker\", \"message\": string}. Set detected to true only when a relevant STASIS monitoring event or marker is visible. Intruders are category human. Use category marker for colored strips. Keep message short and specific; use an empty string when detected is false.",
   "providers": {
     "moondream_stasis": {
       "type": "ollama_moondream_pipeline",
