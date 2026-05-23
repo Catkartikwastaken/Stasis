@@ -1,0 +1,4 @@
+-r requirements-api.txt
+requests
+opencv-python
+numpy
