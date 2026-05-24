@@ -57,6 +57,8 @@ IMPORTANT_OBJECTS = {
 @dataclass
 class ObjectDetectionConfig:
     enabled: bool = True
+    backend: str = "yolo"
+    yolo_model_path: str = "models/yolo11n_ncnn_model"
     class_names_path: str = "models/coco.names"
     config_path: str = "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt"
     weights_path: str = "models/frozen_inference_graph.pb"
@@ -153,6 +155,80 @@ class CocoObjectDetector:
         return detections
 
 
+class YoloObjectDetector:
+    def __init__(self, config: ObjectDetectionConfig, root: Path) -> None:
+        self.config = config
+        self.root = root
+        self.model: Any = None
+
+    def _resolve(self, value: str) -> Path:
+        path = Path(value)
+        return path if path.is_absolute() else self.root / path
+
+    @staticmethod
+    def _ratio(value: float) -> float:
+        value = float(value)
+        if value > 1.0:
+            value /= 100.0
+        return max(0.0, min(1.0, value))
+
+    def setup(self) -> bool:
+        if not self.config.enabled:
+            logging.info("Pi-side object detection disabled by config.")
+            return False
+        try:
+            from ultralytics import YOLO
+        except ImportError:
+            logging.error("ultralytics is required for YOLO object detection. Install with: python -m pip install ultralytics")
+            return False
+
+        model_path = self._resolve(self.config.yolo_model_path)
+        if not model_path.exists():
+            logging.warning("YOLO model path missing: %s", model_path)
+            return False
+        self.model = YOLO(str(model_path))
+        logging.info("Pi-side YOLO object detector loaded from %s.", model_path)
+        return True
+
+    def detect(self, frame: Any) -> list[dict[str, Any]]:
+        if self.model is None:
+            return []
+        target_classes = {item.lower() for item in self.config.target_classes}
+        results = self.model.predict(
+            source=frame,
+            imgsz=int(self.config.input_size),
+            conf=self._ratio(self.config.confidence_threshold),
+            iou=self._ratio(self.config.nms_threshold),
+            verbose=False,
+        )
+        detections: list[dict[str, Any]] = []
+        if not results:
+            return detections
+        result = results[0]
+        names = getattr(result, "names", {}) or {}
+        boxes = getattr(result, "boxes", None)
+        if boxes is None:
+            return detections
+        for box in boxes:
+            class_id = int(box.cls[0])
+            label = str(names.get(class_id, class_id)).lower()
+            if target_classes and label not in target_classes:
+                continue
+            x1, y1, x2, y2 = [int(value) for value in box.xyxy[0].tolist()]
+            confidence = float(box.conf[0])
+            category_hint = COCO_TO_STASIS.get(label, "object")
+            detections.append(
+                {
+                    "label": label,
+                    "category_hint": category_hint,
+                    "confidence": round(confidence, 3),
+                    "box": {"x": x1, "y": y1, "width": max(1, x2 - x1), "height": max(1, y2 - y1)},
+                }
+            )
+        detections.sort(key=lambda item: item["confidence"], reverse=True)
+        return detections
+
+
 class RedStripDetector:
     def __init__(self, config: ObjectDetectionConfig) -> None:
         self.config = config
@@ -220,7 +296,8 @@ def load_object_detection_config(path: Path | None) -> ObjectDetectionConfig:
 class ObjectDetectionRoverClient(base.RoverClient):
     def __init__(self, config: base.RoverConfig, hardware: base.HardwareBase, detector_config: ObjectDetectionConfig, root: Path) -> None:
         super().__init__(config, hardware)
-        self.detector = CocoObjectDetector(detector_config, root)
+        backend = str(detector_config.backend or "yolo").strip().lower()
+        self.detector = YoloObjectDetector(detector_config, root) if backend == "yolo" else CocoObjectDetector(detector_config, root)
         self.red_strip_detector = RedStripDetector(detector_config)
         self.detector_config = detector_config
         self.detector_ready = False
