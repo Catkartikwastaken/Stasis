@@ -1,2 +1,3 @@
 -r requirements.txt
 opencv-python
+ultralytics
