@@ -99,6 +99,8 @@ Edit `server_host` to the Windows laptop IP. The important section is:
 ```json
 "object_detection": {
   "enabled": true,
+  "backend": "yolo",
+  "yolo_model_path": "models/yolo11n_ncnn_model",
   "confidence_threshold": 55,
   "nms_threshold": 20,
   "target_classes": [],
@@ -120,7 +122,23 @@ Set `target_classes` to an empty list to allow all COCO classes. If the Pi becom
 
 ## Better YOLO Upgrade Path
 
-The current fallback detector uses an older COCO MobileNet SSD model because it is easy to run with OpenCV. For better human, animal, and object detection, use an Ultralytics YOLO model exported for Raspberry Pi.
+The recommended detector is now an Ultralytics YOLO model exported for Raspberry Pi. Put the exported folder here:
+
+```text
+rover/rpi2b/models/yolo11n_ncnn_model/
+```
+
+The older OpenCV COCO MobileNet SSD path still exists as a fallback. To use it, set:
+
+```json
+"backend": "opencv"
+```
+
+For better human, animal, and object detection, keep:
+
+```json
+"backend": "yolo"
+```
 
 Recommended order:
 
