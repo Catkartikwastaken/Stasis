@@ -104,11 +104,14 @@ Edit `server_host` to the Windows laptop IP. The important section is:
   "confidence_threshold": 55,
   "nms_threshold": 20,
   "target_classes": [],
+  "ignored_classes": ["street", "road", "sidewalk", "floor", "wall", "ceiling", "door", "window", "room", "building", "house", "sky", "tree", "plant", "parking meter"],
+  "min_box_area_percent": 1.0,
+  "max_box_area_percent": 85.0,
   "overlay_enabled": true,
   "red_strip_enabled": true,
-  "red_strip_min_area": 900,
-  "red_strip_min_aspect_ratio": 2.4,
-  "red_strip_min_fill_ratio": 0.38,
+  "red_strip_min_area": 1500,
+  "red_strip_min_aspect_ratio": 3.0,
+  "red_strip_min_fill_ratio": 0.55,
   "stream_interval_seconds": 0.12,
   "stream_jpeg_quality": 50,
   "upload_interval_seconds": 1.5,
@@ -119,6 +122,8 @@ Edit `server_host` to the Windows laptop IP. The important section is:
 Raise `confidence_threshold` if alerts are noisy. Lower it if the detector misses too much. The value is a percentage, so `55` means 55%.
 
 Set `target_classes` to an empty list to allow all COCO classes. If the Pi becomes too slow, add only the labels you need for the demo.
+
+`ignored_classes` suppresses bad background labels such as `street`, `road`, `wall`, and `door`. This is important when a weak or wrong model labels indoor background as an object.
 
 ## Better YOLO Upgrade Path
 
