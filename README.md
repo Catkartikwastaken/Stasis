@@ -8,7 +8,7 @@ The project focuses on a practical mission: help monitor places where humans, an
 
 | Area | What STASIS Demonstrates |
 | --- | --- |
-| Vision AI | A configurable multimodal AI provider analyzes live camera frames for humans, animals, tracks, fire, and colored markers. |
+| Vision AI | Windows-side YOLO ONNX detection analyzes live Pi webcam frames for humans, animals, and important objects without forcing Torch onto the Pi. |
 | Rover control | Raspberry Pi 2B controls movement, telemetry, camera capture, and final action decisions. |
 | Remote dashboard | A browser dashboard shows the camera feed, rover position, alerts, and tracking guidance. |
 | Indoor demo ready | No GPS is required; the rover works in a controlled demo arena. |
@@ -16,14 +16,13 @@ The project focuses on a practical mission: help monitor places where humans, an
 
 ## Current Demo Architecture
 
-The webcam is connected to the Raspberry Pi, not the laptop. The Raspberry Pi sends camera frames to the Windows laptop, the laptop runs the selected multimodal provider, and the Pi receives the result before deciding what action to take.
+The webcam is connected to the Raspberry Pi, not the laptop. The Raspberry Pi sends camera frames to the Windows laptop, the laptop runs YOLO from an ONNX model, and the Pi receives the result before deciding what action to take.
 
 ```mermaid
 flowchart LR
     Camera["USB webcam on Raspberry Pi"] --> Pi["Raspberry Pi 2B rover client"]
     Pi -->|"camera_frame over WebSocket"| Server["Windows laptop server"]
-    Server -->|"AI vision_result"| Pi
-    Pi -->|"vision_decision"| Server
+    Server -->|"YOLO ONNX vision_result"| Pi
     Server --> Dashboard["Web dashboard"]
     Dashboard -->|"goals and controls"| Server
     Server -->|"movement commands"| Pi
@@ -34,10 +33,10 @@ In plain words:
 
 1. The Pi sees through the webcam.
 2. The Pi sends the image to the Windows laptop.
-3. The laptop uses the configured multimodal model to understand the image.
+3. The laptop uses YOLO ONNX to detect people, animals, and objects.
 4. The laptop sends the result back to the Pi.
 5. The Pi decides whether to stop, alert, remember a marker, or continue.
-6. The dashboard shows the final result for the user.
+6. The dashboard shows the alert, map dot, and tracking guidance.
 
 ## What STASIS Detects
 
@@ -52,6 +51,8 @@ marker  -> custom navigation markers such as red strips
 ```
 
 Ordinary indoor doors and windows are intentionally not treated as target classes for this demo.
+
+The main demo detector is `server/security_rover_server_object_detection.py`, which expects an ONNX model at `server/models/yolo11n.onnx`. See [Windows YOLO ONNX Detection](docs/WINDOWS_YOLO_ONNX_DETECTION.md).
 
 ## Dashboard Features
 

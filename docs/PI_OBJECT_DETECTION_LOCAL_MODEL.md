@@ -1,164 +1,62 @@
-# Pi Object Detection + Local Model Alerts
+# Legacy Pi Object Detection
 
-This mode adds a more practical detection path based on the Core Electronics OpenCV/COCO Raspberry Pi pattern.
+This document is kept for reference only.
 
-Instead of asking a heavy vision model to inspect every frame, the Raspberry Pi first runs a lightweight COCO object detector. When the Pi sees configured objects such as `person`, `dog`, `cat`, `bird`, `cow`, or `bear`, it sends structured detection notes to the Windows server. The server then asks a local text model, such as Qwen through Ollama or LM Studio, to convert those notes into the existing STASIS alert JSON.
+The current recommended STASIS demo does **not** run YOLO or object detection on the Raspberry Pi 2B. The Pi 2B has trouble installing the Torch dependency required by Ultralytics/YOLO, especially on Python 3.13 and ARMv7.
 
-## Flow
+Use this instead:
 
 ```text
-Pi webcam
-  -> OpenCV COCO detection on Raspberry Pi
-  -> object_detection WebSocket message
-  -> Windows server asks local Qwen/Ollama or Qwen/LM Studio
-  -> server sends vision_result to Pi
-  -> Pi stops/alerts/remembers marker using the existing rover logic
-  -> dashboard receives the normal alert card
+Pi webcam stream -> Windows laptop -> YOLO ONNX detection -> dashboard + rover command
 ```
 
-## New Entry Points
+See:
 
-Run this server on the Windows laptop:
-
-```powershell
-cd server
-python security_rover_server_object_detection.py
+```text
+docs/WINDOWS_YOLO_ONNX_DETECTION.md
 ```
 
-Run this rover client on the Raspberry Pi:
+## Why Pi Detection Was Replaced
+
+The Pi-side YOLO path failed with:
+
+```text
+ultralytics depends on torch
+no matching distributions available for your environment: torch
+```
+
+That means the Pi can stream frames, but it cannot run the YOLO detector reliably in this setup.
+
+## What To Run On The Pi Now
+
+Run the normal rover client:
 
 ```bash
-cd rover/rpi2b
-python rover_client_object_detection.py --config config.json
+cd ~/Documents/Stasis/rover/rpi2b
+source .venv/bin/activate
+python rover_client.py --config config.json
 ```
 
-The original scripts still exist and can be used if you want the old multimodal-frame pipeline.
-
-## Local Model Options
-
-### Ollama
-
-On the Windows laptop, start Ollama and pull a small Qwen model:
-
-```powershell
-ollama pull qwen2.5:0.5b
-$env:STASIS_OBJECT_REVIEW_PROVIDER = "ollama"
-$env:STASIS_OLLAMA_URL = "http://127.0.0.1:11434"
-$env:STASIS_OLLAMA_TEXT_MODEL = "qwen2.5:0.5b"
-python security_rover_server_object_detection.py
-```
-
-### LM Studio
-
-In LM Studio, start the local OpenAI-compatible server, then run:
-
-```powershell
-$env:STASIS_OBJECT_REVIEW_PROVIDER = "lmstudio"
-$env:STASIS_LMSTUDIO_URL = "http://127.0.0.1:1234/v1"
-$env:STASIS_LMSTUDIO_TEXT_MODEL = "your-loaded-qwen-model-name"
-python security_rover_server_object_detection.py
-```
-
-### No Local Model
-
-For the most reliable emergency demo, use the deterministic fallback. It does not call any model; it maps COCO `person` to `human` and common animals to `animal`.
-
-```powershell
-$env:STASIS_OBJECT_REVIEW_PROVIDER = "fallback"
-python security_rover_server_object_detection.py
-```
-
-## Raspberry Pi Model Files
-
-Create this folder on the Pi:
-
-```bash
-mkdir -p rover/rpi2b/models
-```
-
-Place these files in it:
+The Pi only needs:
 
 ```text
-rover/rpi2b/models/coco.names
-rover/rpi2b/models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
-rover/rpi2b/models/frozen_inference_graph.pb
+websocket-client
+smbus2
+RPi.GPIO
+pyserial
+opencv-python
 ```
 
-These are the same kind of COCO MobileNet SSD files used in many Raspberry Pi OpenCV object-detection guides. Keep them out of git if they are large.
-
-## Pi Config
-
-Start from:
-
-```bash
-cp object_detection_config.example.json config.json
-```
-
-Edit `server_host` to the Windows laptop IP. The important section is:
-
-```json
-"object_detection": {
-  "enabled": true,
-  "backend": "yolo",
-  "yolo_model_path": "models/yolo11n_ncnn_model",
-  "confidence_threshold": 55,
-  "nms_threshold": 20,
-  "target_classes": [],
-  "ignored_classes": ["street", "road", "sidewalk", "floor", "wall", "ceiling", "door", "window", "room", "building", "house", "sky", "tree", "plant", "parking meter"],
-  "min_box_area_percent": 1.0,
-  "max_box_area_percent": 85.0,
-  "overlay_enabled": true,
-  "red_strip_enabled": true,
-  "red_strip_min_area": 1500,
-  "red_strip_min_aspect_ratio": 3.0,
-  "red_strip_min_fill_ratio": 0.55,
-  "stream_interval_seconds": 0.12,
-  "stream_jpeg_quality": 50,
-  "upload_interval_seconds": 1.5,
-  "alert_cooldown_seconds": 8.0
-}
-```
-
-Raise `confidence_threshold` if alerts are noisy. Lower it if the detector misses too much. The value is a percentage, so `55` means 55%.
-
-Set `target_classes` to an empty list to allow all COCO classes. If the Pi becomes too slow, add only the labels you need for the demo.
-
-`ignored_classes` suppresses bad background labels such as `street`, `road`, `wall`, and `door`. This is important when a weak or wrong model labels indoor background as an object.
-
-## Better YOLO Upgrade Path
-
-The recommended detector is now an Ultralytics YOLO model exported for Raspberry Pi. Put the exported folder here:
+It does not need:
 
 ```text
-rover/rpi2b/models/yolo11n_ncnn_model/
+torch
+ultralytics
+onnxruntime
 ```
 
-The older OpenCV COCO MobileNet SSD path still exists as a fallback. To use it, set:
+## If You Still Want To Experiment
 
-```json
-"backend": "opencv"
-```
+The file `rover_client_object_detection.py` still exists as an experimental path. It can use older OpenCV DNN model files or YOLO if a compatible environment is available.
 
-For better human, animal, and object detection, keep:
-
-```json
-"backend": "yolo"
-```
-
-Recommended order:
-
-1. `YOLO11n` exported to NCNN: best first upgrade for Raspberry Pi speed and accuracy balance.
-2. `YOLO11s` exported to NCNN: try this if accuracy matters more and your Pi/laptop setup can tolerate slower inference.
-3. Keep MobileNet SSD as the emergency fallback because it has fewer dependencies.
-
-Ultralytics documents NCNN as the fastest Raspberry Pi export target for YOLO models, and Raspberry Pi also recommends the Ultralytics deployment path for real-time computer vision on Pi hardware.
-
-## Why This Helps
-
-The old flow asked the model to understand raw frames directly. This flow gives the local model clean facts first:
-
-```text
-label=person, confidence=81%, box={...}
-```
-
-That is much easier for a small local Qwen model to reason over, and it also gives you a fallback path if the local model fails.
+For the competition demo, use Windows YOLO ONNX instead.

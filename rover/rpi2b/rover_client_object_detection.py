@@ -79,7 +79,7 @@ ANIMAL_LABELS.discard("person")
 @dataclass
 class ObjectDetectionConfig:
     enabled: bool = True
-    backend: str = "yolo"
+    backend: str = "opencv"
     yolo_model_path: str = "models/yolo11n_ncnn_model"
     class_names_path: str = "models/coco.names"
     config_path: str = "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt"
@@ -92,10 +92,10 @@ class ObjectDetectionConfig:
     min_box_area_percent: float = 1.0
     max_box_area_percent: float = 85.0
     overlay_enabled: bool = True
-    red_strip_enabled: bool = True
-    red_strip_min_area: int = 1500
-    red_strip_min_aspect_ratio: float = 3.0
-    red_strip_min_fill_ratio: float = 0.55
+    red_strip_enabled: bool = False
+    red_strip_min_area: int = 2500
+    red_strip_min_aspect_ratio: float = 4.0
+    red_strip_min_fill_ratio: float = 0.7
     stream_interval_seconds: float = 0.12
     stream_jpeg_quality: int = 50
     upload_interval_seconds: float = 2.0
