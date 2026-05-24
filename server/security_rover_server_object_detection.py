@@ -25,6 +25,8 @@ import requests
 
 import security_rover_server_windows as base
 
+base.ALLOWED_EVENT_CATEGORIES.add("object")
+
 OBJECT_REVIEW_PROVIDER = os.getenv("STASIS_OBJECT_REVIEW_PROVIDER", "ollama").strip().lower()
 OBJECT_REVIEW_TIMEOUT = float(os.getenv("STASIS_OBJECT_REVIEW_TIMEOUT", "20"))
 OBJECT_REVIEW_COOLDOWN = float(os.getenv("STASIS_OBJECT_REVIEW_COOLDOWN", "8"))
@@ -73,7 +75,7 @@ def build_detection_notes(payload: Dict[str, Any]) -> str:
             continue
         label = detection.get("label", "unknown")
         category_hint = detection.get("category_hint", "")
-        confidence = detection.get("confidence", "")
+        confidence = confidence_percent_text(detection.get("confidence", ""))
         box = detection.get("box", {})
         lines.append(f"- label={label}, category_hint={category_hint}, confidence={confidence}, box={box}")
     return "Raspberry Pi OpenCV COCO detections:\n" + "\n".join(lines)
@@ -83,8 +85,9 @@ def prompt_for_detection(payload: Dict[str, Any]) -> str:
     return (
         "You are the STASIS rover alert filter. A Raspberry Pi ran OpenCV COCO object detection. "
         "Convert the detections into exactly one minified JSON object with schema "
-        "{\"detected\": boolean, \"category\": \"human|animal|track|fire|marker\", \"message\": string}. "
+        "{\"detected\": boolean, \"category\": \"human|animal|object|track|fire|marker\", \"message\": string}. "
         "Use human for person/intruder detections. Use animal for wildlife-like detections. "
+        "Use object for other COCO objects and include the object label in the message. "
         "Return detected false if the detections are irrelevant or too weak. Do not use Markdown.\n\n"
         f"{build_detection_notes(payload)}"
     )
@@ -125,18 +128,74 @@ def request_lmstudio(prompt: str) -> str:
     return str(data["choices"][0]["message"]["content"])
 
 
+def estimate_detection_guidance(best: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+    box = best.get("box", {}) if isinstance(best.get("box"), dict) else {}
+    width = float(payload.get("width") or 640)
+    height = float(payload.get("height") or 480)
+    box_x = float(box.get("x", width / 2))
+    box_y = float(box.get("y", height / 2))
+    box_w = max(1.0, float(box.get("width", 1)))
+    box_h = max(1.0, float(box.get("height", 1)))
+    center_x = box_x + box_w / 2.0
+    center_y = box_y + box_h / 2.0
+
+    horizontal_ratio = (center_x - width / 2.0) / max(1.0, width / 2.0)
+    vertical_ratio = 1.0 - (center_y / max(1.0, height))
+    object_ratio = box_h / max(1.0, height)
+    estimated_forward_cm = int(max(30, min(500, 170 / max(0.08, object_ratio))))
+    estimated_side_cm = int(max(0, min(300, abs(horizontal_ratio) * estimated_forward_cm * 0.75)))
+    side = "right" if horizontal_ratio > 0.18 else "left" if horizontal_ratio < -0.18 else "center"
+    if estimated_forward_cm <= 60:
+        direction = "nearby"
+    elif side == "center":
+        direction = f"forward {estimated_forward_cm} cm"
+    else:
+        direction = f"forward {estimated_forward_cm} cm, {side} {estimated_side_cm} cm"
+    return {
+        "direction": direction,
+        "forward_cm": estimated_forward_cm,
+        "side": side,
+        "side_cm": estimated_side_cm,
+        "image_x": round(center_x, 1),
+        "image_y": round(center_y, 1),
+        "image_vertical_ratio": round(vertical_ratio, 3),
+    }
+
+
+def confidence_score(item: Dict[str, Any]) -> float:
+    value = float(item.get("confidence", 0) or 0)
+    return value / 100.0 if value > 1.0 else value
+
+
+def confidence_percent_text(value: Any) -> str:
+    try:
+        confidence = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if confidence <= 1.0:
+        confidence *= 100.0
+    return f"{confidence:.0f}%"
+
+
 def fallback_detection_result(payload: Dict[str, Any]) -> Dict[str, Any]:
     detections = [item for item in payload.get("detections", []) if isinstance(item, dict)]
-    for category in ("human", "animal", "fire", "marker", "track"):
+    for category in ("human", "animal", "marker", "object", "fire", "track"):
         matches = [item for item in detections if item.get("category_hint") == category]
         if matches:
-            best = max(matches, key=lambda item: float(item.get("confidence", 0)))
+            best = max(matches, key=confidence_score)
             label = str(best.get("label", category))
-            confidence = float(best.get("confidence", 0))
+            confidence = confidence_percent_text(best.get("confidence", 0))
+            guidance = estimate_detection_guidance(best, payload)
+            marker = str(best.get("marker") or "red_strip") if category == "marker" else ""
+            category_name = "human" if category == "human" else category
+            object_phrase = "person" if category == "human" and label == "person" else label
             return {
                 "detected": True,
-                "category": category,
-                "message": f"{category}: Pi OpenCV detected {label} at {confidence:.2f} confidence.",
+                "category": category_name,
+                "message": f"{category_name}: detected {object_phrase} at {confidence} confidence; {guidance['direction']}.",
+                "guidance": guidance,
+                "label": label,
+                "marker": marker,
             }
     return {"detected": False, "category": "", "message": ""}
 
@@ -203,6 +262,10 @@ def handle_object_detection(payload: Dict[str, Any]) -> None:
         "heading": base.rover_pose["heading"],
         "source": "pi_opencv_coco_local_text_model",
     }
+    if analysis.get("guidance"):
+        result["guidance"] = analysis["guidance"]
+    if analysis.get("label"):
+        result["label"] = analysis["label"]
     if analysis.get("marker"):
         result["marker"] = analysis["marker"]
     logging.info("Object detection reviewed as STASIS event: %s", result)
