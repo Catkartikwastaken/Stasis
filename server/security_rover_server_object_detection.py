@@ -28,6 +28,24 @@ import security_rover_server_windows as base
 
 base.ALLOWED_EVENT_CATEGORIES.add("object")
 
+IGNORED_DETECTION_LABELS = {
+    "street",
+    "road",
+    "sidewalk",
+    "floor",
+    "wall",
+    "ceiling",
+    "door",
+    "window",
+    "room",
+    "building",
+    "house",
+    "sky",
+    "tree",
+    "plant",
+    "parking meter",
+}
+
 OBJECT_REVIEW_PROVIDER = os.getenv("STASIS_OBJECT_REVIEW_PROVIDER", "ollama").strip().lower()
 OBJECT_REVIEW_TIMEOUT = float(os.getenv("STASIS_OBJECT_REVIEW_TIMEOUT", "20"))
 OBJECT_REVIEW_COOLDOWN = float(os.getenv("STASIS_OBJECT_REVIEW_COOLDOWN", "8"))
@@ -67,8 +85,8 @@ def save_detection_frame(payload: Dict[str, Any]) -> str:
 
 
 def build_detection_notes(payload: Dict[str, Any]) -> str:
-    detections = payload.get("detections", [])
-    if not isinstance(detections, list) or not detections:
+    detections = filtered_detections(payload)
+    if not detections:
         return "No COCO objects were detected by the Raspberry Pi."
     lines = []
     for detection in detections[:8]:
@@ -178,6 +196,21 @@ def confidence_percent_text(value: Any) -> str:
     return f"{confidence:.0f}%"
 
 
+def filtered_detections(payload: Dict[str, Any]) -> list[Dict[str, Any]]:
+    raw_detections = payload.get("detections", [])
+    if not isinstance(raw_detections, list):
+        return []
+    detections: list[Dict[str, Any]] = []
+    for item in raw_detections:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label", "")).strip().lower()
+        if label in IGNORED_DETECTION_LABELS:
+            continue
+        detections.append(item)
+    return detections
+
+
 def estimate_map_position(guidance: Dict[str, Any]) -> Dict[str, float]:
     forward_cm = float(guidance.get("forward_cm", 0) or 0)
     side_cm = float(guidance.get("side_cm", 0) or 0)
@@ -195,8 +228,8 @@ def estimate_map_position(guidance: Dict[str, Any]) -> Dict[str, float]:
 
 
 def fallback_detection_result(payload: Dict[str, Any]) -> Dict[str, Any]:
-    detections = [item for item in payload.get("detections", []) if isinstance(item, dict)]
-    for category in ("human", "animal", "marker", "object", "fire", "track"):
+    detections = filtered_detections(payload)
+    for category in ("human", "animal", "object", "marker", "fire", "track"):
         matches = [item for item in detections if item.get("category_hint") == category]
         if matches:
             best = max(matches, key=confidence_score)

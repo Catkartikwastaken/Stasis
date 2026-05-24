@@ -53,6 +53,28 @@ IMPORTANT_OBJECTS = {
     "teddy bear",
 }
 
+BACKGROUND_LABELS = {
+    "street",
+    "road",
+    "sidewalk",
+    "floor",
+    "wall",
+    "ceiling",
+    "door",
+    "window",
+    "room",
+    "building",
+    "house",
+    "sky",
+    "tree",
+    "plant",
+    "parking meter",
+}
+
+HUMAN_LABELS = {"person", "human", "man", "woman", "boy", "girl", "face", "head"}
+ANIMAL_LABELS = set(COCO_TO_STASIS)
+ANIMAL_LABELS.discard("person")
+
 
 @dataclass
 class ObjectDetectionConfig:
@@ -66,16 +88,41 @@ class ObjectDetectionConfig:
     nms_threshold: float = 20.0
     input_size: int = 320
     target_classes: list[str] = field(default_factory=list)
+    ignored_classes: list[str] = field(default_factory=lambda: sorted(BACKGROUND_LABELS))
+    min_box_area_percent: float = 1.0
+    max_box_area_percent: float = 85.0
     overlay_enabled: bool = True
     red_strip_enabled: bool = True
-    red_strip_min_area: int = 900
-    red_strip_min_aspect_ratio: float = 2.4
-    red_strip_min_fill_ratio: float = 0.38
+    red_strip_min_area: int = 1500
+    red_strip_min_aspect_ratio: float = 3.0
+    red_strip_min_fill_ratio: float = 0.55
     stream_interval_seconds: float = 0.12
     stream_jpeg_quality: int = 50
     upload_interval_seconds: float = 2.0
     alert_cooldown_seconds: float = 8.0
     send_empty_results: bool = False
+
+
+def category_for_label(label: str, allow_general_objects: bool = True) -> str:
+    label = label.strip().lower()
+    if label in HUMAN_LABELS:
+        return "human"
+    if label in ANIMAL_LABELS:
+        return "animal"
+    if label in BACKGROUND_LABELS:
+        return ""
+    if label in IMPORTANT_OBJECTS or allow_general_objects:
+        return "object"
+    return ""
+
+
+def should_keep_detection(label: str, box: dict[str, int], frame_width: int, frame_height: int, config: ObjectDetectionConfig) -> bool:
+    label = label.strip().lower()
+    ignored = {item.lower() for item in config.ignored_classes}
+    if label in ignored:
+        return False
+    area_percent = (float(box.get("width", 0)) * float(box.get("height", 0)) * 100.0) / max(1.0, float(frame_width * frame_height))
+    return float(config.min_box_area_percent) <= area_percent <= float(config.max_box_area_percent)
 
 
 class CocoObjectDetector:
@@ -142,13 +189,18 @@ class CocoObjectDetector:
             if target_classes and label_lower not in target_classes:
                 continue
             x, y, width, height = [int(value) for value in box]
-            category_hint = COCO_TO_STASIS.get(label_lower, "object" if label_lower in IMPORTANT_OBJECTS or not target_classes else "")
+            bbox = {"x": x, "y": y, "width": width, "height": height}
+            if not should_keep_detection(label_lower, bbox, int(frame.shape[1]), int(frame.shape[0]), self.config):
+                continue
+            category_hint = category_for_label(label_lower, allow_general_objects=not bool(target_classes))
+            if not category_hint:
+                continue
             detections.append(
                 {
                     "label": label_lower,
                     "category_hint": category_hint,
                     "confidence": round(float(confidence), 3),
-                    "box": {"x": x, "y": y, "width": width, "height": height},
+                    "box": bbox,
                 }
             )
         detections.sort(key=lambda item: item["confidence"], reverse=True)
@@ -187,6 +239,13 @@ class YoloObjectDetector:
             logging.warning("YOLO model path missing: %s", model_path)
             return False
         self.model = YOLO(str(model_path))
+        names = {str(value).lower() for value in getattr(self.model, "names", {}).values()}
+        if "person" not in names:
+            logging.warning(
+                "YOLO model at %s does not expose the COCO 'person' class. "
+                "Human detection will be poor; export a COCO model such as yolo11n.pt to NCNN.",
+                model_path,
+            )
         logging.info("Pi-side YOLO object detector loaded from %s.", model_path)
         return True
 
@@ -216,13 +275,18 @@ class YoloObjectDetector:
                 continue
             x1, y1, x2, y2 = [int(value) for value in box.xyxy[0].tolist()]
             confidence = float(box.conf[0])
-            category_hint = COCO_TO_STASIS.get(label, "object")
+            bbox = {"x": x1, "y": y1, "width": max(1, x2 - x1), "height": max(1, y2 - y1)}
+            if not should_keep_detection(label, bbox, int(frame.shape[1]), int(frame.shape[0]), self.config):
+                continue
+            category_hint = category_for_label(label, allow_general_objects=not bool(target_classes))
+            if not category_hint:
+                continue
             detections.append(
                 {
                     "label": label,
                     "category_hint": category_hint,
                     "confidence": round(confidence, 3),
-                    "box": {"x": x1, "y": y1, "width": max(1, x2 - x1), "height": max(1, y2 - y1)},
+                    "box": bbox,
                 }
             )
         detections.sort(key=lambda item: item["confidence"], reverse=True)
@@ -305,9 +369,12 @@ class ObjectDetectionRoverClient(base.RoverClient):
         self.last_detection_signature = ""
         self.latest_detections: list[dict[str, Any]] = []
         self.detection_lock = threading.Lock()
+        self.latest_frame_for_detection: Any = None
+        self.detection_frame_lock = threading.Lock()
 
     def run(self) -> None:
         self.detector_ready = self.detector.setup()
+        threading.Thread(target=self.detection_loop, name="pi-detection-loop", daemon=True).start()
         super().run()
 
     def _send_object_detection(self, detections: list[dict[str, Any]], frame: Any) -> None:
@@ -339,6 +406,32 @@ class ObjectDetectionRoverClient(base.RoverClient):
         self.send_json(payload)
         self.last_detection_sent = now
         self.last_detection_signature = signature
+
+    def _update_detection_frame(self, frame: Any) -> None:
+        with self.detection_frame_lock:
+            self.latest_frame_for_detection = frame.copy()
+
+    def _get_detection_frame(self) -> Any:
+        with self.detection_frame_lock:
+            if self.latest_frame_for_detection is None:
+                return None
+            return self.latest_frame_for_detection.copy()
+
+    def detection_loop(self) -> None:
+        while not self.stop_requested.is_set():
+            if not self.connected.is_set():
+                time.sleep(0.1)
+                continue
+            frame = self._get_detection_frame()
+            if frame is None:
+                time.sleep(0.05)
+                continue
+            detections = self.detector.detect(frame) if self.detector_ready else []
+            detections.extend(self.red_strip_detector.detect(frame))
+            with self.detection_lock:
+                self.latest_detections = detections
+            self._send_object_detection(detections, frame)
+            time.sleep(max(0.2, float(self.detector_config.upload_interval_seconds)))
 
     def _overlay_detections(self, frame: Any) -> Any:
         if not self.detector_config.overlay_enabled:
@@ -396,7 +489,6 @@ class ObjectDetectionRoverClient(base.RoverClient):
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
             cap.set(cv2.CAP_PROP_FPS, camera.fps)
             logging.info("Streaming Pi webcam smoothly at %sx%s; object detection runs on a slower side interval.", camera.width, camera.height)
-            last_detection_run = 0.0
             last_stream_sent = 0.0
 
             while not self.stop_requested.is_set():
@@ -407,6 +499,7 @@ class ObjectDetectionRoverClient(base.RoverClient):
 
                 if self.connected.is_set():
                     now = time.monotonic()
+                    self._update_detection_frame(frame)
                     stream_interval = max(0.05, float(self.detector_config.stream_interval_seconds or camera.upload_interval_seconds))
                     if now - last_stream_sent >= stream_interval:
                         display_frame = self._overlay_detections(frame)
@@ -423,14 +516,6 @@ class ObjectDetectionRoverClient(base.RoverClient):
                                 }
                             )
                             last_stream_sent = now
-                    detection_interval = max(0.2, float(self.detector_config.upload_interval_seconds))
-                    if now - last_detection_run >= detection_interval:
-                        detections = self.detector.detect(frame) if self.detector_ready else []
-                        detections.extend(self.red_strip_detector.detect(frame))
-                        with self.detection_lock:
-                            self.latest_detections = detections
-                        self._send_object_detection(detections, frame)
-                        last_detection_run = now
 
                 time.sleep(0.02)
 
