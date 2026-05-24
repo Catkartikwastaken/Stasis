@@ -421,6 +421,10 @@
       }
 
       function guidanceTextForTarget(target) {
+        if (target.guidance && target.guidance.direction) {
+          const distance = Number(target.guidance.forward_cm || target.guidance.distance_cm || 0);
+          return { distance: Math.max(0, Math.round(distance)), direction: target.guidance.direction };
+        }
         const dx = target.x - roverPose.x;
         const dy = target.y - roverPose.y;
         const distance = Math.max(0, Math.round(Math.hypot(dx, dy)));
@@ -458,7 +462,7 @@
         trackedTargetEl.style.display = "block";
 
         const guidance = guidanceTextForTarget(trackedAlert);
-        trackingNameEl.textContent = trackedAlert.category || "event";
+        trackingNameEl.textContent = trackedAlert.label || trackedAlert.category || "event";
         guidanceDirectionEl.textContent = guidance.direction;
         guidanceDistanceEl.textContent = guidance.distance;
 
@@ -556,7 +560,7 @@
           trackButton.addEventListener("click", () => {
             trackedAlert = { ...alert, x, y };
             roverStatusEl.textContent =
-              alert.category === "human" ? "human detected - tracking" : "event selected - tracking";
+              alert.category === "human" ? "human detected - tracking" : `${alert.category || "event"} selected - tracking`;
             updateGuidance(true);
           });
           item.append(trackButton);

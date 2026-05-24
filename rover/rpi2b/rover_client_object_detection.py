@@ -15,6 +15,7 @@ import base64
 import json
 import logging
 import signal
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -37,6 +38,21 @@ COCO_TO_STASIS = {
     "giraffe": "animal",
 }
 
+IMPORTANT_OBJECTS = {
+    "backpack",
+    "umbrella",
+    "handbag",
+    "suitcase",
+    "bottle",
+    "cup",
+    "chair",
+    "potted plant",
+    "cell phone",
+    "book",
+    "scissors",
+    "teddy bear",
+}
+
 
 @dataclass
 class ObjectDetectionConfig:
@@ -44,10 +60,14 @@ class ObjectDetectionConfig:
     class_names_path: str = "models/coco.names"
     config_path: str = "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt"
     weights_path: str = "models/frozen_inference_graph.pb"
-    confidence_threshold: float = 0.45
-    nms_threshold: float = 0.20
+    confidence_threshold: float = 55.0
+    nms_threshold: float = 20.0
     input_size: int = 320
-    target_classes: list[str] = field(default_factory=lambda: ["person", "bird", "cat", "dog", "horse", "sheep", "cow", "bear"])
+    target_classes: list[str] = field(default_factory=list)
+    overlay_enabled: bool = True
+    red_strip_enabled: bool = True
+    red_strip_min_area: int = 900
+    stream_interval_seconds: float = 0.25
     upload_interval_seconds: float = 2.0
     alert_cooldown_seconds: float = 8.0
     send_empty_results: bool = False
@@ -63,6 +83,13 @@ class CocoObjectDetector:
     def _resolve(self, value: str) -> Path:
         path = Path(value)
         return path if path.is_absolute() else self.root / path
+
+    @staticmethod
+    def _ratio(value: float) -> float:
+        value = float(value)
+        if value > 1.0:
+            value /= 100.0
+        return max(0.0, min(1.0, value))
 
     def setup(self) -> bool:
         if not self.config.enabled:
@@ -96,8 +123,8 @@ class CocoObjectDetector:
             return []
         class_ids, confidences, boxes = self.model.detect(
             frame,
-            confThreshold=float(self.config.confidence_threshold),
-            nmsThreshold=float(self.config.nms_threshold),
+            confThreshold=self._ratio(self.config.confidence_threshold),
+            nmsThreshold=self._ratio(self.config.nms_threshold),
         )
         detections: list[dict[str, Any]] = []
         target_classes = {item.lower() for item in self.config.target_classes}
@@ -110,16 +137,56 @@ class CocoObjectDetector:
             if target_classes and label_lower not in target_classes:
                 continue
             x, y, width, height = [int(value) for value in box]
+            category_hint = COCO_TO_STASIS.get(label_lower, "object" if label_lower in IMPORTANT_OBJECTS or not target_classes else "")
             detections.append(
                 {
                     "label": label_lower,
-                    "category_hint": COCO_TO_STASIS.get(label_lower, ""),
+                    "category_hint": category_hint,
                     "confidence": round(float(confidence), 3),
                     "box": {"x": x, "y": y, "width": width, "height": height},
                 }
             )
         detections.sort(key=lambda item: item["confidence"], reverse=True)
         return detections
+
+
+class RedStripDetector:
+    def __init__(self, config: ObjectDetectionConfig) -> None:
+        self.config = config
+
+    def detect(self, frame: Any) -> list[dict[str, Any]]:
+        if not self.config.red_strip_enabled:
+            return []
+        import cv2
+
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+        lower_red_a = (0, 80, 70)
+        upper_red_a = (12, 255, 255)
+        lower_red_b = (170, 80, 70)
+        upper_red_b = (180, 255, 255)
+        mask = cv2.inRange(hsv, lower_red_a, upper_red_a) | cv2.inRange(hsv, lower_red_b, upper_red_b)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, None, iterations=1)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, None, iterations=2)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        detections: list[dict[str, Any]] = []
+        for contour in contours:
+            area = float(cv2.contourArea(contour))
+            if area < float(self.config.red_strip_min_area):
+                continue
+            x, y, width, height = cv2.boundingRect(contour)
+            if width < 12 or height < 8:
+                continue
+            detections.append(
+                {
+                    "label": "red strip",
+                    "category_hint": "marker",
+                    "confidence": min(0.99, round(area / max(1.0, frame.shape[0] * frame.shape[1] * 0.08), 3)),
+                    "box": {"x": int(x), "y": int(y), "width": int(width), "height": int(height)},
+                    "marker": "red_strip",
+                }
+            )
+        detections.sort(key=lambda item: item["confidence"], reverse=True)
+        return detections[:3]
 
 
 def load_object_detection_config(path: Path | None) -> ObjectDetectionConfig:
@@ -144,10 +211,13 @@ class ObjectDetectionRoverClient(base.RoverClient):
     def __init__(self, config: base.RoverConfig, hardware: base.HardwareBase, detector_config: ObjectDetectionConfig, root: Path) -> None:
         super().__init__(config, hardware)
         self.detector = CocoObjectDetector(detector_config, root)
+        self.red_strip_detector = RedStripDetector(detector_config)
         self.detector_config = detector_config
         self.detector_ready = False
         self.last_detection_sent = 0.0
         self.last_detection_signature = ""
+        self.latest_detections: list[dict[str, Any]] = []
+        self.detection_lock = threading.Lock()
 
     def run(self) -> None:
         self.detector_ready = self.detector.setup()
@@ -183,6 +253,34 @@ class ObjectDetectionRoverClient(base.RoverClient):
         self.last_detection_sent = now
         self.last_detection_signature = signature
 
+    def _overlay_detections(self, frame: Any) -> Any:
+        if not self.detector_config.overlay_enabled:
+            return frame
+        import cv2
+
+        with self.detection_lock:
+            detections = list(self.latest_detections)
+        overlay = frame.copy()
+        for item in detections[:12]:
+            box = item.get("box", {})
+            try:
+                x = int(box.get("x", 0))
+                y = int(box.get("y", 0))
+                width = int(box.get("width", 0))
+                height = int(box.get("height", 0))
+            except Exception:
+                continue
+            if width <= 0 or height <= 0:
+                continue
+            label = str(item.get("label", "object"))
+            confidence = float(item.get("confidence", 0))
+            confidence_percent = confidence if confidence > 1.0 else confidence * 100.0
+            color = (0, 255, 0) if item.get("category_hint") != "marker" else (0, 0, 255)
+            cv2.rectangle(overlay, (x, y), (x + width, y + height), color, 2)
+            caption = f"{label} {confidence_percent:.0f}%"
+            cv2.putText(overlay, caption, (x, max(18, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+        return overlay
+
     def _encode_frame(self, frame: Any) -> tuple[bool, Any]:
         import cv2
 
@@ -209,7 +307,9 @@ class ObjectDetectionRoverClient(base.RoverClient):
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera.width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
             cap.set(cv2.CAP_PROP_FPS, camera.fps)
-            logging.info("Streaming Pi webcam with object detection at %sx%s.", camera.width, camera.height)
+            logging.info("Streaming Pi webcam smoothly at %sx%s; object detection runs on a slower side interval.", camera.width, camera.height)
+            last_detection_run = 0.0
+            last_stream_sent = 0.0
 
             while not self.stop_requested.is_set():
                 ok, frame = cap.read()
@@ -218,23 +318,33 @@ class ObjectDetectionRoverClient(base.RoverClient):
                     break
 
                 if self.connected.is_set():
-                    encoded_ok, encoded = self._encode_frame(frame)
-                    if encoded_ok:
-                        self.send_json(
-                            {
-                                "type": "camera_frame",
-                                "format": "jpeg",
-                                "image_b64": base64.b64encode(encoded.tobytes()).decode("ascii"),
-                                "width": int(frame.shape[1]),
-                                "height": int(frame.shape[0]),
-                                "captured_at": time.time(),
-                            }
-                        )
-                    detections = self.detector.detect(frame) if self.detector_ready else []
-                    self._send_object_detection(detections, frame)
+                    now = time.monotonic()
+                    stream_interval = max(0.05, float(self.detector_config.stream_interval_seconds or camera.upload_interval_seconds))
+                    if now - last_stream_sent >= stream_interval:
+                        display_frame = self._overlay_detections(frame)
+                        encoded_ok, encoded = self._encode_frame(display_frame)
+                        if encoded_ok:
+                            self.send_json(
+                                {
+                                    "type": "camera_frame",
+                                    "format": "jpeg",
+                                    "image_b64": base64.b64encode(encoded.tobytes()).decode("ascii"),
+                                    "width": int(display_frame.shape[1]),
+                                    "height": int(display_frame.shape[0]),
+                                    "captured_at": time.time(),
+                                }
+                            )
+                            last_stream_sent = now
+                    detection_interval = max(0.2, float(self.detector_config.upload_interval_seconds))
+                    if now - last_detection_run >= detection_interval:
+                        detections = self.detector.detect(frame) if self.detector_ready else []
+                        detections.extend(self.red_strip_detector.detect(frame))
+                        with self.detection_lock:
+                            self.latest_detections = detections
+                        self._send_object_detection(detections, frame)
+                        last_detection_run = now
 
-                interval = self.detector_config.upload_interval_seconds or camera.upload_interval_seconds
-                time.sleep(max(0.1, float(interval)))
+                time.sleep(0.02)
 
             cap.release()
             time.sleep(1)

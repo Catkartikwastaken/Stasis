@@ -99,20 +99,20 @@ Edit `server_host` to the Windows laptop IP. The important section is:
 ```json
 "object_detection": {
   "enabled": true,
-  "confidence_threshold": 0.45,
+  "confidence_threshold": 55,
   "target_classes": ["person", "bird", "cat", "dog", "horse", "sheep", "cow", "bear"],
   "alert_cooldown_seconds": 8.0
 }
 ```
 
-Raise `confidence_threshold` if alerts are noisy. Lower it if the detector misses too much.
+Raise `confidence_threshold` if alerts are noisy. Lower it if the detector misses too much. The value is a percentage, so `55` means 55%.
 
 ## Why This Helps
 
 The old flow asked the model to understand raw frames directly. This flow gives the local model clean facts first:
 
 ```text
-label=person, confidence=0.81, box={...}
+label=person, confidence=81%, box={...}
 ```
 
 That is much easier for a small local Qwen model to reason over, and it also gives you a fallback path if the local model fails.
