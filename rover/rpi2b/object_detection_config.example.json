@@ -25,7 +25,10 @@
     "overlay_enabled": true,
     "red_strip_enabled": true,
     "red_strip_min_area": 900,
-    "stream_interval_seconds": 0.25,
+    "red_strip_min_aspect_ratio": 2.4,
+    "red_strip_min_fill_ratio": 0.38,
+    "stream_interval_seconds": 0.12,
+    "stream_jpeg_quality": 50,
     "upload_interval_seconds": 1.5,
     "alert_cooldown_seconds": 8.0,
     "send_empty_results": false

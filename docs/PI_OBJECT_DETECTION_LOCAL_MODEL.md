@@ -100,12 +100,35 @@ Edit `server_host` to the Windows laptop IP. The important section is:
 "object_detection": {
   "enabled": true,
   "confidence_threshold": 55,
-  "target_classes": ["person", "bird", "cat", "dog", "horse", "sheep", "cow", "bear"],
+  "nms_threshold": 20,
+  "target_classes": [],
+  "overlay_enabled": true,
+  "red_strip_enabled": true,
+  "red_strip_min_area": 900,
+  "red_strip_min_aspect_ratio": 2.4,
+  "red_strip_min_fill_ratio": 0.38,
+  "stream_interval_seconds": 0.12,
+  "stream_jpeg_quality": 50,
+  "upload_interval_seconds": 1.5,
   "alert_cooldown_seconds": 8.0
 }
 ```
 
 Raise `confidence_threshold` if alerts are noisy. Lower it if the detector misses too much. The value is a percentage, so `55` means 55%.
+
+Set `target_classes` to an empty list to allow all COCO classes. If the Pi becomes too slow, add only the labels you need for the demo.
+
+## Better YOLO Upgrade Path
+
+The current fallback detector uses an older COCO MobileNet SSD model because it is easy to run with OpenCV. For better human, animal, and object detection, use an Ultralytics YOLO model exported for Raspberry Pi.
+
+Recommended order:
+
+1. `YOLO11n` exported to NCNN: best first upgrade for Raspberry Pi speed and accuracy balance.
+2. `YOLO11s` exported to NCNN: try this if accuracy matters more and your Pi/laptop setup can tolerate slower inference.
+3. Keep MobileNet SSD as the emergency fallback because it has fewer dependencies.
+
+Ultralytics documents NCNN as the fastest Raspberry Pi export target for YOLO models, and Raspberry Pi also recommends the Ultralytics deployment path for real-time computer vision on Pi hardware.
 
 ## Why This Helps
 

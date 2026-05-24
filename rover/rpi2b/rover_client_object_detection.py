@@ -67,7 +67,10 @@ class ObjectDetectionConfig:
     overlay_enabled: bool = True
     red_strip_enabled: bool = True
     red_strip_min_area: int = 900
-    stream_interval_seconds: float = 0.25
+    red_strip_min_aspect_ratio: float = 2.4
+    red_strip_min_fill_ratio: float = 0.38
+    stream_interval_seconds: float = 0.12
+    stream_jpeg_quality: int = 50
     upload_interval_seconds: float = 2.0
     alert_cooldown_seconds: float = 8.0
     send_empty_results: bool = False
@@ -160,9 +163,9 @@ class RedStripDetector:
         import cv2
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        lower_red_a = (0, 80, 70)
+        lower_red_a = (0, 135, 80)
         upper_red_a = (12, 255, 255)
-        lower_red_b = (170, 80, 70)
+        lower_red_b = (170, 135, 80)
         upper_red_b = (180, 255, 255)
         mask = cv2.inRange(hsv, lower_red_a, upper_red_a) | cv2.inRange(hsv, lower_red_b, upper_red_b)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, None, iterations=1)
@@ -176,11 +179,18 @@ class RedStripDetector:
             x, y, width, height = cv2.boundingRect(contour)
             if width < 12 or height < 8:
                 continue
+            aspect_ratio = max(width / max(1, height), height / max(1, width))
+            if aspect_ratio < float(self.config.red_strip_min_aspect_ratio):
+                continue
+            crop = mask[y : y + height, x : x + width]
+            fill_ratio = float(cv2.countNonZero(crop)) / float(max(1, width * height))
+            if fill_ratio < float(self.config.red_strip_min_fill_ratio):
+                continue
             detections.append(
                 {
                     "label": "red strip",
                     "category_hint": "marker",
-                    "confidence": min(0.99, round(area / max(1.0, frame.shape[0] * frame.shape[1] * 0.08), 3)),
+                    "confidence": min(0.99, round(max(fill_ratio, area / max(1.0, frame.shape[0] * frame.shape[1] * 0.08)), 3)),
                     "box": {"x": int(x), "y": int(y), "width": int(width), "height": int(height)},
                     "marker": "red_strip",
                 }
@@ -281,10 +291,11 @@ class ObjectDetectionRoverClient(base.RoverClient):
             cv2.putText(overlay, caption, (x, max(18, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
         return overlay
 
-    def _encode_frame(self, frame: Any) -> tuple[bool, Any]:
+    def _encode_frame(self, frame: Any, quality: int | None = None) -> tuple[bool, Any]:
         import cv2
 
-        quality = max(30, min(95, int(self.config.camera.jpeg_quality)))
+        quality = self.config.camera.jpeg_quality if quality is None else quality
+        quality = max(30, min(95, int(quality)))
         return cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
 
     def camera_loop(self) -> None:
@@ -322,7 +333,7 @@ class ObjectDetectionRoverClient(base.RoverClient):
                     stream_interval = max(0.05, float(self.detector_config.stream_interval_seconds or camera.upload_interval_seconds))
                     if now - last_stream_sent >= stream_interval:
                         display_frame = self._overlay_detections(frame)
-                        encoded_ok, encoded = self._encode_frame(display_frame)
+                        encoded_ok, encoded = self._encode_frame(display_frame, self.detector_config.stream_jpeg_quality)
                         if encoded_ok:
                             self.send_json(
                                 {

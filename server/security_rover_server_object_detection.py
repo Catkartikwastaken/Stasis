@@ -14,6 +14,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import math
 import os
 import time
 from datetime import datetime
@@ -177,6 +178,22 @@ def confidence_percent_text(value: Any) -> str:
     return f"{confidence:.0f}%"
 
 
+def estimate_map_position(guidance: Dict[str, Any]) -> Dict[str, float]:
+    forward_cm = float(guidance.get("forward_cm", 0) or 0)
+    side_cm = float(guidance.get("side_cm", 0) or 0)
+    if str(guidance.get("side", "")).lower() == "left":
+        side_cm *= -1.0
+    yaw_rad = math.radians(float(base.rover_pose.get("yaw", 0.0) or 0.0))
+    forward_x = math.cos(yaw_rad)
+    forward_y = math.sin(yaw_rad)
+    right_x = -math.sin(yaw_rad)
+    right_y = math.cos(yaw_rad)
+    return {
+        "x": max(0.0, min(800.0, base.rover_pose["x"] + forward_x * forward_cm + right_x * side_cm)),
+        "y": max(0.0, min(800.0, base.rover_pose["y"] + forward_y * forward_cm + right_y * side_cm)),
+    }
+
+
 def fallback_detection_result(payload: Dict[str, Any]) -> Dict[str, Any]:
     detections = [item for item in payload.get("detections", []) if isinstance(item, dict)]
     for category in ("human", "animal", "marker", "object", "fire", "track"):
@@ -249,16 +266,22 @@ def handle_object_detection(payload: Dict[str, Any]) -> None:
     analysis = review_object_detection(payload)
     if not analysis.get("detected"):
         return
+    fallback_details = fallback_detection_result(payload)
+    if fallback_details.get("detected"):
+        for key in ("guidance", "label", "marker"):
+            if not analysis.get(key) and fallback_details.get(key):
+                analysis[key] = fallback_details[key]
 
     image_path = save_detection_frame(payload)
+    map_position = estimate_map_position(analysis.get("guidance", {})) if analysis.get("guidance") else base.rover_pose
     result = {
         "type": "vision_result",
         "detected": True,
         "category": analysis.get("category", "event"),
         "message": analysis.get("message", "Object detected."),
         "image_path": image_path,
-        "x": base.rover_pose["x"],
-        "y": base.rover_pose["y"],
+        "x": map_position["x"],
+        "y": map_position["y"],
         "heading": base.rover_pose["heading"],
         "source": "pi_opencv_coco_local_text_model",
     }

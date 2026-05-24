@@ -196,6 +196,38 @@
         transform: translate(-50%, -50%);
       }
 
+      .map-alert-dot {
+        position: absolute;
+        width: 15px;
+        height: 15px;
+        border: 2px solid rgba(237, 244, 239, 0.86);
+        border-radius: 50%;
+        background: #79d17c;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 5px rgba(121, 209, 124, 0.18);
+      }
+
+      .map-alert-dot.human {
+        width: 28px;
+        height: 28px;
+        border-color: #ffcf5a;
+        background: #f05d5e;
+        box-shadow: 0 0 0 8px rgba(240, 93, 94, 0.2);
+        z-index: 4;
+      }
+
+      .map-alert-dot.animal {
+        background: #8bd17c;
+      }
+
+      .map-alert-dot.object {
+        background: #58c4ff;
+      }
+
+      .map-alert-dot.marker {
+        background: #ff6464;
+      }
+
       #trackedTarget {
         position: absolute;
         display: none;
@@ -400,6 +432,7 @@
       let roverPose = { x: 400, y: 400, yaw: 0 };
       let trackedAlert = null;
       let lastSpokenGuidance = "";
+      const mapAlertDots = [];
 
       function positionMarker(marker, x, y) {
         marker.style.left = `${(x / mapSize) * 100}%`;
@@ -411,6 +444,24 @@
         roverEl.style.setProperty("--yaw", `${roverPose.yaw || 0}deg`);
         homeDistanceEl.textContent = Math.round(roverPose.distance_from_home || 0);
         updateGuidance(false);
+      }
+
+      function addMapAlertDot(alert, x, y) {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = `map-alert-dot ${alert.category || "object"}`;
+        dot.title = `${alert.label || alert.category || "event"}: ${alert.message || "detected"}`;
+        dot.setAttribute("aria-label", dot.title);
+        positionMarker(dot, x, y);
+        dot.addEventListener("click", () => {
+          trackedAlert = { ...alert, x, y };
+          updateGuidance(false);
+        });
+        mapEl.append(dot);
+        mapAlertDots.push(dot);
+        if (mapAlertDots.length > 18) {
+          mapAlertDots.shift().remove();
+        }
       }
 
       function normalizeTurn(value) {
@@ -553,6 +604,7 @@
         const x = Number(alert.x);
         const y = Number(alert.y);
         if (Number.isFinite(x) && Number.isFinite(y)) {
+          addMapAlertDot(alert, x, y);
           const trackButton = document.createElement("button");
           trackButton.className = "track-alert";
           trackButton.type = "button";
@@ -561,7 +613,7 @@
             trackedAlert = { ...alert, x, y };
             roverStatusEl.textContent =
               alert.category === "human" ? "human detected - tracking" : `${alert.category || "event"} selected - tracking`;
-            updateGuidance(true);
+            updateGuidance(false);
           });
           item.append(trackButton);
         }
