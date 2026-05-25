@@ -59,6 +59,8 @@ exposure
 focus
 ```
 
+The camera/settings sidebar is scrollable. Use the mouse wheel if the lower settings are outside the window.
+
 It also shows:
 
 ```text
