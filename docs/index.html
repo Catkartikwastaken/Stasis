@@ -9,9 +9,9 @@
       color-scheme: dark;
       --bg: #070817;
       --bg-2: #0d1026;
-      --glass: rgba(255, 255, 255, 0.095);
-      --glass-strong: rgba(255, 255, 255, 0.16);
-      --line: rgba(255, 255, 255, 0.2);
+      --glass: rgba(15, 18, 42, 0.72);
+      --glass-strong: rgba(28, 32, 70, 0.78);
+      --line: rgba(170, 184, 255, 0.22);
       --text: #f7f8ff;
       --muted: #c2bdd4;
       --blue: #78e8ff;
@@ -65,13 +65,13 @@
     .glass {
       border: 1px solid var(--line);
       background:
-        linear-gradient(140deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.055)),
-        rgba(255, 255, 255, 0.04);
+        linear-gradient(145deg, rgba(90, 112, 255, 0.16), rgba(16, 19, 48, 0.78)),
+        var(--glass);
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.28),
-        0 24px 70px var(--shadow);
-      backdrop-filter: blur(28px) saturate(1.35);
-      -webkit-backdrop-filter: blur(28px) saturate(1.35);
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        0 18px 46px var(--shadow);
+      backdrop-filter: blur(18px) saturate(1.15);
+      -webkit-backdrop-filter: blur(18px) saturate(1.15);
     }
 
     .page {
@@ -620,17 +620,6 @@
       flex-wrap: wrap;
     }
 
-    .credits {
-      width: 100%;
-      margin-top: 14px;
-      font-size: 0.82rem;
-      color: rgba(194, 189, 212, 0.78);
-    }
-
-    .credits a {
-      color: var(--blue);
-    }
-
     @keyframes aura-drift {
       from { transform: translate3d(-2%, -1%, 0) scale(1); }
       to { transform: translate3d(2%, 1%, 0) scale(1.05); }
@@ -897,7 +886,6 @@ python rover_client.py --config config.json</code></pre>
       <div class="inner footer-row">
         <span>STASIS is an open-source rover prototype for learning, testing, and building better small robot systems.</span>
         <a class="pill-button glass" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
-        <span class="credits">All page visuals are CSS-generated for a safe public project page.</span>
       </div>
     </footer>
   </div>
