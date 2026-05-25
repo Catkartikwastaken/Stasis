@@ -195,6 +195,7 @@
       z-index: -2;
       background:
         linear-gradient(90deg, rgba(7, 8, 23, 0.96), rgba(7, 8, 23, 0.62), rgba(7, 8, 23, 0.9)),
+        url("assets/forest-hero.jpg") center / cover,
         radial-gradient(circle at 22% 28%, rgba(120, 232, 255, 0.2), transparent 18rem),
         radial-gradient(circle at 72% 42%, rgba(124, 77, 255, 0.34), transparent 28rem),
         linear-gradient(120deg, #071126, #0e1032 48%, #061b24);
@@ -460,7 +461,7 @@
       color: var(--muted);
     }
 
-    .pi-visual {
+    .pi-photo {
       min-height: 320px;
       border-radius: 28px;
       padding: 24px;
@@ -470,47 +471,36 @@
       position: relative;
     }
 
-    .pi-visual::before {
+    .pi-photo::before {
       content: "";
       position: absolute;
-      inset: 24px;
-      border-radius: 26px;
+      inset: 0;
       background:
-        radial-gradient(circle at 22% 26%, #1bffbb 0 8px, transparent 9px),
-        radial-gradient(circle at 78% 28%, #78e8ff 0 10px, transparent 11px),
-        radial-gradient(circle at 22% 74%, #7c4dff 0 8px, transparent 9px),
+        linear-gradient(135deg, rgba(7, 8, 23, 0.12), rgba(124, 77, 255, 0.28)),
+        url("assets/raspberry-pi.jpg") center / cover,
         linear-gradient(135deg, rgba(120, 232, 255, 0.18), rgba(124, 77, 255, 0.18)),
         rgba(6, 8, 22, 0.84);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 24px 70px rgba(0, 0, 0, 0.34);
-      transition: transform 420ms ease;
+      transition: transform 450ms ease;
     }
 
-    .pi-visual::after {
-      content: "Raspberry Pi 2B + Webcam";
-      position: relative;
+    .pi-photo::after {
+      content: "Raspberry Pi 2B";
+      position: absolute;
+      left: 20px;
+      bottom: 20px;
       z-index: 1;
-      display: grid;
-      place-items: center;
-      width: min(78%, 360px);
-      min-height: 120px;
-      border-radius: 24px;
+      padding: 10px 14px;
+      border-radius: 999px;
       color: #ffffff;
       font-weight: 900;
-      letter-spacing: 0.02em;
-      text-align: center;
       background:
-        linear-gradient(90deg, rgba(120, 232, 255, 0.3) 0 8px, transparent 8px 26px),
-        linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-        rgba(255, 255, 255, 0.08);
-      background-size: 26px 100%, 100% 22px, auto;
-      border: 1px solid rgba(255, 255, 255, 0.22);
-      backdrop-filter: blur(20px);
+        linear-gradient(145deg, rgba(90, 112, 255, 0.28), rgba(16, 19, 48, 0.7)),
+        rgba(15, 18, 42, 0.72);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      backdrop-filter: blur(18px);
     }
 
-    .pi-visual:hover::before {
+    .pi-photo:hover::before {
       transform: scale(1.04) rotate(-1deg);
     }
 
@@ -799,7 +789,7 @@
                 <div class="model-item">Keep human detection reliable while the custom model handles project-specific objects.</div>
               </div>
             </article>
-            <article class="pi-visual glass" aria-label="Safe stylized Raspberry Pi and webcam visual"></article>
+            <article class="pi-photo glass" aria-label="Raspberry Pi board photo"></article>
           </div>
         </div>
       </section>
