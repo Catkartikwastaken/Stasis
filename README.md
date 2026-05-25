@@ -54,6 +54,8 @@ Ordinary indoor doors and windows are intentionally not treated as target classe
 
 The main demo detector is `server/security_rover_server_object_detection.py`, which expects an ONNX model at `server/models/yolo11n.onnx`. See [Windows YOLO ONNX Detection](docs/WINDOWS_YOLO_ONNX_DETECTION.md).
 
+For collecting custom training photos, use the guided webcam tool in [Dataset Capture Assistant](docs/DATASET_CAPTURE_ASSISTANT.md).
+
 ## Dashboard Features
 
 The dashboard is served from the Windows laptop:
