@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>STASIS Rover</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0e1014;
+      --panel: #171b22;
+      --card: #202630;
+      --line: #303948;
+      --text: #f4f7fb;
+      --muted: #a8b3c5;
+      --cyan: #45e0d2;
+      --amber: #f4c95d;
+      --blue: #5f8cff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    a {
+      color: var(--cyan);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    .shell {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(14, 16, 20, 0.9);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(18px);
+    }
+
+    nav {
+      min-height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 24px;
+    }
+
+    .brand {
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 18px;
+      flex-wrap: wrap;
+      font-size: 0.95rem;
+    }
+
+    .hero {
+      min-height: 620px;
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 48px;
+      align-items: center;
+      padding: 72px 0 56px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(3rem, 7vw, 6.4rem);
+      line-height: 0.9;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+
+    .lead {
+      margin: 24px 0 0;
+      max-width: 680px;
+      color: var(--muted);
+      font-size: 1.18rem;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 34px;
+    }
+
+    .button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      padding: 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      color: var(--text);
+      background: var(--panel);
+      font-weight: 700;
+    }
+
+    .button.primary {
+      background: var(--blue);
+      border-color: var(--blue);
+      color: white;
+    }
+
+    .signal-board {
+      min-height: 420px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 20% 18%, rgba(69, 224, 210, 0.22), transparent 25%),
+        radial-gradient(circle at 85% 70%, rgba(244, 201, 93, 0.14), transparent 28%),
+        var(--panel);
+      padding: 24px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .camera-frame {
+      height: 250px;
+      border: 1px solid rgba(69, 224, 210, 0.45);
+      border-radius: 8px;
+      background:
+        linear-gradient(rgba(69, 224, 210, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(69, 224, 210, 0.12) 1px, transparent 1px),
+        #080a0f;
+      background-size: 24px 24px;
+      position: relative;
+    }
+
+    .scan-box {
+      position: absolute;
+      left: 16%;
+      top: 20%;
+      width: 38%;
+      height: 58%;
+      border: 2px solid var(--cyan);
+      border-radius: 6px;
+    }
+
+    .scan-box::after {
+      content: "human 92%";
+      position: absolute;
+      left: -2px;
+      top: -30px;
+      padding: 4px 8px;
+      border-radius: 6px;
+      background: var(--cyan);
+      color: #04110f;
+      font-weight: 800;
+      font-size: 0.8rem;
+    }
+
+    .marker {
+      position: absolute;
+      right: 16%;
+      bottom: 20%;
+      width: 28%;
+      height: 8px;
+      background: #f45d48;
+      box-shadow: 0 0 24px rgba(244, 93, 72, 0.5);
+      transform: rotate(-10deg);
+    }
+
+    .telemetry {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 12px;
+      background: rgba(14, 16, 20, 0.7);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 0.78rem;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 1.05rem;
+    }
+
+    section {
+      padding: 74px 0;
+      border-top: 1px solid var(--line);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      min-height: 160px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+      background: var(--card);
+    }
+
+    .card p,
+    .section-copy {
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin-top: 28px;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: var(--panel);
+    }
+
+    .step b {
+      color: var(--amber);
+    }
+
+    code,
+    pre {
+      font-family: "Cascadia Code", Consolas, monospace;
+    }
+
+    pre {
+      padding: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #080a0f;
+      color: #dce7f7;
+    }
+
+    footer {
+      padding: 42px 0;
+      color: var(--muted);
+      border-top: 1px solid var(--line);
+    }
+
+    @media (max-width: 860px) {
+      nav,
+      .hero {
+        grid-template-columns: 1fr;
+      }
+
+      .hero {
+        min-height: auto;
+        padding-top: 46px;
+      }
+
+      .grid,
+      .flow,
+      .telemetry {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <nav class="shell">
+      <div class="brand">STASIS</div>
+      <div class="nav-links" aria-label="Primary navigation">
+        <a href="#features">Features</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#setup">Setup</a>
+        <a href="#docs">Docs</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero shell">
+      <div>
+        <h1>STASIS</h1>
+        <p class="lead">A compact rover system for indoor forest-style monitoring, Raspberry Pi camera streaming, object detection, and browser-based control.</p>
+        <div class="actions">
+          <a class="button primary" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
+          <a class="button" href="#setup">Start Setup</a>
+        </div>
+      </div>
+      <div class="signal-board" aria-label="STASIS dashboard preview">
+        <div class="camera-frame">
+          <div class="scan-box"></div>
+          <div class="marker"></div>
+        </div>
+        <div class="telemetry">
+          <div class="metric"><span>rover</span><strong>online</strong></div>
+          <div class="metric"><span>camera</span><strong>Pi feed</strong></div>
+          <div class="metric"><span>alert</span><strong>tracking</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="shell">
+        <h2>What It Does</h2>
+        <p class="section-copy">STASIS keeps the hardware small and shifts heavier processing to the laptop or configured AI provider.</p>
+        <div class="grid" style="margin-top: 28px;">
+          <article class="card">
+            <h3>Rover Camera</h3>
+            <p>The USB webcam stays on the Raspberry Pi so the dashboard sees the rover's point of view.</p>
+          </article>
+          <article class="card">
+            <h3>Human And Object Alerts</h3>
+            <p>Detections become dashboard alerts with confidence, category, and target location for tracking.</p>
+          </article>
+          <article class="card">
+            <h3>Dataset Studio</h3>
+            <p>A simple webcam app helps collect alpha tester object, red strip, and empty background images.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="shell">
+        <h2>Architecture</h2>
+        <p class="section-copy">The Raspberry Pi captures frames and controls the rover. The Windows server handles the dashboard and heavier vision work.</p>
+        <div class="flow">
+          <div class="step"><b>1</b><br>Pi webcam captures the scene.</div>
+          <div class="step"><b>2</b><br>Frames stream to Windows.</div>
+          <div class="step"><b>3</b><br>Vision provider detects targets.</div>
+          <div class="step"><b>4</b><br>Results return to the Pi.</div>
+          <div class="step"><b>5</b><br>Dashboard shows alerts and controls.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="setup">
+      <div class="shell">
+        <h2>Quick Setup</h2>
+        <p class="section-copy">Start the Windows server first, then connect the Raspberry Pi rover client to the server IP.</p>
+        <pre><code>cd server
+py -m venv .venv
+.\.venv\Scripts\activate
+pip install -r requirements-api.txt
+copy vision_config.example.json vision_config.json
+python security_rover_server_windows.py</code></pre>
+        <pre><code>cd ~/Documents/Stasis/rover/rpi2b
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+cp config.example.json config.json
+nano config.json
+python rover_client.py --config config.json</code></pre>
+      </div>
+    </section>
+
+    <section id="docs">
+      <div class="shell">
+        <h2>Documentation</h2>
+        <div class="grid">
+          <article class="card">
+            <h3><a href="README_ROVER_SYSTEM.md">Rover System</a></h3>
+            <p>Complete setup, wiring notes, and operating flow.</p>
+          </article>
+          <article class="card">
+            <h3><a href="VISION_PROVIDERS.md">Vision Providers</a></h3>
+            <p>Cloud APIs, Ollama, LM Studio, and local model options.</p>
+          </article>
+          <article class="card">
+            <h3><a href="DATASET_CAPTURE_ASSISTANT.md">Dataset Capture</a></h3>
+            <p>How to collect training images with the webcam tool.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">STASIS is an open-source robotics prototype for learning, testing, and building better small rover systems.</div>
+  </footer>
+</body>
+</html>

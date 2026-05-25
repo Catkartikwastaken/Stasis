@@ -1,88 +1,58 @@
-# STASIS Forest Monitoring Rover
+# STASIS
 
-STASIS is a prototype forest-monitoring rover built for an indoor, forest-like demo space. It is designed to patrol a small area, watch through an onboard camera, detect important forest events, and show clear alerts on a web dashboard.
+**A Raspberry Pi rover platform for forest-style monitoring, live camera streaming, object detection, and dashboard-guided response.**
 
-The project focuses on a practical mission: help monitor places where humans, animals, fire, or unusual ground activity may need attention.
+STASIS is an open-source prototype for a small monitoring rover. It is built around a Raspberry Pi, a USB webcam, a Windows laptop for heavier vision processing, and a browser dashboard that shows what the rover sees and how it is responding.
 
-## What Judges Should Notice
+The current build is focused on an indoor forest-like demo space: no GPS, no complicated field infrastructure, and no unnecessary hardware. The rover streams camera frames from the Raspberry Pi, the Windows server analyzes them, and the dashboard turns detections into clear alerts, map points, and simple movement guidance.
 
-| Area | What STASIS Demonstrates |
+## Highlights
+
+| Area | What STASIS Does |
 | --- | --- |
-| Vision AI | Windows-side YOLO ONNX detection analyzes live Pi webcam frames for humans, animals, and important objects without forcing Torch onto the Pi. |
-| Rover control | Raspberry Pi 2B controls movement, telemetry, camera capture, and final action decisions. |
-| Remote dashboard | A browser dashboard shows the camera feed, rover position, alerts, and tracking guidance. |
-| Indoor demo ready | No GPS is required; the rover works in a controlled demo arena. |
-| Minimal wiring goal | Core responsibilities are split between the Raspberry Pi, Windows laptop, webcam, and optional ESP32-S3 motor controller. |
+| Live rover vision | Streams the Raspberry Pi webcam feed to the dashboard. |
+| Human detection | Detects people and surfaces them as high-priority dashboard alerts. |
+| Object and marker detection | Supports demo objects, red-strip navigation markers, and empty-background dataset collection. |
+| Rover control | Sends manual, scan, stop, return-home, and marker navigation commands from the dashboard to the Pi. |
+| Minimal wiring | Keeps the main system centered on the Raspberry Pi, webcam, motor driver path, and optional ESP32-S3 bridge. |
+| Extensible AI | Supports local or API-based vision providers, plus custom dataset capture for training a better model. |
 
-## Current Demo Architecture
+## System Flow
 
-The webcam is connected to the Raspberry Pi, not the laptop. The Raspberry Pi sends camera frames to the Windows laptop, the laptop runs YOLO from an ONNX model, and the Pi receives the result before deciding what action to take.
+The webcam belongs on the Raspberry Pi. The laptop runs the dashboard and the heavier AI work.
 
 ```mermaid
 flowchart LR
-    Camera["USB webcam on Raspberry Pi"] --> Pi["Raspberry Pi 2B rover client"]
-    Pi -->|"camera_frame over WebSocket"| Server["Windows laptop server"]
-    Server -->|"YOLO ONNX vision_result"| Pi
-    Server --> Dashboard["Web dashboard"]
-    Dashboard -->|"goals and controls"| Server
-    Server -->|"movement commands"| Pi
+    Camera["USB webcam on Raspberry Pi"] --> Pi["Raspberry Pi rover client"]
+    Pi -->|"camera frames + telemetry"| Server["Windows STASIS server"]
+    Server -->|"detections + commands"| Pi
+    Server --> Dashboard["Browser dashboard"]
+    Dashboard -->|"manual controls + tracking"| Server
     Pi --> Motors["L911S motors / optional ESP32-S3 bridge"]
 ```
 
-In plain words:
+In plain English:
 
-1. The Pi sees through the webcam.
-2. The Pi sends the image to the Windows laptop.
-3. The laptop uses YOLO ONNX to detect people, animals, and objects.
-4. The laptop sends the result back to the Pi.
-5. The Pi decides whether to stop, alert, remember a marker, or continue.
-6. The dashboard shows the alert, map dot, and tracking guidance.
+1. The Raspberry Pi captures webcam frames.
+2. The Pi sends frames to the Windows server through WebSocket.
+3. The server runs the selected vision pipeline.
+4. The result goes back to the Pi and appears on the dashboard.
+5. The dashboard can track a detected target, show map dots, and send rover commands.
 
-## What STASIS Detects
+## What It Detects
 
-AI output is filtered so the project stays focused on the forest-monitoring mission.
-
-```text
-human   -> humans, intruders, people in the demo area
-animal  -> animals or wildlife stand-ins
-track   -> footprints, soil changes, trails, disturbed ground
-fire    -> flame, smoke, or fire-like hazards
-marker  -> custom navigation markers such as red strips
-```
-
-Ordinary indoor doors and windows are intentionally not treated as target classes for this demo.
-
-The main demo detector is `server/security_rover_server_object_detection.py`, which expects an ONNX model at `server/models/yolo11n.onnx`. See [Windows YOLO ONNX Detection](docs/WINDOWS_YOLO_ONNX_DETECTION.md).
-
-For collecting custom training photos, use the guided webcam tool in [Dataset Capture Assistant](docs/DATASET_CAPTURE_ASSISTANT.md).
-
-## Dashboard Features
-
-The dashboard is served from the Windows laptop:
+STASIS keeps detections focused on the rover mission:
 
 ```text
-http://<WINDOWS_LAPTOP_IP>:5000
+human              people or intruders in the demo area
+animal             animal stand-ins or wildlife-style targets
+alpha_tester_object custom demo objects for the trained dataset
+red_strip          navigation marker strips
+empty_background   clean negative examples for model training
+fire / track       supported in the broader alert contract
 ```
 
-It provides:
-
-- Live camera feed from the Raspberry Pi webcam.
-- Rover map and clicked goal control.
-- Stop, return-home, scan, red-strip search, and red-strip go-to controls.
-- Human/event alert cards with a `Track` button.
-- Tracking guidance in centimeters, using simple directions like `move forward`, `move left`, `move right`, and `turn back`.
-- No numeric turn-angle instructions in the dashboard guidance.
-
-## Hardware Used
-
-| Part | Role |
-| --- | --- |
-| Raspberry Pi 2B | Rover brain, webcam capture, telemetry, action decisions, motor control path. |
-| USB webcam | Connected to the Pi for the rover's point of view. |
-| Windows laptop | Runs Flask dashboard server and selected multimodal vision processing. |
-| L911S / L9110S motor driver | Drives the rover motors. |
-| ESP32-S3 | Optional low-level serial motor controller for cleaner PWM motor timing. |
-| Optional sensors | MPU6050, GY-271/HMC5883L, HC-SR04, and scanner servo support are included but can stay disabled for a minimal demo. |
+For the current demo, normal indoor doors, windows, and random room features should not become target alerts.
 
 ## Quick Start
 
@@ -97,156 +67,131 @@ py -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements-api.txt
 copy vision_config.example.json vision_config.json
-```
-
-Edit `vision_config.json` and enable one provider. The recommended local competition setup is `moondream_stasis`, which uses Moondream for vision and a tiny text model for clean STASIS alert comments. Gemini, OpenAI, Anthropic, Qwen DashScope, Kimi, Zhipu, single-model Ollama, LM Studio, and local Gemma examples are also included.
-
-Then start the server:
-
-```powershell
 python security_rover_server_windows.py
 ```
 
-Only install the heavier local Gemma dependencies if you enable `local_gemma`:
-
-```powershell
-pip install -r requirements-windows.txt
-```
-
-The server will print an address like:
+The server prints an address such as:
 
 ```text
-http://10.139.244.74:5000
+http://192.168.29.69:5000
 ```
 
-Use that IP address on the Raspberry Pi.
-
-If Hugging Face authentication is needed for local Gemma:
-
-```powershell
-$env:HF_TOKEN = "hf_your_token_here"
-```
-
-The Windows server now waits for camera frames from the Raspberry Pi by default. For laptop-only testing, set:
-
-```powershell
-$env:STASIS_CAMERA_SOURCE = "local"
-```
+Use that IP in the Raspberry Pi config.
 
 ### 2. Start The Raspberry Pi Rover
 
 On the Raspberry Pi:
 
 ```bash
-cd rover/rpi2b
+cd ~/Documents/Stasis/rover/rpi2b
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 cp config.example.json config.json
+nano config.json
 ```
 
-Edit `config.json`:
+Set `server_host` to the Windows laptop IP:
 
 ```json
 {
-  "server_host": "10.139.244.74"
+  "server_host": "192.168.29.69"
 }
 ```
 
-Plug the USB webcam into the Raspberry Pi, then run:
+Then run the rover client:
 
 ```bash
 python rover_client.py --config config.json
 ```
 
-Use `--simulate` only for network testing. Do not use simulation for the real rover demo.
+Use `--simulate` only for network testing. For the real rover, keep simulation off.
 
 ### 3. Open The Dashboard
 
-In a browser on the laptop:
+On the laptop browser:
 
 ```text
 http://<WINDOWS_LAPTOP_IP>:5000
 ```
 
-You should see the live Pi webcam feed. When the selected AI provider detects a human, fire, marker, track, or animal, the Pi receives the result, stops or continues based on the event, approves the alert, and the dashboard displays it.
+You should see the live Pi webcam feed, rover status, controls, alerts, and the tracking map.
 
-## Demo Script
+## Dataset Capture
 
-For a simple judging demonstration:
+STASIS includes a beginner-friendly webcam capture tool for building a custom object dataset:
 
-1. Start the Windows server.
-2. Start the Raspberry Pi rover client.
-3. Open the dashboard.
-4. Show the live Pi webcam feed.
-5. Place a person or human stand-in in view.
-6. Wait for the alert card.
-7. Click `Track`.
-8. Show the distance in centimeters and simple guidance.
-9. Use stop, scan, or red-strip controls to show rover interaction.
+```powershell
+python tools\dataset_capture_assistant.py
+```
+
+It captures:
+
+- `alpha_tester_object`
+- `red_strip`
+- `empty_background`
+
+The tool lets you choose camera resolution, FPS, brightness, contrast, exposure, focus, and save location from the app itself. See [Dataset Capture Assistant](docs/DATASET_CAPTURE_ASSISTANT.md).
+
+## Project Website
+
+This repo includes a GitHub Pages-ready website in [docs/index.html](docs/index.html).
+
+To publish it:
+
+1. Open the repository on GitHub.
+2. Go to `Settings` -> `Pages`.
+3. Set source to `Deploy from a branch`.
+4. Select `main` and `/docs`.
+5. Save.
+
+GitHub will then publish the project site from the `docs` folder.
 
 ## Project Structure
 
 ```text
 server/
-  security_rover_server_windows.py    Windows Flask + Socket.IO + multimodal vision server
-  vision_config.example.json          Editable provider config template
-  requirements-api.txt                Lightweight API/Ollama/LM Studio server dependencies
-  templates/index.html                Main live dashboard
+  security_rover_server_windows.py        Windows Flask + Socket.IO dashboard server
+  security_rover_server_object_detection.py
+  vision_config.example.json              Vision provider configuration template
+  templates/index.html                    Main dashboard UI
 
 rover/rpi2b/
-  rover_client.py                     Raspberry Pi rover, camera, telemetry, decisions
-  config.example.json                 Pi config template
-  requirements.txt                    Pi Python dependencies
-  README.md                           Pi-specific setup guide
+  rover_client.py                         Raspberry Pi rover client
+  rover_client_object_detection.py        Pi-side camera streaming and local detection path
+  config.example.json                     Pi configuration template
+  requirements.txt                        Pi dependencies
 
-rover/esp32_s3/
-  stasis_motor_controller.ino         Optional serial motor controller firmware
-
-dashboard/
-  rover_dashboard_windows.html        Standalone dashboard option
+tools/
+  dataset_capture_assistant.py            Webcam dataset collection app
 
 docs/
-  README_ROVER_SYSTEM.md              Full system setup and wiring guide
-  VISION_PROVIDERS.md                 API, Ollama, LM Studio, and Gemma provider setup
-  GEMMA_VISION.md                     Local Gemma setup and prompt contract
-  PROJECT_BRIEF.md                    Mission, scope, and demo assumptions
+  index.html                              GitHub Pages project website
+  README_ROVER_SYSTEM.md                  Full rover setup guide
+  VISION_PROVIDERS.md                     Cloud/local AI provider notes
+  WINDOWS_YOLO_ONNX_DETECTION.md          Windows ONNX detector guide
+  DATASET_CAPTURE_ASSISTANT.md            Dataset tool guide
 ```
 
 ## Documentation
 
-Start here for the full build guide:
-
-```text
-docs/README_ROVER_SYSTEM.md
-```
-
-Multimodal provider setup:
-
-```text
-docs/VISION_PROVIDERS.md
-```
-
-Local Gemma setup details:
-
-```text
-docs/GEMMA_VISION.md
-```
-
-Project mission and assumptions:
-
-```text
-docs/PROJECT_BRIEF.md
-```
+- [Full Rover System Guide](docs/README_ROVER_SYSTEM.md)
+- [Vision Providers](docs/VISION_PROVIDERS.md)
+- [Windows YOLO ONNX Detection](docs/WINDOWS_YOLO_ONNX_DETECTION.md)
+- [Dataset Capture Assistant](docs/DATASET_CAPTURE_ASSISTANT.md)
+- [Project Brief](docs/PROJECT_BRIEF.md)
 
 ## Current Limits
 
-STASIS is a prototype. For the current indoor demo:
+STASIS is still a prototype, so the current build is intentionally honest about what it can and cannot do:
 
-- GPS is intentionally not used.
-- Distance is approximate without wheel encoders.
-- Multimodal AI should run on the laptop or through an API, not on the Raspberry Pi 2B.
-- Optional sensors should only be enabled after the hardware is physically connected.
+- GPS is not used for the indoor demo.
+- Distance and map guidance are approximate without wheel encoders.
+- Heavy AI should run on the laptop or through an API, not on the Raspberry Pi 2B.
+- Custom object detection quality depends heavily on the dataset and trained model.
+- Optional sensors should stay disabled until the hardware is physically connected.
 
-These limits are documented so the demo stays honest, understandable, and focused.
+## License
+
+This project is intended as an open-source learning and robotics build. Add the final license file before using it in a public release or competition submission.
