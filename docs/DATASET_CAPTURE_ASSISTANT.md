@@ -1,13 +1,13 @@
 # Dataset Capture Assistant
 
-Use this tool to take training photos with the webcam in an ordered way. It shows the next angle/position prompt, waits until the camera view is steady, then saves the photo automatically.
+Use this tool to take training photos with the webcam in an ordered way. It opens a persistent desktop app, shows the next angle/position prompt, waits until the camera view is steady, then saves the photo automatically without closing the app.
 
 ## Install
 
 From the repo root:
 
 ```powershell
-python -m pip install opencv-python numpy
+python -m pip install opencv-python numpy pillow
 ```
 
 ## Start
@@ -16,7 +16,7 @@ python -m pip install opencv-python numpy
 python tools\dataset_capture_assistant.py
 ```
 
-Choose the class number, then follow the on-screen prompts.
+Pick the class from the dropdown, then follow the on-screen prompts.
 
 You can also start a class directly:
 
@@ -33,16 +33,18 @@ python tools\dataset_capture_assistant.py --class-name empty_background
 Images are saved to:
 
 ```text
-dataset/raw/<class_name>/
+C:\Users\<you>\Pictures\STASIS_Dataset\raw\<class_name>\
 ```
+
+Use the `Choose Folder` button if you want another save location.
 
 ## Controls
 
 ```text
-C = capture now
+Space/C = capture now
 S = skip current prompt
 R = delete last saved image
-P = pause/resume auto capture
+P = toggle auto capture
 Q = quit
 ```
 
@@ -53,9 +55,10 @@ Hold the object at the requested angle. When the camera view becomes steady, the
 Default behavior:
 
 ```text
-3 photos per prompt
+5 photos per prompt
 automatic save after the frame is steady
 ordered prompts for angle, distance, lighting, and position
+the app stays open after each save
 ```
 
 ## Recommended Use
