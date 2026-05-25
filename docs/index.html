@@ -7,21 +7,21 @@
   <style>
     :root {
       color-scheme: dark;
-      --page: #14111e;
-      --stage: #07090a;
-      --stage-2: #0d1016;
-      --glass: rgba(255, 255, 255, 0.075);
-      --glass-strong: rgba(255, 255, 255, 0.13);
-      --line: rgba(255, 255, 255, 0.18);
-      --line-bright: rgba(194, 255, 32, 0.42);
-      --text: #f8f9ff;
-      --muted: #b9b4c8;
-      --lime: #b7ff18;
+      --bg: #070817;
+      --bg-2: #0d1026;
+      --glass: rgba(255, 255, 255, 0.095);
+      --glass-strong: rgba(255, 255, 255, 0.16);
+      --line: rgba(255, 255, 255, 0.2);
+      --text: #f7f8ff;
+      --muted: #c2bdd4;
+      --blue: #78e8ff;
+      --blue-2: #5f8cff;
       --purple: #7c4dff;
-      --violet: #b18cff;
-      --cyan: #6df3ff;
-      --danger: #ff4f63;
-      --radius: 28px;
+      --violet: #c7b8ff;
+      --pink: #ff78d5;
+      --forest: #9be7c4;
+      --shadow: rgba(0, 0, 0, 0.42);
+      --radius: 30px;
     }
 
     * {
@@ -36,12 +36,25 @@
       margin: 0;
       min-height: 100vh;
       background:
-        radial-gradient(circle at 12% 8%, rgba(183, 255, 24, 0.16), transparent 24rem),
-        radial-gradient(circle at 86% 16%, rgba(124, 77, 255, 0.22), transparent 28rem),
-        linear-gradient(135deg, #171421, #0c0d10 62%, #111719);
+        radial-gradient(circle at 16% 10%, rgba(120, 232, 255, 0.16), transparent 25rem),
+        radial-gradient(circle at 86% 14%, rgba(124, 77, 255, 0.32), transparent 31rem),
+        linear-gradient(135deg, #08091a, #10133a 48%, #06131f);
       color: var(--text);
       font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.55;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -20%;
+      z-index: -3;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 18% 30%, rgba(155, 231, 196, 0.13), transparent 18rem),
+        radial-gradient(circle at 76% 70%, rgba(255, 120, 213, 0.12), transparent 22rem);
+      animation: aura-drift 13s ease-in-out infinite alternate;
     }
 
     a {
@@ -49,46 +62,43 @@
       text-decoration: none;
     }
 
-    .page-shell {
-      width: min(1180px, calc(100% - 32px));
-      margin: 56px auto;
-      overflow: hidden;
+    .glass {
       border: 1px solid var(--line);
-      border-radius: var(--radius);
       background:
-        linear-gradient(90deg, rgba(183, 255, 24, 0.22), transparent 23%, transparent 72%, rgba(124, 77, 255, 0.18)),
-        linear-gradient(180deg, #07090a, #0b0d12 45%, #0d0917);
-      box-shadow: 0 36px 90px rgba(0, 0, 0, 0.52);
-      position: relative;
+        linear-gradient(140deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.055)),
+        rgba(255, 255, 255, 0.04);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        0 24px 70px var(--shadow);
+      backdrop-filter: blur(28px) saturate(1.35);
+      -webkit-backdrop-filter: blur(28px) saturate(1.35);
     }
 
-    .page-shell::before {
+    .page {
+      width: 100%;
+      min-height: 100vh;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page::before {
       content: "";
       position: absolute;
       inset: 0;
+      z-index: -2;
       pointer-events: none;
       background:
-        linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
       background-size: 128px 128px;
-      mask-image: linear-gradient(to bottom, black, transparent 76%);
+      mask-image: linear-gradient(to bottom, black, transparent 78%);
     }
 
     .inner {
-      width: min(1000px, calc(100% - 42px));
+      width: min(1180px, calc(100% - 42px));
       margin: 0 auto;
       position: relative;
       z-index: 1;
-    }
-
-    .glass {
-      border: 1px solid var(--line);
-      background: linear-gradient(145deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.045));
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.22),
-        0 18px 46px rgba(0, 0, 0, 0.28);
-      backdrop-filter: blur(26px) saturate(1.25);
-      -webkit-backdrop-filter: blur(26px) saturate(1.25);
     }
 
     header {
@@ -97,7 +107,14 @@
       align-items: center;
       justify-content: space-between;
       gap: 18px;
-      padding-top: 22px;
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(1180px, calc(100% - 42px));
+      z-index: 20;
+      border-radius: 999px;
+      padding: 10px 12px 10px 18px;
     }
 
     .brand {
@@ -106,23 +123,25 @@
       gap: 10px;
       font-weight: 900;
       letter-spacing: 0.06em;
+      white-space: nowrap;
     }
 
     .brand-mark {
       width: 34px;
       height: 34px;
-      border-radius: 11px;
+      border-radius: 12px;
       background:
-        linear-gradient(135deg, rgba(183, 255, 24, 0.9), rgba(109, 243, 255, 0.7)),
+        linear-gradient(135deg, rgba(120, 232, 255, 0.95), rgba(124, 77, 255, 0.92)),
         #111;
-      box-shadow: 0 0 32px rgba(183, 255, 24, 0.35);
+      box-shadow: 0 0 32px rgba(124, 77, 255, 0.48);
+      animation: soft-pulse 3.5s ease-in-out infinite;
     }
 
     nav {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
 
@@ -134,67 +153,93 @@
       justify-content: center;
       border-radius: 999px;
       padding: 0 14px;
-      color: rgba(248, 249, 255, 0.88);
+      color: rgba(248, 249, 255, 0.9);
       font-size: 0.9rem;
+      transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
     }
 
-    nav a:hover {
-      background: rgba(255, 255, 255, 0.08);
+    nav a:hover,
+    .pill-button:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
     }
 
     .pill-button {
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.075);
       font-weight: 800;
     }
 
     .pill-button.primary {
       border-color: transparent;
-      background: var(--lime);
-      color: #071006;
-      box-shadow: 0 0 34px rgba(183, 255, 24, 0.28);
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: #ffffff;
+      box-shadow: 0 0 34px rgba(124, 77, 255, 0.38);
     }
 
     .hero {
-      min-height: 680px;
+      min-height: 100vh;
       display: grid;
-      grid-template-columns: 1fr 0.92fr;
-      gap: 32px;
+      grid-template-columns: 1fr 0.9fr;
+      gap: 34px;
       align-items: center;
-      padding: 76px 0 72px;
+      padding: 140px 0 80px;
+      position: relative;
+    }
+
+    .hero::before {
+      content: "";
+      position: absolute;
+      inset: 0 calc((100vw - min(1180px, calc(100vw - 42px))) / -2);
+      z-index: -2;
+      background:
+        linear-gradient(90deg, rgba(7, 8, 23, 0.94), rgba(7, 8, 23, 0.52), rgba(7, 8, 23, 0.82)),
+        url("https://commons.wikimedia.org/wiki/Special:FilePath/Bev%20H,%20Forest%20Path%202.jpg") center / cover;
+      opacity: 0.9;
+      animation: forest-breathe 18s ease-in-out infinite alternate;
+    }
+
+    .hero::after {
+      content: "";
+      position: absolute;
+      inset: 0 calc((100vw - min(1180px, calc(100vw - 42px))) / -2);
+      z-index: -1;
+      background:
+        radial-gradient(circle at 16% 24%, rgba(120, 232, 255, 0.22), transparent 26rem),
+        radial-gradient(circle at 74% 48%, rgba(124, 77, 255, 0.38), transparent 35rem),
+        linear-gradient(180deg, transparent 70%, var(--bg));
     }
 
     .eyebrow {
       display: inline-flex;
       align-items: center;
-      gap: 10px;
-      min-height: 34px;
-      padding: 0 14px;
+      min-height: 36px;
+      padding: 0 15px;
       border-radius: 999px;
-      color: #071006;
-      background: rgba(183, 255, 24, 0.92);
+      color: #ffffff;
       font-weight: 900;
       font-size: 0.84rem;
     }
 
     h1 {
       margin: 22px 0 0;
-      max-width: 760px;
-      font-size: clamp(3.2rem, 8vw, 7.3rem);
+      max-width: 790px;
+      font-size: clamp(3.4rem, 8vw, 7.7rem);
       line-height: 0.88;
       letter-spacing: 0;
     }
 
     .accent {
       color: var(--violet);
-      text-shadow: 0 0 34px rgba(124, 77, 255, 0.48);
+      text-shadow: 0 0 38px rgba(124, 77, 255, 0.56);
     }
 
     .lead {
-      max-width: 620px;
+      max-width: 650px;
       margin: 26px 0 0;
       color: var(--muted);
-      font-size: 1.12rem;
+      font-size: 1.14rem;
     }
 
     .actions {
@@ -205,26 +250,27 @@
     }
 
     .hero-visual {
-      min-height: 520px;
+      min-height: 540px;
       position: relative;
       display: grid;
       place-items: center;
+      animation: float-slow 6s ease-in-out infinite;
     }
 
     .rover {
       width: min(430px, 86vw);
       aspect-ratio: 1.12;
       border-radius: 42% 42% 24% 24%;
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.24);
       background:
-        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.95), transparent 0 5%, transparent 7%),
-        radial-gradient(circle at 68% 28%, rgba(255, 255, 255, 0.95), transparent 0 5%, transparent 7%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.5), transparent 22%),
-        linear-gradient(150deg, #20242d, #0b0d12 48%, #15111f);
+        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.96), transparent 0 5%, transparent 7%),
+        radial-gradient(circle at 68% 28%, rgba(255, 255, 255, 0.96), transparent 0 5%, transparent 7%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.52), transparent 22%),
+        linear-gradient(150deg, #29304b, #080a14 48%, #15102a);
       box-shadow:
-        inset -22px -34px 66px rgba(0, 0, 0, 0.76),
-        inset 14px 18px 42px rgba(255, 255, 255, 0.18),
-        0 28px 100px rgba(124, 77, 255, 0.45);
+        inset -24px -36px 70px rgba(0, 0, 0, 0.78),
+        inset 16px 20px 44px rgba(255, 255, 255, 0.18),
+        0 28px 100px rgba(124, 77, 255, 0.48);
       position: relative;
       transform: rotate(-8deg);
     }
@@ -237,11 +283,11 @@
       width: 116px;
       height: 116px;
       border-radius: 50%;
-      border: 14px solid rgba(255, 255, 255, 0.22);
+      border: 14px solid rgba(255, 255, 255, 0.23);
       background:
-        radial-gradient(circle, rgba(183, 255, 24, 0.95) 0 15%, transparent 16%),
-        #101318;
-      box-shadow: 0 0 36px rgba(183, 255, 24, 0.32);
+        radial-gradient(circle, rgba(120, 232, 255, 0.95) 0 15%, transparent 16%),
+        #101321;
+      box-shadow: 0 0 36px rgba(120, 232, 255, 0.32);
     }
 
     .rover::before {
@@ -260,18 +306,19 @@
       height: 122px;
       transform: translate(-50%, -50%);
       border-radius: 50%;
-      border: 13px solid rgba(255, 255, 255, 0.18);
+      border: 13px solid rgba(255, 255, 255, 0.19);
       background:
-        radial-gradient(circle at 42% 38%, var(--cyan), transparent 0 8%, transparent 10%),
-        radial-gradient(circle, #050607 0 34%, #242d39 35% 50%, #06070a 52%);
-      box-shadow: 0 0 54px rgba(109, 243, 255, 0.26);
+        radial-gradient(circle at 42% 38%, var(--blue), transparent 0 8%, transparent 10%),
+        radial-gradient(circle, #050607 0 34%, #28314d 35% 50%, #06070a 52%);
+      box-shadow: 0 0 58px rgba(120, 232, 255, 0.28);
+      animation: lens-glow 2.8s ease-in-out infinite;
     }
 
     .status-card {
       position: absolute;
       right: 0;
-      bottom: 46px;
-      width: 230px;
+      bottom: 48px;
+      width: 245px;
       border-radius: 24px;
       padding: 16px;
     }
@@ -292,45 +339,48 @@
     .radar {
       position: absolute;
       left: 0;
-      top: 56px;
-      width: 170px;
-      height: 170px;
+      top: 58px;
+      width: 176px;
+      height: 176px;
       border-radius: 50%;
-      border: 1px solid rgba(183, 255, 24, 0.35);
+      border: 1px solid rgba(120, 232, 255, 0.38);
       background:
-        radial-gradient(circle, rgba(183, 255, 24, 0.22) 0 3px, transparent 4px),
-        repeating-radial-gradient(circle, rgba(183, 255, 24, 0.18) 0 1px, transparent 2px 34px);
+        radial-gradient(circle, rgba(120, 232, 255, 0.23) 0 3px, transparent 4px),
+        repeating-radial-gradient(circle, rgba(120, 232, 255, 0.18) 0 1px, transparent 2px 34px);
+      overflow: hidden;
     }
 
     .radar::after {
       content: "";
       position: absolute;
-      inset: 50% 50% 0 50%;
-      width: 78px;
+      left: 50%;
+      top: 50%;
+      width: 82px;
       height: 2px;
       transform-origin: left center;
-      transform: rotate(-28deg);
-      background: var(--lime);
-      box-shadow: 0 0 18px rgba(183, 255, 24, 0.6);
+      background: var(--blue);
+      box-shadow: 0 0 18px rgba(120, 232, 255, 0.68);
+      animation: radar-spin 3.2s linear infinite;
     }
 
     section {
-      padding: 70px 0;
+      padding: 88px 0;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
+      position: relative;
     }
 
     h2 {
       margin: 0;
-      font-size: clamp(2.2rem, 5vw, 4.6rem);
+      font-size: clamp(2.25rem, 5vw, 4.8rem);
       line-height: 0.95;
       letter-spacing: 0;
     }
 
     .section-copy {
-      max-width: 720px;
+      max-width: 760px;
       margin: 18px 0 0;
       color: var(--muted);
-      font-size: 1.05rem;
+      font-size: 1.06rem;
     }
 
     .grid {
@@ -341,9 +391,59 @@
     }
 
     .card {
-      min-height: 180px;
+      min-height: 190px;
       border-radius: 24px;
       padding: 22px;
+      position: relative;
+      overflow: hidden;
+      transform-style: preserve-3d;
+      transition: transform 260ms cubic-bezier(.2,.8,.2,1), border-color 260ms ease, box-shadow 260ms ease, background 260ms ease;
+    }
+
+    .card::before {
+      content: "";
+      position: absolute;
+      inset: -60% -20%;
+      pointer-events: none;
+      background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.22), transparent 62%);
+      transform: translateX(-65%) rotate(10deg);
+      opacity: 0;
+      transition: transform 520ms ease, opacity 260ms ease;
+    }
+
+    .card::after {
+      content: "";
+      position: absolute;
+      inset: 1px;
+      border-radius: 23px;
+      pointer-events: none;
+      background:
+        radial-gradient(circle at 24% 18%, rgba(120, 232, 255, 0.16), transparent 11rem),
+        radial-gradient(circle at 82% 82%, rgba(124, 77, 255, 0.18), transparent 12rem);
+      opacity: 0;
+      transition: opacity 260ms ease;
+    }
+
+    .card:hover {
+      transform: translateY(-10px) rotateX(3deg) rotateY(-4deg);
+      border-color: rgba(120, 232, 255, 0.48);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.26),
+        0 26px 76px rgba(63, 77, 190, 0.26);
+    }
+
+    .card:hover::before {
+      opacity: 1;
+      transform: translateX(55%) rotate(10deg);
+    }
+
+    .card:hover::after {
+      opacity: 1;
+    }
+
+    .card > * {
+      position: relative;
+      z-index: 1;
     }
 
     .card h3 {
@@ -356,6 +456,26 @@
       color: var(--muted);
     }
 
+    .image-card {
+      min-height: 260px;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .image-card img {
+      width: 100%;
+      height: 100%;
+      min-height: 260px;
+      object-fit: cover;
+      display: block;
+      filter: saturate(0.95) contrast(1.05);
+      transition: transform 450ms ease;
+    }
+
+    .image-card:hover img {
+      transform: scale(1.05);
+    }
+
     .flow {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -364,9 +484,15 @@
     }
 
     .step {
-      min-height: 150px;
+      min-height: 154px;
       border-radius: 22px;
       padding: 18px;
+      transition: transform 180ms ease, border-color 180ms ease;
+    }
+
+    .step:hover {
+      transform: translateY(-6px) rotate(-0.4deg);
+      border-color: rgba(199, 184, 255, 0.54);
     }
 
     .step b {
@@ -376,8 +502,40 @@
       height: 34px;
       border-radius: 50%;
       margin-bottom: 12px;
-      background: var(--lime);
-      color: #071006;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      color: #ffffff;
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: 0.92fr 1.08fr;
+      gap: 18px;
+      align-items: stretch;
+      margin-top: 30px;
+    }
+
+    .model-panel {
+      border-radius: 28px;
+      padding: 26px;
+    }
+
+    .model-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .model-item {
+      padding: 14px 16px;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      transition: transform 180ms ease, background 180ms ease;
+    }
+
+    .model-item:hover {
+      transform: translateX(6px);
+      background: rgba(124, 77, 255, 0.16);
     }
 
     .code-grid {
@@ -393,7 +551,7 @@
       overflow-x: auto;
       border-radius: 24px;
       border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(3, 5, 8, 0.78);
+      background: rgba(3, 5, 14, 0.78);
       color: #edf5ff;
       padding: 22px;
       font-family: "Cascadia Code", Consolas, monospace;
@@ -402,12 +560,16 @@
     }
 
     .doc-card a {
-      color: var(--lime);
+      color: var(--blue);
       font-weight: 900;
     }
 
+    .doc-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
     footer {
-      padding: 46px 0 54px;
+      padding: 54px 0 64px;
       border-top: 1px solid rgba(255, 255, 255, 0.08);
       color: var(--muted);
     }
@@ -420,19 +582,67 @@
       flex-wrap: wrap;
     }
 
-    @media (max-width: 900px) {
-      .page-shell {
-        margin: 16px auto;
-        border-radius: 22px;
-      }
+    .credits {
+      width: 100%;
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: rgba(194, 189, 212, 0.78);
+    }
 
-      header,
-      .hero,
-      .code-grid {
-        grid-template-columns: 1fr;
-      }
+    .credits a {
+      color: var(--blue);
+    }
 
+    @keyframes aura-drift {
+      from { transform: translate3d(-2%, -1%, 0) scale(1); }
+      to { transform: translate3d(2%, 1%, 0) scale(1.05); }
+    }
+
+    @keyframes forest-breathe {
+      from { transform: scale(1); filter: saturate(1) hue-rotate(0deg); }
+      to { transform: scale(1.04); filter: saturate(1.15) hue-rotate(8deg); }
+    }
+
+    @keyframes float-slow {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-14px); }
+    }
+
+    @keyframes radar-spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes soft-pulse {
+      0%, 100% { box-shadow: 0 0 24px rgba(124, 77, 255, 0.34); }
+      50% { box-shadow: 0 0 42px rgba(120, 232, 255, 0.42); }
+    }
+
+    @keyframes lens-glow {
+      0%, 100% { box-shadow: 0 0 42px rgba(120, 232, 255, 0.22); }
+      50% { box-shadow: 0 0 70px rgba(120, 232, 255, 0.36); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition: none !important;
+      }
+    }
+
+    @media (max-width: 980px) {
       header {
+        position: relative;
+        top: auto;
+        left: auto;
+        transform: none;
+        width: min(1180px, calc(100% - 24px));
+        margin: 12px auto 0;
+        border-radius: 24px;
         display: grid;
       }
 
@@ -440,13 +650,19 @@
         justify-content: flex-start;
       }
 
+      .hero,
+      .code-grid,
+      .split {
+        grid-template-columns: 1fr;
+      }
+
       .hero {
         min-height: auto;
-        padding-top: 44px;
+        padding-top: 52px;
       }
 
       .hero-visual {
-        min-height: 420px;
+        min-height: 430px;
       }
 
       .grid,
@@ -462,20 +678,35 @@
         margin-top: 16px;
       }
     }
+
+    @media (max-width: 560px) {
+      .inner {
+        width: min(100% - 28px, 1180px);
+      }
+
+      h1 {
+        font-size: clamp(3rem, 18vw, 5rem);
+      }
+
+      .pill-button,
+      nav a {
+        width: 100%;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="page-shell">
-    <header class="inner">
+  <div class="page">
+    <header class="glass">
       <a class="brand" href="https://github.com/Catkartikwastaken/Stasis" aria-label="Open STASIS GitHub repository">
         <span class="brand-mark"></span>
         <span>STASIS</span>
       </a>
       <nav aria-label="Primary navigation">
         <a href="#features">Features</a>
+        <a href="#model">Model</a>
         <a href="#architecture">System</a>
         <a href="#setup">Setup</a>
-        <a href="#docs">Docs</a>
         <a href="https://github.com/Catkartikwastaken/Stasis">Repository</a>
       </nav>
       <a class="pill-button primary" href="https://github.com/Catkartikwastaken/Stasis">View GitHub</a>
@@ -484,8 +715,8 @@
     <main>
       <section class="hero inner">
         <div>
-          <span class="eyebrow">Raspberry Pi rover platform</span>
-          <h1>Forest-style monitoring with a <span class="accent">live rover eye</span>.</h1>
+          <span class="eyebrow glass">Forest-themed Raspberry Pi rover</span>
+          <h1>Night-forest monitoring with a <span class="accent">live rover eye</span>.</h1>
           <p class="lead">STASIS streams the Raspberry Pi webcam, detects humans and demo objects, and gives the dashboard a clean way to track what the rover sees.</p>
           <div class="actions">
             <a class="pill-button primary" href="https://github.com/Catkartikwastaken/Stasis">Open Repository</a>
@@ -522,6 +753,27 @@
             <article class="card glass">
               <h3>Dataset Studio</h3>
               <p>A polished webcam tool helps collect training photos for the custom alpha tester objects.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section id="model">
+        <div class="inner">
+          <h2>Custom Object Detection</h2>
+          <p class="section-copy">STASIS is being prepared for a specific trained object detection model instead of relying only on generic classes. The goal is to recognize the exact demo objects, red strips, and empty backgrounds used in the real setup.</p>
+          <div class="split">
+            <article class="model-panel glass">
+              <h3>Training Plan</h3>
+              <div class="model-list">
+                <div class="model-item">Collect real demo photos from the webcam and phone.</div>
+                <div class="model-item">Label alpha tester objects, red strips, and empty backgrounds.</div>
+                <div class="model-item">Train a small custom object detector for the demo environment.</div>
+                <div class="model-item">Keep human detection reliable while the custom model handles project-specific objects.</div>
+              </div>
+            </article>
+            <article class="image-card glass">
+              <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Raspberry%20Pi%202%20Model%20B%20V1.1.JPG" alt="Raspberry Pi 2 Model B board">
             </article>
           </div>
         </div>
@@ -567,7 +819,7 @@ python rover_client.py --config config.json</code></pre>
         <div class="inner">
           <h2>Project Docs</h2>
           <p class="section-copy">Everything links back to the repository, so the website can be used as the clean public entry point for the project.</p>
-          <div class="grid">
+          <div class="grid doc-grid">
             <article class="card glass doc-card">
               <h3><a href="README_ROVER_SYSTEM.md">Rover System</a></h3>
               <p>Complete setup, wiring notes, and operating flow.</p>
@@ -575,6 +827,26 @@ python rover_client.py --config config.json</code></pre>
             <article class="card glass doc-card">
               <h3><a href="VISION_PROVIDERS.md">Vision Providers</a></h3>
               <p>Cloud APIs, Ollama, LM Studio, and local model options.</p>
+            </article>
+            <article class="card glass doc-card">
+              <h3><a href="PROJECT_BRIEF.md">Project Brief</a></h3>
+              <p>Mission, demo assumptions, robot behavior, and current project scope.</p>
+            </article>
+            <article class="card glass doc-card">
+              <h3><a href="WINDOWS_YOLO_ONNX_DETECTION.md">Windows YOLO ONNX</a></h3>
+              <p>How the Windows-side detector is configured for faster object detection.</p>
+            </article>
+            <article class="card glass doc-card">
+              <h3><a href="PI_OBJECT_DETECTION_LOCAL_MODEL.md">Pi Object Detection</a></h3>
+              <p>Local model notes for the Raspberry Pi side of the object detection path.</p>
+            </article>
+            <article class="card glass doc-card">
+              <h3><a href="GEMMA_VISION.md">Gemma Vision</a></h3>
+              <p>Local Gemma notes, constraints, and prompt contract for vision experiments.</p>
+            </article>
+            <article class="card glass doc-card">
+              <h3><a href="DATASET_CAPTURE_ASSISTANT.md">Dataset Capture</a></h3>
+              <p>How to collect clean images for the custom STASIS object detection model.</p>
             </article>
             <article class="card glass doc-card">
               <h3><a href="https://github.com/Catkartikwastaken/Stasis">GitHub Repository</a></h3>
@@ -589,6 +861,13 @@ python rover_client.py --config config.json</code></pre>
       <div class="inner footer-row">
         <span>STASIS is an open-source rover prototype for learning, testing, and building better small robot systems.</span>
         <a class="pill-button glass" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
+        <span class="credits">
+          Visual references:
+          <a href="https://commons.wikimedia.org/wiki/File:Raspberry_Pi_2_Model_B_V1.1.JPG">Raspberry Pi 2 photo</a>
+          and
+          <a href="https://commons.wikimedia.org/wiki/File:Bev_H,_Forest_Path_2.jpg">forest path photo</a>
+          from Wikimedia Commons.
+        </span>
       </div>
     </footer>
   </div>
