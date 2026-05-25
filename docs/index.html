@@ -36,7 +36,8 @@
     .page {
       min-height: 100vh;
       background:
-        linear-gradient(90deg, rgba(7, 8, 23, 0.92), rgba(7, 8, 23, 0.52), rgba(7, 8, 23, 0.86)),
+        linear-gradient(90deg, rgba(7, 8, 23, 0.88), rgba(7, 8, 23, 0.38), rgba(7, 8, 23, 0.62)),
+        radial-gradient(circle at 74% 28%, rgba(124, 92, 255, 0.22), transparent 28rem),
         url("assets/forest-hero.jpg") center top / cover no-repeat fixed,
         linear-gradient(135deg, #11184a, #071527);
     }
@@ -52,7 +53,7 @@
       z-index: 10;
       padding: 16px 0;
       backdrop-filter: blur(14px);
-      background: rgba(7, 8, 23, 0.58);
+      background: rgba(7, 8, 23, 0.68);
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     }
 
@@ -116,7 +117,7 @@
     .hero {
       min-height: calc(100vh - 72px);
       display: grid;
-      grid-template-columns: 1fr 0.9fr;
+      grid-template-columns: 0.98fr 1.02fr;
       gap: 42px;
       align-items: center;
       padding: 72px 0;
@@ -138,7 +139,7 @@
     h1 {
       margin: 22px 0 0;
       max-width: 780px;
-      font-size: clamp(3.3rem, 8vw, 7rem);
+      font-size: clamp(3.2rem, 7vw, 6.4rem);
       line-height: 0.9;
       letter-spacing: 0;
     }
@@ -163,9 +164,47 @@
       border: 1px solid var(--line);
       border-radius: 26px;
       padding: 18px;
-      background: var(--panel);
+      background:
+        linear-gradient(145deg, rgba(121, 223, 255, 0.08), rgba(124, 92, 255, 0.08)),
+        var(--panel);
       box-shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
       animation: rise 700ms ease both;
+      backdrop-filter: blur(10px);
+    }
+
+    .dashboard::before {
+      content: "LIVE FIELD VIEW";
+      display: inline-flex;
+      margin-bottom: 12px;
+      padding: 5px 9px;
+      border-radius: 999px;
+      color: var(--blue);
+      background: rgba(121, 223, 255, 0.09);
+      border: 1px solid rgba(121, 223, 255, 0.18);
+      font-size: 0.72rem;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-note {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 22px;
+      max-width: 620px;
+    }
+
+    .hero-note span {
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 16px;
+      background: rgba(13, 17, 42, 0.56);
+      color: rgba(247, 248, 255, 0.86);
+      font-weight: 750;
+      font-size: 0.88rem;
     }
 
     .dash-top {
@@ -186,6 +225,7 @@
       background:
         linear-gradient(rgba(121, 223, 255, 0.1) 1px, transparent 1px),
         linear-gradient(90deg, rgba(121, 223, 255, 0.1) 1px, transparent 1px),
+        radial-gradient(circle at 75% 30%, rgba(124, 92, 255, 0.2), transparent 14rem),
         linear-gradient(135deg, #0a0e23, #151942);
       background-size: 28px 28px, 28px 28px, auto;
     }
@@ -254,7 +294,9 @@
 
     section {
       padding: 82px 0;
-      background: linear-gradient(180deg, rgba(7, 8, 23, 0.96), rgba(10, 13, 32, 0.98));
+      background:
+        radial-gradient(circle at 12% 4%, rgba(121, 223, 255, 0.08), transparent 22rem),
+        linear-gradient(180deg, rgba(7, 8, 23, 0.96), rgba(10, 13, 32, 0.98));
       border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
@@ -285,13 +327,15 @@
       border-radius: 22px;
       border: 1px solid var(--line);
       background: rgba(18, 23, 53, 0.84);
-      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
     }
 
     .card:hover {
       transform: translateY(-6px);
       border-color: rgba(121, 223, 255, 0.48);
       background: rgba(25, 31, 70, 0.92);
+      box-shadow: 0 22px 54px rgba(49, 65, 170, 0.22);
     }
 
     .card svg {
@@ -320,9 +364,10 @@
       border-radius: 24px;
       border: 1px solid var(--line);
       background:
-        linear-gradient(135deg, rgba(7, 8, 23, 0.08), rgba(124, 92, 255, 0.24)),
-        url("assets/raspberry-pi.jpg") center / cover,
-        linear-gradient(135deg, #18214a, #090e23);
+        linear-gradient(rgba(121, 223, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(121, 223, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(135deg, #0a0e23, #151942);
+      background-size: 28px 28px, 28px 28px, auto;
     }
 
     .steps {
@@ -398,7 +443,8 @@
       .hero { min-height: auto; }
       .grid,
       .steps,
-      .metrics { grid-template-columns: 1fr; }
+      .metrics,
+      .hero-note { grid-template-columns: 1fr; }
       .links a,
       .button { width: 100%; }
     }
@@ -428,6 +474,11 @@
           <span class="eyebrow">Forest-themed Raspberry Pi rover</span>
           <h1>Night-forest monitoring with a <span>live rover eye</span>.</h1>
           <p class="lead">STASIS streams the Raspberry Pi webcam, detects humans and demo objects, and gives the dashboard a clean way to track what the rover sees.</p>
+          <div class="hero-note" aria-label="STASIS quick highlights">
+            <span>Pi webcam feed</span>
+            <span>Human alerts</span>
+            <span>Custom object model</span>
+          </div>
           <div class="actions">
             <a class="button primary" href="https://github.com/Catkartikwastaken/Stasis">Open Repository</a>
             <a class="button" href="#system">See System Flow</a>

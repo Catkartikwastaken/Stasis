@@ -9,3 +9,5 @@ server/vision_config.json
 server/*.log
 dataset/
 .DS_Store
+.agents/
+skills-lock.json
