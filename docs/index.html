@@ -194,8 +194,10 @@
       inset: 0 calc((100vw - min(1180px, calc(100vw - 42px))) / -2);
       z-index: -2;
       background:
-        linear-gradient(90deg, rgba(7, 8, 23, 0.94), rgba(7, 8, 23, 0.52), rgba(7, 8, 23, 0.82)),
-        url("https://commons.wikimedia.org/wiki/Special:FilePath/Bev%20H,%20Forest%20Path%202.jpg") center / cover;
+        linear-gradient(90deg, rgba(7, 8, 23, 0.96), rgba(7, 8, 23, 0.62), rgba(7, 8, 23, 0.9)),
+        radial-gradient(circle at 22% 28%, rgba(120, 232, 255, 0.2), transparent 18rem),
+        radial-gradient(circle at 72% 42%, rgba(124, 77, 255, 0.34), transparent 28rem),
+        linear-gradient(120deg, #071126, #0e1032 48%, #061b24);
       opacity: 0.9;
       animation: forest-breathe 18s ease-in-out infinite alternate;
     }
@@ -206,6 +208,8 @@
       inset: 0 calc((100vw - min(1180px, calc(100vw - 42px))) / -2);
       z-index: -1;
       background:
+        linear-gradient(90deg, transparent 0 7%, rgba(155, 231, 196, 0.15) 7.2% 7.5%, transparent 7.8% 17%, rgba(120, 232, 255, 0.1) 17.2% 17.5%, transparent 17.8% 72%, rgba(155, 231, 196, 0.12) 72.2% 72.5%, transparent 72.8%),
+        linear-gradient(90deg, transparent 0 13%, rgba(199, 184, 255, 0.12) 13.2% 13.45%, transparent 13.8% 82%, rgba(120, 232, 255, 0.1) 82.2% 82.5%, transparent 82.8%),
         radial-gradient(circle at 16% 24%, rgba(120, 232, 255, 0.22), transparent 26rem),
         radial-gradient(circle at 74% 48%, rgba(124, 77, 255, 0.38), transparent 35rem),
         linear-gradient(180deg, transparent 70%, var(--bg));
@@ -456,24 +460,58 @@
       color: var(--muted);
     }
 
-    .image-card {
-      min-height: 260px;
-      padding: 0;
+    .pi-visual {
+      min-height: 320px;
+      border-radius: 28px;
+      padding: 24px;
+      display: grid;
+      place-items: center;
       overflow: hidden;
+      position: relative;
     }
 
-    .image-card img {
-      width: 100%;
-      height: 100%;
-      min-height: 260px;
-      object-fit: cover;
-      display: block;
-      filter: saturate(0.95) contrast(1.05);
-      transition: transform 450ms ease;
+    .pi-visual::before {
+      content: "";
+      position: absolute;
+      inset: 24px;
+      border-radius: 26px;
+      background:
+        radial-gradient(circle at 22% 26%, #1bffbb 0 8px, transparent 9px),
+        radial-gradient(circle at 78% 28%, #78e8ff 0 10px, transparent 11px),
+        radial-gradient(circle at 22% 74%, #7c4dff 0 8px, transparent 9px),
+        linear-gradient(135deg, rgba(120, 232, 255, 0.18), rgba(124, 77, 255, 0.18)),
+        rgba(6, 8, 22, 0.84);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.22),
+        0 24px 70px rgba(0, 0, 0, 0.34);
+      transition: transform 420ms ease;
     }
 
-    .image-card:hover img {
-      transform: scale(1.05);
+    .pi-visual::after {
+      content: "Raspberry Pi 2B + Webcam";
+      position: relative;
+      z-index: 1;
+      display: grid;
+      place-items: center;
+      width: min(78%, 360px);
+      min-height: 120px;
+      border-radius: 24px;
+      color: #ffffff;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+      text-align: center;
+      background:
+        linear-gradient(90deg, rgba(120, 232, 255, 0.3) 0 8px, transparent 8px 26px),
+        linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+        rgba(255, 255, 255, 0.08);
+      background-size: 26px 100%, 100% 22px, auto;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      backdrop-filter: blur(20px);
+    }
+
+    .pi-visual:hover::before {
+      transform: scale(1.04) rotate(-1deg);
     }
 
     .flow {
@@ -772,9 +810,7 @@
                 <div class="model-item">Keep human detection reliable while the custom model handles project-specific objects.</div>
               </div>
             </article>
-            <article class="image-card glass">
-              <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Raspberry%20Pi%202%20Model%20B%20V1.1.JPG" alt="Raspberry Pi 2 Model B board">
-            </article>
+            <article class="pi-visual glass" aria-label="Safe stylized Raspberry Pi and webcam visual"></article>
           </div>
         </div>
       </section>
@@ -861,13 +897,7 @@ python rover_client.py --config config.json</code></pre>
       <div class="inner footer-row">
         <span>STASIS is an open-source rover prototype for learning, testing, and building better small robot systems.</span>
         <a class="pill-button glass" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
-        <span class="credits">
-          Visual references:
-          <a href="https://commons.wikimedia.org/wiki/File:Raspberry_Pi_2_Model_B_V1.1.JPG">Raspberry Pi 2 photo</a>
-          and
-          <a href="https://commons.wikimedia.org/wiki/File:Bev_H,_Forest_Path_2.jpg">forest path photo</a>
-          from Wikimedia Commons.
-        </span>
+        <span class="credits">All page visuals are CSS-generated for a safe public project page.</span>
       </div>
     </footer>
   </div>
