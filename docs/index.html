@@ -8,384 +8,268 @@
     :root {
       color-scheme: dark;
       --bg: #070817;
-      --bg-2: #0d1026;
-      --glass: rgba(15, 18, 42, 0.72);
-      --glass-strong: rgba(28, 32, 70, 0.78);
+      --panel: rgba(13, 17, 42, 0.86);
+      --panel-solid: #121735;
       --line: rgba(170, 184, 255, 0.22);
       --text: #f7f8ff;
-      --muted: #c2bdd4;
-      --blue: #78e8ff;
-      --blue-2: #5f8cff;
-      --purple: #7c4dff;
+      --muted: #c7c3d8;
+      --blue: #79dfff;
+      --purple: #7c5cff;
       --violet: #c7b8ff;
-      --pink: #ff78d5;
-      --forest: #9be7c4;
-      --shadow: rgba(0, 0, 0, 0.42);
-      --radius: 30px;
+      --green: #9be7c4;
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html {
-      scroll-behavior: smooth;
-    }
+    html { scroll-behavior: smooth; }
 
     body {
       margin: 0;
-      min-height: 100vh;
-      background:
-        radial-gradient(circle at 16% 10%, rgba(120, 232, 255, 0.16), transparent 25rem),
-        radial-gradient(circle at 86% 14%, rgba(124, 77, 255, 0.32), transparent 31rem),
-        linear-gradient(135deg, #08091a, #10133a 48%, #06131f);
+      background: var(--bg);
       color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.55;
-      overflow-x: hidden;
     }
 
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -20%;
-      z-index: -3;
-      pointer-events: none;
-      background:
-        radial-gradient(circle at 18% 30%, rgba(155, 231, 196, 0.13), transparent 18rem),
-        radial-gradient(circle at 76% 70%, rgba(255, 120, 213, 0.12), transparent 22rem);
-      animation: aura-drift 13s ease-in-out infinite alternate;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .glass {
-      border: 1px solid var(--line);
-      background:
-        linear-gradient(145deg, rgba(58, 70, 156, 0.14), rgba(12, 15, 36, 0.9)),
-        rgba(11, 14, 34, 0.88);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.12),
-        0 14px 36px rgba(0, 0, 0, 0.34);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
-    }
+    a { color: inherit; text-decoration: none; }
 
     .page {
-      width: 100%;
       min-height: 100vh;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .page::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      z-index: -2;
-      pointer-events: none;
       background:
-        linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
-      background-size: 128px 128px;
-      mask-image: linear-gradient(to bottom, black, transparent 78%);
+        linear-gradient(90deg, rgba(7, 8, 23, 0.92), rgba(7, 8, 23, 0.52), rgba(7, 8, 23, 0.86)),
+        url("assets/forest-hero.jpg") center top / cover no-repeat fixed,
+        linear-gradient(135deg, #11184a, #071527);
     }
 
-    .inner {
-      width: min(1180px, calc(100% - 42px));
+    .wrap {
+      width: min(1160px, calc(100% - 36px));
       margin: 0 auto;
-      position: relative;
-      z-index: 1;
     }
 
     header {
-      min-height: 78px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      padding: 16px 0;
+      backdrop-filter: blur(14px);
+      background: rgba(7, 8, 23, 0.58);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .nav {
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 18px;
-      position: fixed;
-      top: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      width: min(1180px, calc(100% - 42px));
-      z-index: 20;
-      border-radius: 999px;
-      padding: 10px 12px 10px 18px;
     }
 
     .brand {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 10px;
       font-weight: 900;
       letter-spacing: 0.06em;
-      white-space: nowrap;
     }
 
-    .brand-mark {
-      width: 34px;
-      height: 34px;
-      border-radius: 12px;
-      background:
-        linear-gradient(135deg, rgba(120, 232, 255, 0.95), rgba(124, 77, 255, 0.92)),
-        #111;
-      box-shadow: 0 0 32px rgba(124, 77, 255, 0.48);
-      animation: soft-pulse 3.5s ease-in-out infinite;
-    }
+    .brand img { width: 34px; height: 34px; }
 
-    nav {
+    .links {
       display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 6px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
-    nav a,
-    .pill-button {
+    .links a,
+    .button {
       min-height: 38px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      border-radius: 999px;
       padding: 0 14px;
-      color: rgba(248, 249, 255, 0.9);
-      font-size: 0.9rem;
-      transition: transform 180ms ease, background 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+      border-radius: 999px;
+      color: var(--text);
+      font-size: 0.93rem;
+      border: 1px solid transparent;
+      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
     }
 
-    nav a:hover,
-    .pill-button:hover {
+    .links a:hover,
+    .button:hover {
       transform: translateY(-2px);
-      background: rgba(255, 255, 255, 0.1);
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--line);
     }
 
-    .pill-button {
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.075);
+    .button {
+      border-color: var(--line);
+      background: rgba(255, 255, 255, 0.07);
       font-weight: 800;
     }
 
-    .pill-button.primary {
-      border-color: transparent;
+    .button.primary {
+      border: 0;
       background: linear-gradient(135deg, var(--blue), var(--purple));
-      color: #ffffff;
-      box-shadow: 0 0 34px rgba(124, 77, 255, 0.38);
+      box-shadow: 0 16px 38px rgba(80, 82, 220, 0.28);
     }
 
     .hero {
-      min-height: 100vh;
+      min-height: calc(100vh - 72px);
       display: grid;
       grid-template-columns: 1fr 0.9fr;
-      gap: 34px;
+      gap: 42px;
       align-items: center;
-      padding: 140px 0 80px;
-      position: relative;
-    }
-
-    .hero::before {
-      content: "";
-      position: absolute;
-      inset: 0 calc((100vw - min(1180px, calc(100vw - 42px))) / -2);
-      z-index: -2;
-      background:
-        linear-gradient(90deg, rgba(7, 8, 23, 0.96), rgba(7, 8, 23, 0.62), rgba(7, 8, 23, 0.9)),
-        url("assets/forest-hero.jpg") center / cover,
-        radial-gradient(circle at 22% 28%, rgba(120, 232, 255, 0.2), transparent 18rem),
-        radial-gradient(circle at 72% 42%, rgba(124, 77, 255, 0.34), transparent 28rem),
-        linear-gradient(120deg, #071126, #0e1032 48%, #061b24);
-      opacity: 0.9;
-      animation: forest-breathe 18s ease-in-out infinite alternate;
-    }
-
-    .hero::after {
-      content: "";
-      position: absolute;
-      inset: 0 calc((100vw - min(1180px, calc(100vw - 42px))) / -2);
-      z-index: -1;
-      background:
-        linear-gradient(90deg, transparent 0 7%, rgba(155, 231, 196, 0.15) 7.2% 7.5%, transparent 7.8% 17%, rgba(120, 232, 255, 0.1) 17.2% 17.5%, transparent 17.8% 72%, rgba(155, 231, 196, 0.12) 72.2% 72.5%, transparent 72.8%),
-        linear-gradient(90deg, transparent 0 13%, rgba(199, 184, 255, 0.12) 13.2% 13.45%, transparent 13.8% 82%, rgba(120, 232, 255, 0.1) 82.2% 82.5%, transparent 82.8%),
-        radial-gradient(circle at 16% 24%, rgba(120, 232, 255, 0.22), transparent 26rem),
-        radial-gradient(circle at 74% 48%, rgba(124, 77, 255, 0.38), transparent 35rem),
-        linear-gradient(180deg, transparent 70%, var(--bg));
+      padding: 72px 0;
     }
 
     .eyebrow {
       display: inline-flex;
       align-items: center;
-      min-height: 36px;
-      padding: 0 15px;
+      min-height: 34px;
+      padding: 0 13px;
+      border: 1px solid var(--line);
       border-radius: 999px;
-      color: #ffffff;
-      font-weight: 900;
-      font-size: 0.84rem;
+      background: rgba(13, 17, 42, 0.7);
+      color: var(--violet);
+      font-weight: 850;
+      font-size: 0.88rem;
     }
 
     h1 {
       margin: 22px 0 0;
-      max-width: 790px;
-      font-size: clamp(3.4rem, 8vw, 7.7rem);
-      line-height: 0.88;
+      max-width: 780px;
+      font-size: clamp(3.3rem, 8vw, 7rem);
+      line-height: 0.9;
       letter-spacing: 0;
     }
 
-    .accent {
-      color: var(--violet);
-      text-shadow: 0 0 38px rgba(124, 77, 255, 0.56);
-    }
+    h1 span { color: var(--violet); }
 
     .lead {
-      max-width: 650px;
-      margin: 26px 0 0;
+      max-width: 620px;
+      margin: 24px 0 0;
       color: var(--muted);
-      font-size: 1.14rem;
+      font-size: 1.12rem;
     }
 
     .actions {
       display: flex;
-      gap: 12px;
       flex-wrap: wrap;
+      gap: 12px;
       margin-top: 34px;
     }
 
-    .hero-visual {
-      min-height: 540px;
-      position: relative;
-      display: grid;
-      place-items: center;
-      animation: float-slow 6s ease-in-out infinite;
+    .dashboard {
+      border: 1px solid var(--line);
+      border-radius: 26px;
+      padding: 18px;
+      background: var(--panel);
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
+      animation: rise 700ms ease both;
     }
 
-    .rover {
-      width: min(430px, 86vw);
-      aspect-ratio: 1.12;
-      border-radius: 42% 42% 24% 24%;
-      border: 1px solid rgba(255, 255, 255, 0.24);
-      background:
-        radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.96), transparent 0 5%, transparent 7%),
-        radial-gradient(circle at 68% 28%, rgba(255, 255, 255, 0.96), transparent 0 5%, transparent 7%),
-        linear-gradient(135deg, rgba(255, 255, 255, 0.52), transparent 22%),
-        linear-gradient(150deg, #29304b, #080a14 48%, #15102a);
-      box-shadow:
-        inset -24px -36px 70px rgba(0, 0, 0, 0.78),
-        inset 16px 20px 44px rgba(255, 255, 255, 0.18),
-        0 28px 100px rgba(124, 77, 255, 0.48);
-      position: relative;
-      transform: rotate(-8deg);
-    }
-
-    .rover::before,
-    .rover::after {
-      content: "";
-      position: absolute;
-      bottom: -42px;
-      width: 116px;
-      height: 116px;
-      border-radius: 50%;
-      border: 14px solid rgba(255, 255, 255, 0.23);
-      background:
-        radial-gradient(circle, rgba(120, 232, 255, 0.95) 0 15%, transparent 16%),
-        #101321;
-      box-shadow: 0 0 36px rgba(120, 232, 255, 0.32);
-    }
-
-    .rover::before {
-      left: 24px;
-    }
-
-    .rover::after {
-      right: 24px;
-    }
-
-    .camera-eye {
-      position: absolute;
-      left: 50%;
-      top: 44%;
-      width: 122px;
-      height: 122px;
-      transform: translate(-50%, -50%);
-      border-radius: 50%;
-      border: 13px solid rgba(255, 255, 255, 0.19);
-      background:
-        radial-gradient(circle at 42% 38%, var(--blue), transparent 0 8%, transparent 10%),
-        radial-gradient(circle, #050607 0 34%, #28314d 35% 50%, #06070a 52%);
-      box-shadow: 0 0 58px rgba(120, 232, 255, 0.28);
-      animation: lens-glow 2.8s ease-in-out infinite;
-    }
-
-    .status-card {
-      position: absolute;
-      right: 0;
-      bottom: 48px;
-      width: 245px;
-      border-radius: 24px;
-      padding: 16px;
-    }
-
-    .status-card small,
-    .metric small {
+    .dash-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
       color: var(--muted);
-      display: block;
-      font-size: 0.78rem;
+      font-size: 0.86rem;
     }
 
-    .status-card strong {
-      display: block;
-      margin-top: 5px;
-      font-size: 1.05rem;
-    }
-
-    .radar {
-      position: absolute;
-      left: 0;
-      top: 58px;
-      width: 176px;
-      height: 176px;
-      border-radius: 50%;
-      border: 1px solid rgba(120, 232, 255, 0.38);
-      background:
-        radial-gradient(circle, rgba(120, 232, 255, 0.23) 0 3px, transparent 4px),
-        repeating-radial-gradient(circle, rgba(120, 232, 255, 0.18) 0 1px, transparent 2px 34px);
+    .camera {
+      min-height: 280px;
+      position: relative;
       overflow: hidden;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background:
+        linear-gradient(rgba(121, 223, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(121, 223, 255, 0.1) 1px, transparent 1px),
+        linear-gradient(135deg, #0a0e23, #151942);
+      background-size: 28px 28px, 28px 28px, auto;
     }
 
-    .radar::after {
-      content: "";
+    .scan {
       position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 82px;
-      height: 2px;
-      transform-origin: left center;
+      left: 17%;
+      top: 20%;
+      width: 36%;
+      height: 56%;
+      border: 2px solid var(--blue);
+      border-radius: 10px;
+      box-shadow: 0 0 26px rgba(121, 223, 255, 0.3);
+      animation: pulse 2.6s ease-in-out infinite;
+    }
+
+    .scan::before {
+      content: "human 92%";
+      position: absolute;
+      left: -2px;
+      top: -31px;
+      padding: 5px 8px;
+      border-radius: 8px;
+      color: #04111d;
       background: var(--blue);
-      box-shadow: 0 0 18px rgba(120, 232, 255, 0.68);
-      animation: radar-spin 3.2s linear infinite;
+      font-size: 0.8rem;
+      font-weight: 900;
+    }
+
+    .strip {
+      position: absolute;
+      right: 17%;
+      bottom: 22%;
+      width: 28%;
+      height: 9px;
+      border-radius: 99px;
+      background: #ff536b;
+      box-shadow: 0 0 24px rgba(255, 83, 107, 0.42);
+      transform: rotate(-12deg);
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .metric {
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 16px;
+      padding: 13px;
+      background: rgba(255, 255, 255, 0.055);
+    }
+
+    .metric small {
+      display: block;
+      color: var(--muted);
+      font-size: 0.76rem;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 4px;
     }
 
     section {
-      padding: 88px 0;
+      padding: 82px 0;
+      background: linear-gradient(180deg, rgba(7, 8, 23, 0.96), rgba(10, 13, 32, 0.98));
       border-top: 1px solid rgba(255, 255, 255, 0.08);
-      position: relative;
     }
 
     h2 {
       margin: 0;
-      font-size: clamp(2.25rem, 5vw, 4.8rem);
+      font-size: clamp(2.1rem, 5vw, 4.4rem);
       line-height: 0.95;
       letter-spacing: 0;
     }
 
-    .section-copy {
+    .copy {
       max-width: 760px;
-      margin: 18px 0 0;
+      margin: 16px 0 0;
       color: var(--muted);
-      font-size: 1.06rem;
+      font-size: 1.05rem;
     }
 
     .grid {
@@ -396,422 +280,235 @@
     }
 
     .card {
-      min-height: 190px;
-      border-radius: 24px;
+      min-height: 176px;
       padding: 22px;
-      position: relative;
-      overflow: hidden;
-      transform-style: preserve-3d;
-      transition: transform 260ms cubic-bezier(.2,.8,.2,1), border-color 260ms ease, box-shadow 260ms ease, background 260ms ease;
-    }
-
-    .card::before {
-      content: "";
-      position: absolute;
-      inset: -60% -20%;
-      pointer-events: none;
-      background: linear-gradient(110deg, transparent 35%, rgba(120, 232, 255, 0.16), transparent 62%);
-      transform: translateX(-65%) rotate(10deg);
-      opacity: 0;
-      transition: transform 520ms ease, opacity 260ms ease;
-    }
-
-    .card::after {
-      content: "";
-      position: absolute;
-      inset: 1px;
-      border-radius: 23px;
-      pointer-events: none;
-      background:
-        linear-gradient(135deg, rgba(120, 232, 255, 0.08), rgba(124, 77, 255, 0.08));
-      opacity: 0;
-      transition: opacity 260ms ease;
+      border-radius: 22px;
+      border: 1px solid var(--line);
+      background: rgba(18, 23, 53, 0.84);
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
     }
 
     .card:hover {
-      transform: translateY(-8px);
-      border-color: rgba(120, 232, 255, 0.48);
-      box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.26),
-        0 26px 76px rgba(63, 77, 190, 0.26);
+      transform: translateY(-6px);
+      border-color: rgba(121, 223, 255, 0.48);
+      background: rgba(25, 31, 70, 0.92);
     }
 
-    .card:hover::before {
-      opacity: 1;
-      transform: translateX(55%) rotate(10deg);
-    }
-
-    .card:hover::after {
-      opacity: 1;
-    }
-
-    .card > * {
-      position: relative;
-      z-index: 1;
+    .card svg {
+      width: 34px;
+      height: 34px;
+      margin-bottom: 16px;
+      color: var(--blue);
     }
 
     .card h3 {
-      margin: 0 0 10px;
-      font-size: 1.1rem;
+      margin: 0 0 8px;
+      font-size: 1.08rem;
     }
 
-    .card p {
-      margin: 0;
-      color: var(--muted);
-    }
+    .card p { margin: 0; color: var(--muted); }
 
-    .pi-photo {
-      min-height: 320px;
-      border-radius: 28px;
-      padding: 24px;
+    .split {
       display: grid;
-      place-items: center;
-      overflow: hidden;
-      position: relative;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      margin-top: 30px;
     }
 
-    .pi-photo::before {
-      content: "";
-      position: absolute;
-      inset: 0;
+    .photo {
+      min-height: 320px;
+      border-radius: 24px;
+      border: 1px solid var(--line);
       background:
-        linear-gradient(135deg, rgba(7, 8, 23, 0.12), rgba(124, 77, 255, 0.28)),
+        linear-gradient(135deg, rgba(7, 8, 23, 0.08), rgba(124, 92, 255, 0.24)),
         url("assets/raspberry-pi.jpg") center / cover,
-        linear-gradient(135deg, rgba(120, 232, 255, 0.18), rgba(124, 77, 255, 0.18)),
-        rgba(6, 8, 22, 0.84);
-      transition: transform 450ms ease;
+        linear-gradient(135deg, #18214a, #090e23);
     }
 
-    .pi-photo::after {
-      content: "Raspberry Pi 2B";
-      position: absolute;
-      left: 20px;
-      bottom: 20px;
-      z-index: 1;
-      padding: 10px 14px;
-      border-radius: 999px;
-      color: #ffffff;
-      font-weight: 900;
-      background:
-        linear-gradient(145deg, rgba(90, 112, 255, 0.28), rgba(16, 19, 48, 0.7)),
-        rgba(15, 18, 42, 0.72);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      backdrop-filter: blur(8px);
-    }
-
-    .pi-photo:hover::before {
-      transform: scale(1.04) rotate(-1deg);
-    }
-
-    .flow {
+    .steps {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 12px;
-      margin-top: 32px;
+      margin-top: 30px;
     }
 
     .step {
-      min-height: 154px;
-      border-radius: 22px;
+      min-height: 145px;
       padding: 18px;
-      transition: transform 180ms ease, border-color 180ms ease;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: rgba(18, 23, 53, 0.82);
+      transition: transform 180ms ease;
     }
 
-    .step:hover {
-      transform: translateY(-6px) rotate(-0.4deg);
-      border-color: rgba(199, 184, 255, 0.54);
-    }
+    .step:hover { transform: translateY(-5px); }
 
     .step b {
       display: inline-grid;
       place-items: center;
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
+      width: 32px;
+      height: 32px;
       margin-bottom: 12px;
+      border-radius: 50%;
       background: linear-gradient(135deg, var(--blue), var(--purple));
-      color: #ffffff;
-    }
-
-    .split {
-      display: grid;
-      grid-template-columns: 0.92fr 1.08fr;
-      gap: 18px;
-      align-items: stretch;
-      margin-top: 30px;
-    }
-
-    .model-panel {
-      border-radius: 28px;
-      padding: 26px;
-    }
-
-    .model-list {
-      display: grid;
-      gap: 12px;
-      margin-top: 20px;
-    }
-
-    .model-item {
-      padding: 14px 16px;
-      border-radius: 18px;
-      background: rgba(255, 255, 255, 0.07);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      transition: transform 180ms ease, background 180ms ease;
-    }
-
-    .model-item:hover {
-      transform: translateX(6px);
-      background: rgba(124, 77, 255, 0.16);
-    }
-
-    .code-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      margin-top: 28px;
     }
 
     pre {
       margin: 0;
-      min-height: 250px;
+      min-height: 248px;
       overflow-x: auto;
-      border-radius: 24px;
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      background: rgba(3, 5, 14, 0.78);
+      padding: 20px;
+      border-radius: 20px;
+      border: 1px solid var(--line);
+      background: #050816;
       color: #edf5ff;
-      padding: 22px;
-      font-family: "Cascadia Code", Consolas, monospace;
       font-size: 0.88rem;
       line-height: 1.55;
     }
 
-    .doc-card a {
-      color: var(--blue);
-      font-weight: 900;
-    }
-
-    .doc-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
-
     footer {
-      padding: 54px 0 64px;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 44px 0 56px;
+      background: #070817;
       color: var(--muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .footer-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 18px;
+      gap: 16px;
       flex-wrap: wrap;
     }
 
-    @keyframes aura-drift {
-      from { transform: translate3d(-2%, -1%, 0) scale(1); }
-      to { transform: translate3d(2%, 1%, 0) scale(1.05); }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.82; }
+      50% { opacity: 1; box-shadow: 0 0 38px rgba(121, 223, 255, 0.46); }
     }
 
-    @keyframes forest-breathe {
-      from { transform: scale(1); filter: saturate(1) hue-rotate(0deg); }
-      to { transform: scale(1.04); filter: saturate(1.15) hue-rotate(8deg); }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
     }
 
-    @keyframes float-slow {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-14px); }
-    }
-
-    @keyframes radar-spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    @keyframes soft-pulse {
-      0%, 100% { box-shadow: 0 0 24px rgba(124, 77, 255, 0.34); }
-      50% { box-shadow: 0 0 42px rgba(120, 232, 255, 0.42); }
-    }
-
-    @keyframes lens-glow {
-      0%, 100% { box-shadow: 0 0 42px rgba(120, 232, 255, 0.22); }
-      50% { box-shadow: 0 0 70px rgba(120, 232, 255, 0.36); }
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        scroll-behavior: auto !important;
-        transition: none !important;
-      }
-    }
-
-    @media (max-width: 980px) {
-      header {
-        position: relative;
-        top: auto;
-        left: auto;
-        transform: none;
-        width: min(1180px, calc(100% - 24px));
-        margin: 12px auto 0;
-        border-radius: 24px;
-        display: grid;
-      }
-
-      nav {
-        justify-content: flex-start;
-      }
-
+    @media (max-width: 900px) {
+      .nav { align-items: flex-start; flex-direction: column; }
       .hero,
-      .code-grid,
-      .split {
-        grid-template-columns: 1fr;
-      }
-
-      .hero {
-        min-height: auto;
-        padding-top: 52px;
-      }
-
-      .hero-visual {
-        min-height: 430px;
-      }
-
+      .split { grid-template-columns: 1fr; }
+      .hero { min-height: auto; }
       .grid,
-      .flow {
-        grid-template-columns: 1fr;
-      }
-
-      .status-card,
-      .radar {
-        position: relative;
-        inset: auto;
-        width: 100%;
-        margin-top: 16px;
-      }
-    }
-
-    @media (max-width: 560px) {
-      .inner {
-        width: min(100% - 28px, 1180px);
-      }
-
-      h1 {
-        font-size: clamp(3rem, 18vw, 5rem);
-      }
-
-      .pill-button,
-      nav a {
-        width: 100%;
-      }
+      .steps,
+      .metrics { grid-template-columns: 1fr; }
+      .links a,
+      .button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <div class="page">
-    <header class="glass">
-      <a class="brand" href="https://github.com/Catkartikwastaken/Stasis" aria-label="Open STASIS GitHub repository">
-        <span class="brand-mark"></span>
-        <span>STASIS</span>
-      </a>
-      <nav aria-label="Primary navigation">
-        <a href="#features">Features</a>
-        <a href="#model">Model</a>
-        <a href="#architecture">System</a>
-        <a href="#setup">Setup</a>
-        <a href="https://github.com/Catkartikwastaken/Stasis">Repository</a>
-      </nav>
-      <a class="pill-button primary" href="https://github.com/Catkartikwastaken/Stasis">View GitHub</a>
+    <header>
+      <div class="wrap nav">
+        <a class="brand" href="https://github.com/Catkartikwastaken/Stasis">
+          <img src="assets/stasis-mark.svg" alt="">
+          <span>STASIS</span>
+        </a>
+        <nav class="links" aria-label="Primary navigation">
+          <a href="#features">Features</a>
+          <a href="#model">Model</a>
+          <a href="#system">System</a>
+          <a href="#docs">Docs</a>
+          <a class="button primary" href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
+        </nav>
+      </div>
     </header>
 
     <main>
-      <section class="hero inner">
+      <section class="hero wrap">
         <div>
-          <span class="eyebrow glass">Forest-themed Raspberry Pi rover</span>
-          <h1>Night-forest monitoring with a <span class="accent">live rover eye</span>.</h1>
+          <span class="eyebrow">Forest-themed Raspberry Pi rover</span>
+          <h1>Night-forest monitoring with a <span>live rover eye</span>.</h1>
           <p class="lead">STASIS streams the Raspberry Pi webcam, detects humans and demo objects, and gives the dashboard a clean way to track what the rover sees.</p>
           <div class="actions">
-            <a class="pill-button primary" href="https://github.com/Catkartikwastaken/Stasis">Open Repository</a>
-            <a class="pill-button glass" href="#setup">Run The System</a>
-            <a class="pill-button glass" href="README_ROVER_SYSTEM.html">Read Docs</a>
+            <a class="button primary" href="https://github.com/Catkartikwastaken/Stasis">Open Repository</a>
+            <a class="button" href="#system">See System Flow</a>
+            <a class="button" href="README_ROVER_SYSTEM.html">Read Docs</a>
           </div>
         </div>
 
-        <div class="hero-visual" aria-label="Stylized STASIS rover preview">
-          <div class="radar glass"></div>
-          <div class="rover">
-            <div class="camera-eye"></div>
+        <div class="dashboard" aria-label="STASIS dashboard preview">
+          <div class="dash-top">
+            <span>STASIS dashboard</span>
+            <span>Pi feed online</span>
           </div>
-          <div class="status-card glass">
-            <small>active detection</small>
-            <strong>human 92% · red strip ready</strong>
+          <div class="camera">
+            <div class="scan"></div>
+            <div class="strip"></div>
+          </div>
+          <div class="metrics">
+            <div class="metric"><small>rover</small><strong>online</strong></div>
+            <div class="metric"><small>camera</small><strong>webcam</strong></div>
+            <div class="metric"><small>alert</small><strong>tracking</strong></div>
           </div>
         </div>
       </section>
 
       <section id="features">
-        <div class="inner">
+        <div class="wrap">
           <h2>Built For A Small Rover Demo</h2>
-          <p class="section-copy">The project keeps the hardware compact while still covering live video, AI detection, command control, tracking, and custom dataset collection.</p>
+          <p class="copy">Compact hardware, live video, AI detection, command control, tracking, and custom dataset collection.</p>
           <div class="grid">
-            <article class="card glass">
+            <article class="card">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
               <h3>Pi Camera Stream</h3>
               <p>The USB webcam stays on the rover so the dashboard sees the scene from the Raspberry Pi.</p>
             </article>
-            <article class="card glass">
+            <article class="card">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="7"/></svg>
               <h3>Detection Alerts</h3>
               <p>Humans, demo objects, and red strips become dashboard events with confidence and location.</p>
             </article>
-            <article class="card glass">
+            <article class="card">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14v14H5z"/><path d="M9 9h6M9 13h6"/></svg>
               <h3>Dataset Studio</h3>
-              <p>A polished webcam tool helps collect training photos for the custom alpha tester objects.</p>
+              <p>A webcam tool helps collect training photos for custom alpha tester objects.</p>
             </article>
           </div>
         </div>
       </section>
 
       <section id="model">
-        <div class="inner">
+        <div class="wrap">
           <h2>Custom Object Detection</h2>
-          <p class="section-copy">STASIS is being prepared for a specific trained object detection model instead of relying only on generic classes. The goal is to recognize the exact demo objects, red strips, and empty backgrounds used in the real setup.</p>
+          <p class="copy">STASIS is being prepared for a specific trained object detection model instead of relying only on generic classes.</p>
           <div class="split">
-            <article class="model-panel glass">
+            <div class="card">
               <h3>Training Plan</h3>
-              <div class="model-list">
-                <div class="model-item">Collect real demo photos from the webcam and phone.</div>
-                <div class="model-item">Label alpha tester objects, red strips, and empty backgrounds.</div>
-                <div class="model-item">Train a small custom object detector for the demo environment.</div>
-                <div class="model-item">Keep human detection reliable while the custom model handles project-specific objects.</div>
-              </div>
-            </article>
-            <article class="pi-photo glass" aria-label="Raspberry Pi board photo"></article>
+              <p>Collect real demo photos from webcam and phone, label alpha tester objects, red strips, and empty backgrounds, then train a small detector for the exact demo environment.</p>
+            </div>
+            <div class="photo" aria-label="Raspberry Pi board photo"></div>
           </div>
         </div>
       </section>
 
-      <section id="architecture">
-        <div class="inner">
+      <section id="system">
+        <div class="wrap">
           <h2>Rover To Laptop To Dashboard</h2>
-          <p class="section-copy">The Raspberry Pi captures frames and controls the rover. The Windows laptop handles the web dashboard and heavier vision work.</p>
-          <div class="flow">
-            <div class="step glass"><b>1</b><br>Pi webcam captures the scene.</div>
-            <div class="step glass"><b>2</b><br>Frames stream to Windows.</div>
-            <div class="step glass"><b>3</b><br>Vision detects targets.</div>
-            <div class="step glass"><b>4</b><br>Results return to the Pi.</div>
-            <div class="step glass"><b>5</b><br>Dashboard tracks and controls.</div>
+          <p class="copy">The Raspberry Pi captures frames and controls the rover. The Windows laptop handles the web dashboard and heavier vision work.</p>
+          <div class="steps">
+            <div class="step"><b>1</b><br>Pi webcam captures the scene.</div>
+            <div class="step"><b>2</b><br>Frames stream to Windows.</div>
+            <div class="step"><b>3</b><br>Vision detects targets.</div>
+            <div class="step"><b>4</b><br>Results return to the Pi.</div>
+            <div class="step"><b>5</b><br>Dashboard tracks and controls.</div>
           </div>
         </div>
       </section>
 
       <section id="setup">
-        <div class="inner">
+        <div class="wrap">
           <h2>Start It</h2>
-          <p class="section-copy">Run the Windows server first, then point the Raspberry Pi rover client to the server IP.</p>
-          <div class="code-grid">
+          <p class="copy">Run the Windows server first, then point the Raspberry Pi rover client to the server IP.</p>
+          <div class="split">
             <pre><code>cd server
 py -m venv .venv
 .\.venv\Scripts\activate
@@ -830,51 +527,25 @@ python rover_client.py --config config.json</code></pre>
       </section>
 
       <section id="docs">
-        <div class="inner">
+        <div class="wrap">
           <h2>Project Docs</h2>
-          <p class="section-copy">Everything links back to the repository, so the website can be used as the clean public entry point for the project.</p>
-          <div class="grid doc-grid">
-            <article class="card glass doc-card">
-              <h3><a href="README_ROVER_SYSTEM.html">Rover System</a></h3>
-              <p>Complete setup, wiring notes, and operating flow.</p>
-            </article>
-            <article class="card glass doc-card">
-              <h3><a href="VISION_PROVIDERS.html">Vision Providers</a></h3>
-              <p>Cloud APIs, Ollama, LM Studio, and local model options.</p>
-            </article>
-            <article class="card glass doc-card">
-              <h3><a href="PROJECT_BRIEF.html">Project Brief</a></h3>
-              <p>Mission, demo assumptions, robot behavior, and current project scope.</p>
-            </article>
-            <article class="card glass doc-card">
-              <h3><a href="WINDOWS_YOLO_ONNX_DETECTION.html">Windows YOLO ONNX</a></h3>
-              <p>How the Windows-side detector is configured for faster object detection.</p>
-            </article>
-            <article class="card glass doc-card">
-              <h3><a href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">Pi Object Detection</a></h3>
-              <p>Local model notes for the Raspberry Pi side of the object detection path.</p>
-            </article>
-            <article class="card glass doc-card">
-              <h3><a href="GEMMA_VISION.html">Gemma Vision</a></h3>
-              <p>Local Gemma notes, constraints, and prompt contract for vision experiments.</p>
-            </article>
-            <article class="card glass doc-card">
-              <h3><a href="DATASET_CAPTURE_ASSISTANT.html">Dataset Capture</a></h3>
-              <p>How to collect clean images for the custom STASIS object detection model.</p>
-            </article>
-            <article class="card glass doc-card">
-              <h3><a href="https://github.com/Catkartikwastaken/Stasis">GitHub Repository</a></h3>
-              <p>Source code, issues, commits, and the full STASIS project history.</p>
-            </article>
+          <p class="copy">The documentation pages now open as readable styled pages instead of raw Markdown.</p>
+          <div class="grid">
+            <a class="card" href="README_ROVER_SYSTEM.html"><h3>Rover System</h3><p>Setup, wiring notes, and operating flow.</p></a>
+            <a class="card" href="VISION_PROVIDERS.html"><h3>Vision Providers</h3><p>Cloud APIs, Ollama, LM Studio, and local model options.</p></a>
+            <a class="card" href="PROJECT_BRIEF.html"><h3>Project Brief</h3><p>Mission, scope, and demo assumptions.</p></a>
+            <a class="card" href="WINDOWS_YOLO_ONNX_DETECTION.html"><h3>Windows YOLO ONNX</h3><p>Faster Windows-side detector setup.</p></a>
+            <a class="card" href="DATASET_CAPTURE_ASSISTANT.html"><h3>Dataset Capture</h3><p>Collect clean images for the custom detector.</p></a>
+            <a class="card" href="https://github.com/Catkartikwastaken/Stasis"><h3>GitHub Repository</h3><p>Source code, commits, and project history.</p></a>
           </div>
         </div>
       </section>
     </main>
 
     <footer>
-      <div class="inner footer-row">
+      <div class="wrap footer-row">
         <span>STASIS is an open-source rover prototype for learning, testing, and building better small robot systems.</span>
-        <a class="pill-button glass" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
+        <a class="button" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
       </div>
     </footer>
   </div>

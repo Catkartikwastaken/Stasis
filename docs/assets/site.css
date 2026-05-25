@@ -1,30 +1,28 @@
 :root {
   color-scheme: dark;
   --bg: #08091a;
-  --panel: #10142e;
-  --panel-2: #151a3a;
+  --panel: #111632;
+  --panel-2: #171d42;
   --line: rgba(170, 184, 255, 0.22);
   --text: #f7f8ff;
-  --muted: #c2bdd4;
-  --blue: #78e8ff;
-  --purple: #7c4dff;
+  --muted: #c7c3d8;
+  --blue: #79dfff;
+  --purple: #7c5cff;
   --violet: #c7b8ff;
 }
 
-* {
-  box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
   min-height: 100vh;
-  color: var(--text);
   background:
-    radial-gradient(circle at 12% 6%, rgba(120, 232, 255, 0.13), transparent 24rem),
-    radial-gradient(circle at 86% 16%, rgba(124, 77, 255, 0.22), transparent 28rem),
+    radial-gradient(circle at 10% 0%, rgba(121, 223, 255, 0.12), transparent 24rem),
+    radial-gradient(circle at 90% 6%, rgba(124, 92, 255, 0.18), transparent 28rem),
     linear-gradient(135deg, #08091a, #10133a 52%, #06131f);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  line-height: 1.65;
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.68;
 }
 
 a {
@@ -32,27 +30,20 @@ a {
   text-decoration: none;
 }
 
-a:hover {
-  text-decoration: underline;
-}
-
-.doc-page {
-  min-height: 100vh;
-}
+a:hover { text-decoration: underline; }
 
 .doc-header {
   width: min(1180px, calc(100% - 32px));
-  margin: 18px auto 0;
   min-height: 68px;
+  margin: 18px auto 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   padding: 12px 16px;
   border: 1px solid var(--line);
-  border-radius: 22px;
-  background: rgba(11, 14, 34, 0.9);
-  box-shadow: 0 14px 42px rgba(0, 0, 0, 0.28);
+  border-radius: 18px;
+  background: rgba(10, 13, 32, 0.9);
 }
 
 .doc-brand {
@@ -64,9 +55,7 @@ a:hover {
   letter-spacing: 0.06em;
 }
 
-.doc-brand:hover {
-  text-decoration: none;
-}
+.doc-brand:hover { text-decoration: none; }
 
 .doc-nav {
   display: flex;
@@ -76,21 +65,22 @@ a:hover {
 
 .doc-nav a,
 .doc-sidebar a {
-  border-radius: 999px;
   color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.11);
   background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: transform 160ms ease, background 160ms ease;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
 }
 
 .doc-nav a {
   padding: 8px 13px;
+  border-radius: 999px;
 }
 
 .doc-nav a:hover,
 .doc-sidebar a:hover {
   transform: translateY(-2px);
-  background: rgba(120, 232, 255, 0.12);
+  background: rgba(121, 223, 255, 0.1);
+  border-color: rgba(121, 223, 255, 0.3);
   text-decoration: none;
 }
 
@@ -98,7 +88,7 @@ a:hover {
   width: min(1180px, calc(100% - 32px));
   margin: 24px auto 64px;
   display: grid;
-  grid-template-columns: 250px minmax(0, 1fr);
+  grid-template-columns: 245px minmax(0, 1fr);
   gap: 20px;
   align-items: start;
 }
@@ -108,36 +98,35 @@ a:hover {
   top: 16px;
   display: grid;
   gap: 9px;
-  padding: 18px;
+  padding: 16px;
   border: 1px solid var(--line);
-  border-radius: 22px;
-  background: rgba(11, 14, 34, 0.88);
+  border-radius: 18px;
+  background: rgba(10, 13, 32, 0.88);
 }
 
 .doc-sidebar strong {
-  color: var(--violet);
   margin-bottom: 6px;
+  color: var(--violet);
 }
 
 .doc-sidebar a {
-  padding: 9px 12px;
+  padding: 9px 11px;
+  border-radius: 12px;
   font-size: 0.93rem;
 }
 
 .doc-content {
   min-width: 0;
-  padding: clamp(24px, 5vw, 54px);
+  padding: clamp(24px, 5vw, 52px);
   border: 1px solid var(--line);
-  border-radius: 28px;
-  background:
-    linear-gradient(135deg, rgba(120, 232, 255, 0.06), rgba(124, 77, 255, 0.08)),
-    rgba(11, 14, 34, 0.9);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+  border-radius: 22px;
+  background: rgba(13, 17, 42, 0.92);
+  box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
 }
 
 .doc-content h1 {
   margin-top: 0;
-  font-size: clamp(2.4rem, 5vw, 4rem);
+  font-size: clamp(2.35rem, 5vw, 4rem);
   line-height: 0.95;
   letter-spacing: 0;
 }
@@ -149,9 +138,7 @@ a:hover {
   color: var(--violet);
 }
 
-.doc-content h3 {
-  color: #ffffff;
-}
+.doc-content h3 { color: #ffffff; }
 
 .doc-content p,
 .doc-content li {
@@ -162,9 +149,8 @@ a:hover {
   width: 100%;
   border-collapse: collapse;
   margin: 22px 0;
-  overflow: hidden;
-  border-radius: 16px;
   display: block;
+  overflow-x: auto;
 }
 
 .doc-content th,
@@ -175,7 +161,7 @@ a:hover {
 }
 
 .doc-content th {
-  background: rgba(120, 232, 255, 0.1);
+  background: rgba(121, 223, 255, 0.1);
   color: #ffffff;
   text-align: left;
 }
@@ -183,7 +169,7 @@ a:hover {
 .doc-content code {
   padding: 0.14em 0.38em;
   border-radius: 7px;
-  background: rgba(120, 232, 255, 0.1);
+  background: rgba(121, 223, 255, 0.1);
   color: #e9fbff;
 }
 
@@ -191,7 +177,7 @@ a:hover {
   overflow-x: auto;
   padding: 18px;
   border: 1px solid rgba(170, 184, 255, 0.18);
-  border-radius: 18px;
+  border-radius: 16px;
   background: #050816;
 }
 
@@ -205,8 +191,8 @@ a:hover {
   margin: 22px 0;
   padding: 14px 18px;
   border-left: 4px solid var(--blue);
-  border-radius: 14px;
-  background: rgba(120, 232, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(121, 223, 255, 0.08);
   color: var(--muted);
 }
 
@@ -216,13 +202,12 @@ a:hover {
     width: min(100% - 24px, 1180px);
   }
 
-  .doc-header,
-  .doc-shell {
-    grid-template-columns: 1fr;
-  }
-
   .doc-header {
     display: grid;
+  }
+
+  .doc-shell {
+    grid-template-columns: 1fr;
   }
 
   .doc-sidebar {
