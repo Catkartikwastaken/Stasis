@@ -1,6 +1,6 @@
 # Dataset Capture Assistant
 
-Use this tool to take training photos with the webcam in an ordered way. It opens a persistent desktop app, shows the next angle/position prompt, waits until the camera view is steady, then saves the photo automatically without closing the app.
+Use this tool to take training photos with the webcam in a simple manual workflow. It opens a persistent desktop app, shows what kind of scene to capture next, and saves photos without closing the app.
 
 ## Install
 
@@ -22,11 +22,7 @@ You can also start a class directly:
 
 ```powershell
 python tools\dataset_capture_assistant.py --class-name red_strip
-python tools\dataset_capture_assistant.py --class-name person
-python tools\dataset_capture_assistant.py --class-name animal_stand_in
-python tools\dataset_capture_assistant.py --class-name track_mark
-python tools\dataset_capture_assistant.py --class-name fire_card
-python tools\dataset_capture_assistant.py --class-name demo_object
+python tools\dataset_capture_assistant.py --class-name alpha_tester_object
 python tools\dataset_capture_assistant.py --class-name empty_background
 ```
 
@@ -42,32 +38,46 @@ Use the `Choose Folder` button if you want another save location.
 
 ```text
 Space/C = capture now
-S = skip current prompt
+N = next idea
+L = next location
 R = delete last saved image
-P = toggle auto capture
 Q = quit
 ```
 
-## How Auto Capture Works
+## Camera Settings
 
-Hold the object at the requested angle. When the camera view becomes steady, the tool starts a short countdown and saves the image.
-
-Default behavior:
+The app lets you change common webcam settings without editing code:
 
 ```text
-5 photos per prompt
-automatic save after the frame is steady
-ordered prompts for angle, distance, lighting, and position
-the app stays open after each save
+camera index
+width
+height
+FPS
+brightness
+contrast
+exposure
+focus
 ```
+
+It also shows:
+
+```text
+current resolution
+estimated megapixels
+camera backend
+current property values
+```
+
+Most webcams do not report live electrical power usage through normal camera drivers, so the app shows power draw as unavailable when the camera does not expose it.
 
 ## Recommended Use
 
-For each class, try:
+For the current demo dataset, use:
 
 ```text
-50 images minimum
-100 images recommended
+alpha_tester_object
+red_strip
+empty_background
 ```
 
-Use the webcam at rover height for the best dataset. Phone photos can still be added later, but webcam images are most important for matching the demo view.
+Take roughly 200 total photos across 4 locations. Mix objects together naturally, but still take empty background photos so the model learns when nothing important is present.

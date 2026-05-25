@@ -1,16 +1,14 @@
 """
-STASIS guided webcam dataset capture app.
+STASIS simple dataset capture app.
 
-The app stays open while you capture hundreds of photos, shows the next shot
-prompt, and saves images to the laptop under Pictures/STASIS_Dataset/raw by
-default.
+Manual-only webcam capture for the current demo dataset:
+alpha tester objects, red strips, and empty backgrounds.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
-import time
 import tkinter as tk
 from dataclasses import dataclass
 from datetime import datetime
@@ -18,55 +16,48 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 import cv2
-import numpy as np
 from PIL import Image, ImageTk
 
 
 DEFAULT_CLASSES = [
-    "person",
-    "animal_stand_in",
+    "alpha_tester_object",
     "red_strip",
-    "track_mark",
-    "fire_card",
-    "demo_object",
     "empty_background",
 ]
 
-SHOT_PLAN = [
-    "Front view, object centered",
-    "Front view, object on left side",
-    "Front view, object on right side",
-    "Left side angle",
-    "Right side angle",
-    "Low rover-height angle",
-    "Close distance",
-    "Medium distance",
-    "Far distance",
-    "Partly cut off at frame edge",
-    "Partly hidden behind another object",
-    "Messy background",
-    "Clean background",
-    "Bright lighting",
-    "Normal lighting",
-    "Dim lighting or shadow",
-    "Slightly tilted camera",
-    "Object near floor",
-    "Object near wall",
-    "Mixed scene with harmless objects nearby",
+LOCATION_PLAN = [
+    "Location 1 - change object positions and distance",
+    "Location 2 - new background and lighting",
+    "Location 3 - low rover-height angle",
+    "Location 4 - mixed/random demo scene",
 ]
 
-EMPTY_BACKGROUND_PLAN = [
-    "Empty demo area, center view",
-    "Empty wall and floor",
-    "Empty area with harmless objects",
-    "Empty area in bright light",
-    "Empty area in dim light",
-    "Empty area from low rover-height angle",
-    "Empty area with red/orange non-target object",
-    "Empty area with plants/props but no target",
-    "Empty area with messy background",
-    "Empty area from far distance",
-]
+SHOT_IDEAS = {
+    "alpha_tester_object": [
+        "Put one or more random demo objects in view",
+        "Change object angle and distance",
+        "Put objects near the edge of the frame",
+        "Partly hide one object",
+        "Use a messy background",
+        "Use a clean background",
+    ],
+    "red_strip": [
+        "Show the red strip clearly",
+        "Place it horizontal, vertical, or diagonal",
+        "Put it on the floor or wall",
+        "Move it far from the camera",
+        "Move it near the camera",
+        "Include red/orange distractions nearby",
+    ],
+    "empty_background": [
+        "No target objects in view",
+        "Only floor/wall/background",
+        "Harmless objects but no red strip",
+        "Different lighting",
+        "Different camera angle",
+        "Messy but empty demo area",
+    ],
+}
 
 
 @dataclass
@@ -76,11 +67,6 @@ class CaptureSettings:
     width: int
     height: int
     fps: int
-    shots_per_prompt: int
-    stable_seconds: float
-    countdown_seconds: float
-    motion_threshold: float
-    manual: bool
 
 
 def default_output_dir() -> Path:
@@ -88,18 +74,13 @@ def default_output_dir() -> Path:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="STASIS guided webcam photo capture app")
-    parser.add_argument("--class-name", choices=DEFAULT_CLASSES, default="person")
+    parser = argparse.ArgumentParser(description="STASIS simple webcam dataset capture app")
+    parser.add_argument("--class-name", choices=DEFAULT_CLASSES, default="alpha_tester_object")
     parser.add_argument("--output", type=Path, default=default_output_dir())
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--width", type=int, default=960)
     parser.add_argument("--height", type=int, default=540)
     parser.add_argument("--fps", type=int, default=20)
-    parser.add_argument("--shots-per-prompt", type=int, default=5)
-    parser.add_argument("--stable-seconds", type=float, default=1.0)
-    parser.add_argument("--countdown-seconds", type=float, default=1.2)
-    parser.add_argument("--motion-threshold", type=float, default=4.0)
-    parser.add_argument("--manual", action="store_true", help="Start with auto capture disabled")
     parser.add_argument("--classes-json", type=Path, help="Optional JSON list of class names")
     return parser.parse_args()
 
@@ -113,21 +94,11 @@ def load_classes(path: Path | None) -> list[str]:
     return [item.strip() for item in data]
 
 
-def prompts_for_class(class_name: str) -> list[str]:
-    return EMPTY_BACKGROUND_PLAN if class_name == "empty_background" else SHOT_PLAN
-
-
 def create_capture_path(output_root: Path, class_name: str) -> Path:
     folder = output_root / class_name
     folder.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
     return folder / f"{class_name}_{timestamp}.jpg"
-
-
-def measure_motion(previous_gray: np.ndarray | None, gray: np.ndarray) -> float:
-    if previous_gray is None:
-        return 999.0
-    return float(np.mean(cv2.absdiff(previous_gray, gray)))
 
 
 class DatasetCaptureApp:
@@ -137,18 +108,22 @@ class DatasetCaptureApp:
         self.settings = settings
         self.class_name = tk.StringVar(value=initial_class)
         self.output_dir = tk.StringVar(value=str(settings.output))
-        self.prompt_index = 0
-        self.prompt_capture_count = 0
+        self.location_index = 0
+        self.idea_index = 0
         self.saved_total = 0
+        self.class_counts = {class_name: 0 for class_name in classes}
         self.last_saved_path: Path | None = None
-        self.previous_gray: np.ndarray | None = None
-        self.current_frame: np.ndarray | None = None
+        self.current_frame = None
         self.photo_ref: ImageTk.PhotoImage | None = None
-        self.auto_enabled = tk.BooleanVar(value=not settings.manual)
-        self.paused = False
-        self.auto_armed_at: float | None = None
-        self.countdown_started_at: float | None = None
-        self.motion_value = 999.0
+        self.camera_index = tk.IntVar(value=settings.camera)
+        self.width_var = tk.IntVar(value=settings.width)
+        self.height_var = tk.IntVar(value=settings.height)
+        self.fps_var = tk.IntVar(value=settings.fps)
+        self.brightness_var = tk.DoubleVar(value=0)
+        self.contrast_var = tk.DoubleVar(value=0)
+        self.exposure_var = tk.DoubleVar(value=0)
+        self.focus_var = tk.DoubleVar(value=0)
+        self.camera_info = tk.StringVar(value="Camera info loading...")
 
         self.cap = cv2.VideoCapture(settings.camera)
         if not self.cap.isOpened():
@@ -158,16 +133,23 @@ class DatasetCaptureApp:
         self.cap.set(cv2.CAP_PROP_FPS, settings.fps)
 
         self.root.title("STASIS Dataset Capture")
-        self.root.geometry("1180x760")
-        self.root.minsize(980, 650)
+        self.root.geometry("1160x740")
+        self.root.minsize(960, 640)
         self.root.configure(bg="#101714")
         self.root.protocol("WM_DELETE_WINDOW", self.close)
         self.root.bind("<space>", lambda _event: self.capture_now())
         self.root.bind("<c>", lambda _event: self.capture_now())
-        self.root.bind("<s>", lambda _event: self.skip_prompt())
+        self.root.bind("<n>", lambda _event: self.next_idea())
+        self.root.bind("<l>", lambda _event: self.next_location())
         self.root.bind("<r>", lambda _event: self.delete_last())
-        self.root.bind("<p>", lambda _event: self.toggle_auto())
+        self.root.bind("<q>", lambda _event: self.close())
 
+        self.setup_style()
+        self.build_ui()
+        self.refresh_text()
+        self.update_loop()
+
+    def setup_style(self) -> None:
         self.style = ttk.Style()
         self.style.theme_use("clam")
         self.style.configure("TFrame", background="#101714")
@@ -175,14 +157,10 @@ class DatasetCaptureApp:
         self.style.configure("TLabel", background="#101714", foreground="#e7f1ea", font=("Segoe UI", 10))
         self.style.configure("Panel.TLabel", background="#18241f", foreground="#e7f1ea", font=("Segoe UI", 10))
         self.style.configure("Title.TLabel", background="#18241f", foreground="#ffffff", font=("Segoe UI Semibold", 18))
-        self.style.configure("Prompt.TLabel", background="#18241f", foreground="#ffcf5a", font=("Segoe UI Semibold", 16))
-        self.style.configure("Big.TButton", font=("Segoe UI Semibold", 11), padding=(12, 8))
-        self.style.configure("TButton", font=("Segoe UI", 10), padding=(10, 6))
+        self.style.configure("Prompt.TLabel", background="#18241f", foreground="#ffcf5a", font=("Segoe UI Semibold", 15))
+        self.style.configure("Big.TButton", font=("Segoe UI Semibold", 12), padding=(14, 10))
+        self.style.configure("TButton", font=("Segoe UI", 10), padding=(10, 7))
         self.style.configure("TCombobox", padding=(6, 4))
-
-        self.build_ui()
-        self.update_prompt_labels()
-        self.update_loop()
 
     def build_ui(self) -> None:
         main = ttk.Frame(self.root, padding=16)
@@ -193,68 +171,102 @@ class DatasetCaptureApp:
         self.video_label = tk.Label(video_panel, bg="#07100c", bd=0)
         self.video_label.pack(fill="both", expand=True)
 
-        side = ttk.Frame(main, style="Panel.TFrame", padding=18, width=340)
+        side = ttk.Frame(main, style="Panel.TFrame", padding=18, width=350)
         side.pack(side="right", fill="y", padx=(16, 0))
         side.pack_propagate(False)
 
-        ttk.Label(side, text="STASIS Capture", style="Title.TLabel").pack(anchor="w")
-        ttk.Label(side, text="Follow the prompt. Hold steady. The app saves and stays open.", style="Panel.TLabel", wraplength=290).pack(anchor="w", pady=(6, 18))
+        ttk.Label(side, text="STASIS Dataset", style="Title.TLabel").pack(anchor="w")
+        ttk.Label(
+            side,
+            text="Manual capture only. Pick the class, frame the scene, press Capture. The app stays open.",
+            style="Panel.TLabel",
+            wraplength=300,
+        ).pack(anchor="w", pady=(6, 18))
 
-        ttk.Label(side, text="Class", style="Panel.TLabel").pack(anchor="w")
+        ttk.Label(side, text="Current Class", style="Panel.TLabel").pack(anchor="w")
         self.class_box = ttk.Combobox(side, values=self.classes, textvariable=self.class_name, state="readonly")
         self.class_box.pack(fill="x", pady=(4, 14))
-        self.class_box.bind("<<ComboboxSelected>>", lambda _event: self.change_class())
+        self.class_box.bind("<<ComboboxSelected>>", lambda _event: self.refresh_text())
 
-        ttk.Label(side, text="Current Prompt", style="Panel.TLabel").pack(anchor="w")
-        self.prompt_label = ttk.Label(side, text="", style="Prompt.TLabel", wraplength=290)
-        self.prompt_label.pack(anchor="w", fill="x", pady=(4, 12))
+        self.location_label = ttk.Label(side, text="", style="Panel.TLabel", wraplength=300)
+        self.location_label.pack(anchor="w", fill="x", pady=(0, 10))
 
-        self.prompt_progress = ttk.Label(side, text="", style="Panel.TLabel")
-        self.prompt_progress.pack(anchor="w", pady=(0, 14))
+        ttk.Label(side, text="Photo Idea", style="Panel.TLabel").pack(anchor="w")
+        self.idea_label = ttk.Label(side, text="", style="Prompt.TLabel", wraplength=300)
+        self.idea_label.pack(anchor="w", fill="x", pady=(4, 16))
 
-        self.status_label = ttk.Label(side, text="", style="Panel.TLabel", wraplength=290)
-        self.status_label.pack(anchor="w", fill="x", pady=(0, 14))
-
-        self.capture_button = ttk.Button(side, text="Capture Now", style="Big.TButton", command=self.capture_now)
+        self.capture_button = ttk.Button(side, text="Capture Photo", style="Big.TButton", command=self.capture_now)
         self.capture_button.pack(fill="x", pady=(0, 10))
-        ttk.Button(side, text="Skip Prompt", command=self.skip_prompt).pack(fill="x", pady=(0, 8))
-        ttk.Button(side, text="Delete Last Photo", command=self.delete_last).pack(fill="x", pady=(0, 8))
-        ttk.Checkbutton(side, text="Auto capture when steady", variable=self.auto_enabled, command=self.reset_auto_timer).pack(anchor="w", pady=(4, 14))
+        ttk.Button(side, text="Next Idea", command=self.next_idea).pack(fill="x", pady=(0, 8))
+        ttk.Button(side, text="Next Location", command=self.next_location).pack(fill="x", pady=(0, 8))
+        ttk.Button(side, text="Delete Last Photo", command=self.delete_last).pack(fill="x", pady=(0, 14))
+
+        ttk.Separator(side).pack(fill="x", pady=12)
+        ttk.Label(side, text="Camera Settings", style="Panel.TLabel").pack(anchor="w")
+        camera_grid = ttk.Frame(side, style="Panel.TFrame")
+        camera_grid.pack(fill="x", pady=(6, 10))
+
+        ttk.Label(camera_grid, text="Camera", style="Panel.TLabel").grid(row=0, column=0, sticky="w", pady=3)
+        ttk.Spinbox(camera_grid, from_=0, to=5, textvariable=self.camera_index, width=8).grid(row=0, column=1, sticky="ew", pady=3)
+        ttk.Label(camera_grid, text="Width", style="Panel.TLabel").grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Spinbox(camera_grid, from_=320, to=1920, increment=80, textvariable=self.width_var, width=8).grid(row=1, column=1, sticky="ew", pady=3)
+        ttk.Label(camera_grid, text="Height", style="Panel.TLabel").grid(row=2, column=0, sticky="w", pady=3)
+        ttk.Spinbox(camera_grid, from_=240, to=1080, increment=60, textvariable=self.height_var, width=8).grid(row=2, column=1, sticky="ew", pady=3)
+        ttk.Label(camera_grid, text="FPS", style="Panel.TLabel").grid(row=3, column=0, sticky="w", pady=3)
+        ttk.Spinbox(camera_grid, from_=5, to=60, increment=5, textvariable=self.fps_var, width=8).grid(row=3, column=1, sticky="ew", pady=3)
+        camera_grid.columnconfigure(1, weight=1)
+
+        ttk.Button(side, text="Apply Camera Settings", command=self.apply_camera_settings).pack(fill="x", pady=(0, 8))
+        ttk.Button(side, text="Refresh Camera Info", command=self.refresh_camera_info).pack(fill="x", pady=(0, 10))
+
+        self.add_camera_slider(side, "Brightness", self.brightness_var, cv2.CAP_PROP_BRIGHTNESS, -100, 100)
+        self.add_camera_slider(side, "Contrast", self.contrast_var, cv2.CAP_PROP_CONTRAST, -100, 100)
+        self.add_camera_slider(side, "Exposure", self.exposure_var, cv2.CAP_PROP_EXPOSURE, -13, 1)
+        self.add_camera_slider(side, "Focus", self.focus_var, cv2.CAP_PROP_FOCUS, 0, 255)
+
+        ttk.Label(side, textvariable=self.camera_info, style="Panel.TLabel", wraplength=300).pack(anchor="w", fill="x", pady=(4, 10))
 
         ttk.Separator(side).pack(fill="x", pady=12)
         ttk.Label(side, text="Save Location", style="Panel.TLabel").pack(anchor="w")
-        self.output_label = ttk.Label(side, textvariable=self.output_dir, style="Panel.TLabel", wraplength=290)
+        self.output_label = ttk.Label(side, textvariable=self.output_dir, style="Panel.TLabel", wraplength=300)
         self.output_label.pack(anchor="w", fill="x", pady=(4, 8))
         ttk.Button(side, text="Choose Folder", command=self.choose_output_dir).pack(fill="x", pady=(0, 14))
 
-        self.saved_label = ttk.Label(side, text="", style="Panel.TLabel", wraplength=290)
-        self.saved_label.pack(anchor="w", fill="x", pady=(0, 10))
+        self.saved_label = ttk.Label(side, text="", style="Panel.TLabel", wraplength=300)
+        self.saved_label.pack(anchor="w", fill="x")
 
-        ttk.Label(side, text="Keys: Space/C capture, S skip, R delete, P auto, Q/close quit", style="Panel.TLabel", wraplength=290).pack(anchor="w", side="bottom")
-        self.root.bind("<q>", lambda _event: self.close())
+        ttk.Label(
+            side,
+            text="Keys: Space/C capture, N next idea, L next location, R delete, Q quit",
+            style="Panel.TLabel",
+            wraplength=300,
+        ).pack(anchor="w", side="bottom")
+        self.refresh_camera_info()
 
-    def current_prompts(self) -> list[str]:
-        return prompts_for_class(self.class_name.get())
+    def add_camera_slider(self, parent: ttk.Frame, label: str, variable: tk.DoubleVar, prop: int, minimum: float, maximum: float) -> None:
+        row = ttk.Frame(parent, style="Panel.TFrame")
+        row.pack(fill="x", pady=(2, 4))
+        ttk.Label(row, text=label, style="Panel.TLabel", width=10).pack(side="left")
+        slider = ttk.Scale(row, from_=minimum, to=maximum, variable=variable, command=lambda _value, camera_prop=prop, var=variable: self.set_camera_prop(camera_prop, var.get()))
+        slider.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
-    def current_prompt(self) -> str:
-        prompts = self.current_prompts()
-        return prompts[self.prompt_index % len(prompts)]
+    def set_camera_prop(self, prop: int, value: float) -> None:
+        if self.cap is not None and self.cap.isOpened():
+            self.cap.set(prop, float(value))
 
-    def update_prompt_labels(self) -> None:
-        prompts = self.current_prompts()
-        self.prompt_label.configure(text=self.current_prompt())
-        self.prompt_progress.configure(
-            text=f"Prompt {(self.prompt_index % len(prompts)) + 1}/{len(prompts)}  |  Photo {self.prompt_capture_count + 1}/{self.settings.shots_per_prompt}"
-        )
+    def current_ideas(self) -> list[str]:
+        return SHOT_IDEAS.get(self.class_name.get(), SHOT_IDEAS["alpha_tester_object"])
+
+    def refresh_text(self) -> None:
+        ideas = self.current_ideas()
+        location = LOCATION_PLAN[self.location_index % len(LOCATION_PLAN)]
+        idea = ideas[self.idea_index % len(ideas)]
+        self.location_label.configure(text=f"Location: {location}")
+        self.idea_label.configure(text=idea)
+        counts = "\n".join(f"{name}: {self.class_counts.get(name, 0)}" for name in self.classes)
         self.saved_label.configure(
-            text=f"Saved this session: {self.saved_total}\nLast: {self.last_saved_path.name if self.last_saved_path else 'none yet'}"
+            text=f"Saved this session: {self.saved_total}\n{counts}\nLast: {self.last_saved_path.name if self.last_saved_path else 'none yet'}"
         )
-
-    def change_class(self) -> None:
-        self.prompt_index = 0
-        self.prompt_capture_count = 0
-        self.reset_auto_timer()
-        self.update_prompt_labels()
 
     def choose_output_dir(self) -> None:
         selected = filedialog.askdirectory(initialdir=self.output_dir.get(), title="Choose dataset raw folder")
@@ -262,91 +274,92 @@ class DatasetCaptureApp:
             self.settings.output = Path(selected)
             self.output_dir.set(str(self.settings.output))
 
-    def reset_auto_timer(self) -> None:
-        self.auto_armed_at = None
-        self.countdown_started_at = None
+    def apply_camera_settings(self) -> None:
+        self.settings.camera = int(self.camera_index.get())
+        self.settings.width = int(self.width_var.get())
+        self.settings.height = int(self.height_var.get())
+        self.settings.fps = int(self.fps_var.get())
+        self.cap.release()
+        self.cap = cv2.VideoCapture(self.settings.camera)
+        if not self.cap.isOpened():
+            messagebox.showerror("Camera error", f"Could not open webcam index {self.settings.camera}")
+            return
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.settings.width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.settings.height)
+        self.cap.set(cv2.CAP_PROP_FPS, self.settings.fps)
+        self.refresh_camera_info()
 
-    def toggle_auto(self) -> None:
-        self.auto_enabled.set(not self.auto_enabled.get())
-        self.reset_auto_timer()
+    def refresh_camera_info(self) -> None:
+        if self.cap is None or not self.cap.isOpened():
+            self.camera_info.set("Camera unavailable.")
+            return
+        width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+        height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+        fps = self.cap.get(cv2.CAP_PROP_FPS) or 0
+        megapixels = (width * height) / 1_000_000 if width and height else 0
+        backend = "unknown"
+        try:
+            backend = self.cap.getBackendName()
+        except Exception:
+            pass
+        brightness = self.cap.get(cv2.CAP_PROP_BRIGHTNESS)
+        contrast = self.cap.get(cv2.CAP_PROP_CONTRAST)
+        exposure = self.cap.get(cv2.CAP_PROP_EXPOSURE)
+        focus = self.cap.get(cv2.CAP_PROP_FOCUS)
+        self.brightness_var.set(brightness if brightness != -1 else 0)
+        self.contrast_var.set(contrast if contrast != -1 else 0)
+        self.exposure_var.set(exposure if exposure != -1 else 0)
+        self.focus_var.set(focus if focus != -1 else 0)
+        self.camera_info.set(
+            f"Camera {self.settings.camera}: {width}x{height} at {fps:.1f} FPS\n"
+            f"Resolution: {megapixels:.2f} MP | Backend: {backend}\n"
+            "Power draw: not reported by this webcam/driver\n"
+            f"Brightness {brightness:.1f} | Contrast {contrast:.1f} | Exposure {exposure:.1f} | Focus {focus:.1f}"
+        )
 
-    def save_current_frame(self) -> None:
+    def capture_now(self) -> None:
         if self.current_frame is None:
             return
-        path = create_capture_path(self.settings.output, self.class_name.get())
+        class_name = self.class_name.get()
+        path = create_capture_path(self.settings.output, class_name)
         if not cv2.imwrite(str(path), self.current_frame):
             messagebox.showerror("Save failed", f"Could not save:\n{path}")
             return
         self.saved_total += 1
+        self.class_counts[class_name] = self.class_counts.get(class_name, 0) + 1
         self.last_saved_path = path
-        self.prompt_capture_count += 1
-        if self.prompt_capture_count >= self.settings.shots_per_prompt:
-            self.prompt_capture_count = 0
-            self.prompt_index += 1
-        self.reset_auto_timer()
-        self.previous_gray = None
-        self.update_prompt_labels()
+        self.idea_index += 1
+        self.refresh_text()
 
-    def capture_now(self) -> None:
-        self.save_current_frame()
+    def next_idea(self) -> None:
+        self.idea_index += 1
+        self.refresh_text()
 
-    def skip_prompt(self) -> None:
-        self.prompt_capture_count = 0
-        self.prompt_index += 1
-        self.reset_auto_timer()
-        self.update_prompt_labels()
+    def next_location(self) -> None:
+        self.location_index += 1
+        self.idea_index = 0
+        self.refresh_text()
 
     def delete_last(self) -> None:
         if self.last_saved_path is None:
             return
+        last_class = self.last_saved_path.parent.name
         if self.last_saved_path.exists():
             self.last_saved_path.unlink()
         self.saved_total = max(0, self.saved_total - 1)
+        self.class_counts[last_class] = max(0, self.class_counts.get(last_class, 0) - 1)
         self.last_saved_path = None
-        self.update_prompt_labels()
-
-    def update_auto_capture(self, gray: np.ndarray) -> str:
-        self.motion_value = measure_motion(self.previous_gray, gray)
-        self.previous_gray = gray
-        now = time.monotonic()
-        is_stable = self.motion_value <= self.settings.motion_threshold
-
-        if not self.auto_enabled.get():
-            self.reset_auto_timer()
-            return f"Manual mode | Motion {self.motion_value:.1f}"
-        if not is_stable:
-            self.reset_auto_timer()
-            return f"Move into position | Motion {self.motion_value:.1f}"
-        if self.auto_armed_at is None:
-            self.auto_armed_at = now
-            return f"Hold steady | Motion {self.motion_value:.1f}"
-        if now - self.auto_armed_at < self.settings.stable_seconds:
-            remaining = self.settings.stable_seconds - (now - self.auto_armed_at)
-            return f"Steady, hold {remaining:.1f}s | Motion {self.motion_value:.1f}"
-        if self.countdown_started_at is None:
-            self.countdown_started_at = now
-        remaining = self.settings.countdown_seconds - (now - self.countdown_started_at)
-        if remaining <= 0:
-            self.save_current_frame()
-            return "Saved. Stay in the app for the next shot."
-        return f"Auto capture in {remaining:.1f}s"
+        self.refresh_text()
 
     def update_loop(self) -> None:
         ok, frame = self.cap.read()
         if ok and frame is not None:
             self.current_frame = frame.copy()
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            gray = cv2.GaussianBlur(gray, (7, 7), 0)
-            status = self.update_auto_capture(gray)
-            self.status_label.configure(text=status)
-
             rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             image = Image.fromarray(rgb)
             image.thumbnail((780, 620), Image.Resampling.LANCZOS)
             self.photo_ref = ImageTk.PhotoImage(image=image)
             self.video_label.configure(image=self.photo_ref)
-        else:
-            self.status_label.configure(text="Camera read failed. Check webcam connection.")
         self.root.after(25, self.update_loop)
 
     def close(self) -> None:
@@ -363,11 +376,6 @@ def main() -> None:
         width=args.width,
         height=args.height,
         fps=args.fps,
-        shots_per_prompt=args.shots_per_prompt,
-        stable_seconds=args.stable_seconds,
-        countdown_seconds=args.countdown_seconds,
-        motion_threshold=args.motion_threshold,
-        manual=args.manual,
     )
     root = tk.Tk()
     DatasetCaptureApp(root, classes, settings, args.class_name)
