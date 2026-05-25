@@ -1,3 +1,7 @@
+---
+title: Rover System
+---
+
 # STASIS Forest Monitoring Rover System
 
 ## Plain-English Overview

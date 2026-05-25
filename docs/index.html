@@ -65,13 +65,13 @@
     .glass {
       border: 1px solid var(--line);
       background:
-        linear-gradient(145deg, rgba(90, 112, 255, 0.16), rgba(16, 19, 48, 0.78)),
-        var(--glass);
+        linear-gradient(145deg, rgba(58, 70, 156, 0.14), rgba(12, 15, 36, 0.9)),
+        rgba(11, 14, 34, 0.88);
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.16),
-        0 18px 46px var(--shadow);
-      backdrop-filter: blur(18px) saturate(1.15);
-      -webkit-backdrop-filter: blur(18px) saturate(1.15);
+        inset 0 1px 0 rgba(255, 255, 255, 0.12),
+        0 14px 36px rgba(0, 0, 0, 0.34);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
     }
 
     .page {
@@ -410,7 +410,7 @@
       position: absolute;
       inset: -60% -20%;
       pointer-events: none;
-      background: linear-gradient(110deg, transparent 35%, rgba(255, 255, 255, 0.22), transparent 62%);
+      background: linear-gradient(110deg, transparent 35%, rgba(120, 232, 255, 0.16), transparent 62%);
       transform: translateX(-65%) rotate(10deg);
       opacity: 0;
       transition: transform 520ms ease, opacity 260ms ease;
@@ -423,14 +423,13 @@
       border-radius: 23px;
       pointer-events: none;
       background:
-        radial-gradient(circle at 24% 18%, rgba(120, 232, 255, 0.16), transparent 11rem),
-        radial-gradient(circle at 82% 82%, rgba(124, 77, 255, 0.18), transparent 12rem);
+        linear-gradient(135deg, rgba(120, 232, 255, 0.08), rgba(124, 77, 255, 0.08));
       opacity: 0;
       transition: opacity 260ms ease;
     }
 
     .card:hover {
-      transform: translateY(-10px) rotateX(3deg) rotateY(-4deg);
+      transform: translateY(-8px);
       border-color: rgba(120, 232, 255, 0.48);
       box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.26),
@@ -497,7 +496,7 @@
         linear-gradient(145deg, rgba(90, 112, 255, 0.28), rgba(16, 19, 48, 0.7)),
         rgba(15, 18, 42, 0.72);
       border: 1px solid rgba(255, 255, 255, 0.18);
-      backdrop-filter: blur(18px);
+      backdrop-filter: blur(8px);
     }
 
     .pi-photo:hover::before {
@@ -738,7 +737,7 @@
           <div class="actions">
             <a class="pill-button primary" href="https://github.com/Catkartikwastaken/Stasis">Open Repository</a>
             <a class="pill-button glass" href="#setup">Run The System</a>
-            <a class="pill-button glass" href="README_ROVER_SYSTEM.md">Read Docs</a>
+            <a class="pill-button glass" href="README_ROVER_SYSTEM.html">Read Docs</a>
           </div>
         </div>
 
@@ -836,31 +835,31 @@ python rover_client.py --config config.json</code></pre>
           <p class="section-copy">Everything links back to the repository, so the website can be used as the clean public entry point for the project.</p>
           <div class="grid doc-grid">
             <article class="card glass doc-card">
-              <h3><a href="README_ROVER_SYSTEM.md">Rover System</a></h3>
+              <h3><a href="README_ROVER_SYSTEM.html">Rover System</a></h3>
               <p>Complete setup, wiring notes, and operating flow.</p>
             </article>
             <article class="card glass doc-card">
-              <h3><a href="VISION_PROVIDERS.md">Vision Providers</a></h3>
+              <h3><a href="VISION_PROVIDERS.html">Vision Providers</a></h3>
               <p>Cloud APIs, Ollama, LM Studio, and local model options.</p>
             </article>
             <article class="card glass doc-card">
-              <h3><a href="PROJECT_BRIEF.md">Project Brief</a></h3>
+              <h3><a href="PROJECT_BRIEF.html">Project Brief</a></h3>
               <p>Mission, demo assumptions, robot behavior, and current project scope.</p>
             </article>
             <article class="card glass doc-card">
-              <h3><a href="WINDOWS_YOLO_ONNX_DETECTION.md">Windows YOLO ONNX</a></h3>
+              <h3><a href="WINDOWS_YOLO_ONNX_DETECTION.html">Windows YOLO ONNX</a></h3>
               <p>How the Windows-side detector is configured for faster object detection.</p>
             </article>
             <article class="card glass doc-card">
-              <h3><a href="PI_OBJECT_DETECTION_LOCAL_MODEL.md">Pi Object Detection</a></h3>
+              <h3><a href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">Pi Object Detection</a></h3>
               <p>Local model notes for the Raspberry Pi side of the object detection path.</p>
             </article>
             <article class="card glass doc-card">
-              <h3><a href="GEMMA_VISION.md">Gemma Vision</a></h3>
+              <h3><a href="GEMMA_VISION.html">Gemma Vision</a></h3>
               <p>Local Gemma notes, constraints, and prompt contract for vision experiments.</p>
             </article>
             <article class="card glass doc-card">
-              <h3><a href="DATASET_CAPTURE_ASSISTANT.md">Dataset Capture</a></h3>
+              <h3><a href="DATASET_CAPTURE_ASSISTANT.html">Dataset Capture</a></h3>
               <p>How to collect clean images for the custom STASIS object detection model.</p>
             </article>
             <article class="card glass doc-card">

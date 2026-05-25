@@ -1,0 +1,11 @@
+title: STASIS
+description: Raspberry Pi rover platform for forest-style monitoring.
+baseurl: /Stasis
+markdown: kramdown
+highlighter: rouge
+defaults:
+  - scope:
+      path: ""
+      type: pages
+    values:
+      layout: default

@@ -1,3 +1,7 @@
+---
+title: Gemma Vision
+---
+
 # Gemma Vision Integration
 
 STASIS uses Gemma on the Windows laptop/server to inspect USB webcam frames captured by the Raspberry Pi. The rover does not run Gemma; the Raspberry Pi 2B captures the webcam, streams frames to Windows, receives `vision_result`, decides the action, and sends `vision_decision` back to the dashboard/server.

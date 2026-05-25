@@ -1,3 +1,7 @@
+---
+title: Vision Providers
+---
+
 # Multimodal Vision Providers
 
 STASIS can use a cloud multimodal API, a local Ollama model, LM Studio, or the original local Gemma path. The Raspberry Pi still captures the USB webcam and sends frames to the Windows laptop. The Windows laptop sends each selected frame to the configured vision provider, receives JSON, and sends the result back to the Raspberry Pi so the rover can decide what to do.

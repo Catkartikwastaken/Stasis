@@ -1,3 +1,7 @@
+---
+title: Dataset Capture Assistant
+---
+
 # Dataset Capture Assistant
 
 Use this tool to take training photos with the webcam in a simple manual workflow. It opens a persistent desktop app, shows what kind of scene to capture next, and saves photos without closing the app.

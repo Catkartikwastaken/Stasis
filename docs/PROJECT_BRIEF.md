@@ -1,3 +1,7 @@
+---
+title: Project Brief
+---
+
 # STASIS Project Brief
 
 STASIS is a forest monitoring rover. The first demo will happen indoors in a forest-like test space, so the system should behave like a patrol robot without depending on GPS.

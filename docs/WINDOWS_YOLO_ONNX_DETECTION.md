@@ -1,3 +1,7 @@
+---
+title: Windows YOLO ONNX Detection
+---
+
 # Windows YOLO ONNX Detection
 
 This is the recommended STASIS demo setup when the Raspberry Pi 2B cannot run YOLO/Torch.

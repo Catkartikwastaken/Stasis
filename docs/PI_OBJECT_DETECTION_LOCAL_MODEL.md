@@ -1,3 +1,7 @@
+---
+title: Pi Object Detection Local Model
+---
+
 # Legacy Pi Object Detection
 
 This document is kept for reference only.
