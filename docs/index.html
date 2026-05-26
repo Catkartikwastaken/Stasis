@@ -4,21 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>STASIS</title>
-  <meta name="description" content="A Raspberry Pi rover platform for live monitoring, object detection, and dashboard-guided response.">
+  <meta name="description" content="STASIS is a Raspberry Pi rover and local AI monitoring system for field detection, telemetry, and alert workflows.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz@6..96&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
   <style>
     :root {
       color-scheme: dark;
-      --bg: #07100d;
-      --surface: #101713;
-      --surface-2: #151d18;
-      --line: rgba(230, 238, 226, 0.14);
-      --text: #f2f5ef;
-      --muted: #b8c4b6;
-      --green: #67d39a;
-      --amber: #efc35a;
-      --blue: #76bee8;
-      --red: #f06f5f;
-      --shadow: 0 22px 80px rgba(0, 0, 0, 0.36);
+      --bg: #030402;
+      --bg-soft: #070906;
+      --ink: #f5f0e6;
+      --muted: #c9c1b0;
+      --quiet: #8e897c;
+      --moss: #9ac46b;
+      --moss-deep: #3f5b2c;
+      --amber: #d7a34f;
+      --clay: #9f704a;
+      --steel: #7e918f;
+      --panel: rgba(9, 11, 8, 0.72);
+      --panel-strong: rgba(13, 15, 11, 0.88);
+      --line: rgba(245, 240, 230, 0.14);
+      --line-strong: rgba(215, 163, 79, 0.34);
+      --shadow: 0 34px 90px rgba(0, 0, 0, 0.7);
     }
 
     * { box-sizing: border-box; }
@@ -27,127 +34,176 @@
 
     body {
       margin: 0;
+      min-width: 320px;
       background: var(--bg);
-      color: var(--text);
-      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      line-height: 1.55;
+      color: var(--ink);
+      font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
     }
 
-    a { color: inherit; text-decoration: none; }
+    body::before {
+      position: fixed;
+      inset: 0;
+      z-index: -3;
+      content: "";
+      background:
+        linear-gradient(180deg, rgba(3, 4, 2, 0.12), rgba(3, 4, 2, 0.84) 66%, #030402 100%),
+        url("assets/stasis-forest-real.jpg") center top / cover no-repeat;
+    }
+
+    body::after {
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      content: "";
+      background:
+        radial-gradient(circle at 26% 28%, rgba(215, 163, 79, 0.15), transparent 26rem),
+        linear-gradient(90deg, rgba(3, 4, 2, 0.32), transparent 45%, rgba(3, 4, 2, 0.5));
+      pointer-events: none;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
 
     .wrap {
-      width: min(1160px, calc(100% - 36px));
+      width: min(1180px, calc(100% - 40px));
       margin: 0 auto;
     }
 
-    .hero {
-      min-height: 92vh;
+    .site-nav {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      z-index: 20;
       display: flex;
-      flex-direction: column;
-      background:
-        linear-gradient(90deg, rgba(7, 16, 13, 0.96) 0%, rgba(7, 16, 13, 0.72) 48%, rgba(7, 16, 13, 0.24) 100%),
-        linear-gradient(0deg, rgba(7, 16, 13, 0.82) 0%, rgba(7, 16, 13, 0.08) 48%),
-        url("assets/forest-hero.jpg") center / cover no-repeat;
-    }
-
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      border-bottom: 1px solid var(--line);
-      background: rgba(7, 16, 13, 0.78);
-      backdrop-filter: blur(16px);
-    }
-
-    .nav {
-      min-height: 70px;
-      display: flex;
+      width: min(940px, calc(100% - 28px));
+      min-height: 54px;
       align-items: center;
       justify-content: space-between;
-      gap: 18px;
+      gap: 14px;
+      padding: 9px 10px 9px 16px;
+      border: 1px solid rgba(245, 240, 230, 0.14);
+      border-radius: 999px;
+      background: rgba(5, 6, 4, 0.78);
+      box-shadow: 0 18px 54px rgba(0, 0, 0, 0.48);
+      transform: translateX(-50%);
+      backdrop-filter: blur(18px);
     }
 
     .brand {
       display: inline-flex;
       align-items: center;
       gap: 10px;
-      font-weight: 900;
-      letter-spacing: 0.08em;
+      min-width: 0;
+      font-weight: 800;
+      letter-spacing: 0.14em;
     }
 
-    .brand img {
-      width: 34px;
-      height: 34px;
+    .brand-mark {
+      display: grid;
+      width: 32px;
+      height: 32px;
+      flex: 0 0 auto;
+      place-items: center;
+      border: 1px solid rgba(215, 163, 79, 0.42);
+      border-radius: 50%;
+      background: linear-gradient(145deg, rgba(215, 163, 79, 0.24), rgba(154, 196, 107, 0.12));
+      color: var(--amber);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
     }
 
-    .links {
+    .nav-links {
       display: flex;
       align-items: center;
-      gap: 6px;
+      justify-content: center;
+      gap: 4px;
       color: var(--muted);
-      font-size: 0.93rem;
+      font-size: 0.88rem;
       font-weight: 700;
     }
 
-    .links a {
-      border-radius: 8px;
-      padding: 9px 11px;
+    .nav-links a,
+    .nav-action {
+      border-radius: 999px;
+      padding: 9px 13px;
+      transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
     }
 
-    .links a:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text);
+    .nav-links a:hover,
+    .nav-action:hover {
+      background: rgba(245, 240, 230, 0.08);
+      color: var(--ink);
     }
 
-    .hero-main {
-      flex: 1;
+    .nav-action {
+      border: 1px solid rgba(215, 163, 79, 0.38);
+      background: rgba(215, 163, 79, 0.16);
+      color: #fff7e7;
+      font-size: 0.86rem;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .hero {
+      min-height: 100svh;
       display: grid;
       align-items: center;
-      padding: 62px 0 42px;
+      padding: 112px 0 56px;
     }
 
-    .hero-copy {
-      max-width: 720px;
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 26px;
     }
 
-    .eyebrow {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: var(--green);
-      font-size: 0.82rem;
-      font-weight: 900;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
+    .hero-card {
+      width: min(850px, 100%);
+      margin: 0 auto;
+      padding: clamp(34px, 6vw, 76px);
+      border: 1px solid rgba(245, 240, 230, 0.16);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(16, 18, 12, 0.78), rgba(6, 7, 5, 0.7)),
+        rgba(8, 9, 6, 0.64);
+      box-shadow: var(--shadow);
+      text-align: center;
+      backdrop-filter: blur(12px);
     }
 
-    .eyebrow::before {
-      width: 8px;
-      height: 8px;
-      content: "";
-      border-radius: 999px;
-      background: var(--green);
-      box-shadow: 0 0 22px var(--green);
-    }
+    h1,
+    h2,
+    h3,
+    p { margin-top: 0; }
 
     h1 {
-      max-width: 780px;
-      margin: 18px 0 18px;
-      font-size: clamp(4.6rem, 10vw, 9.8rem);
-      line-height: 0.88;
+      max-width: 760px;
+      margin: 0 auto 18px;
+      font-size: clamp(3.1rem, 8vw, 7.2rem);
+      line-height: 0.9;
       letter-spacing: 0;
     }
 
-    .lead {
-      max-width: 650px;
-      margin: 0;
-      color: #dbe5d7;
-      font-size: clamp(1.08rem, 2vw, 1.35rem);
+    .serif {
+      font-family: "Bodoni Moda", Georgia, serif;
+      font-weight: 400;
+      color: #fff7e8;
+    }
+
+    .hero-card p {
+      max-width: 710px;
+      margin: 0 auto;
+      color: var(--muted);
+      font-size: clamp(1.03rem, 2vw, 1.24rem);
     }
 
     .actions {
       display: flex;
       flex-wrap: wrap;
+      justify-content: center;
       gap: 10px;
       margin-top: 28px;
     }
@@ -157,397 +213,602 @@
       min-height: 44px;
       align-items: center;
       justify-content: center;
-      gap: 9px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 10px 14px;
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--text);
-      font-weight: 850;
+      border: 1px solid rgba(245, 240, 230, 0.16);
+      border-radius: 999px;
+      padding: 11px 18px;
+      background: rgba(245, 240, 230, 0.08);
+      color: var(--ink);
+      font-weight: 800;
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+    }
+
+    .button:hover {
+      border-color: rgba(245, 240, 230, 0.34);
+      background: rgba(245, 240, 230, 0.13);
+      transform: translateY(-1px);
     }
 
     .button.primary {
-      border-color: rgba(103, 211, 154, 0.55);
-      background: #dbeed7;
-      color: #092015;
+      border-color: rgba(215, 163, 79, 0.62);
+      background: #d7a34f;
+      color: #120f08;
     }
 
-    .signal-row {
+    .hero-strip {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 1px;
       overflow: hidden;
-      border: 1px solid var(--line);
+      width: min(960px, 100%);
+      margin: 0 auto;
+      border: 1px solid rgba(245, 240, 230, 0.14);
       border-radius: 8px;
-      background: var(--line);
-      box-shadow: var(--shadow);
+      background: rgba(245, 240, 230, 0.10);
     }
 
-    .signal {
-      min-height: 92px;
-      padding: 16px;
-      background: rgba(16, 23, 19, 0.88);
+    .hero-stat {
+      min-height: 96px;
+      padding: 18px;
+      background: rgba(6, 7, 5, 0.76);
     }
 
-    .signal small {
+    .hero-stat strong {
       display: block;
-      color: var(--muted);
-      font-weight: 800;
+      color: var(--amber);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.82rem;
       text-transform: uppercase;
-      letter-spacing: 0.1em;
     }
 
-    .signal strong {
-      display: block;
-      margin-top: 6px;
-      font-size: 1.2rem;
+    .hero-stat span {
+      color: var(--muted);
+      font-size: 0.94rem;
     }
 
     section {
-      padding: 86px 0;
-      background: var(--bg);
-    }
-
-    section.alt {
-      background: var(--surface);
-      border-block: 1px solid var(--line);
-    }
-
-    h2 {
-      max-width: 760px;
-      margin: 0;
-      font-size: clamp(2rem, 4vw, 3.4rem);
-      line-height: 1;
-      letter-spacing: 0;
+      padding: 78px 0;
     }
 
     .section-head {
-      display: flex;
-      align-items: end;
-      justify-content: space-between;
-      gap: 24px;
-      margin-bottom: 26px;
-    }
-
-    .section-head p {
-      max-width: 440px;
-      margin: 0;
-      color: var(--muted);
-    }
-
-    .grid {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-      gap: 14px;
-    }
-
-    .card {
-      min-height: 190px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: 20px;
-      background: var(--surface-2);
-    }
-
-    .card .tag {
-      display: inline-flex;
+      grid-template-columns: minmax(0, 0.82fr) minmax(280px, 0.55fr);
+      gap: 34px;
+      align-items: end;
       margin-bottom: 28px;
-      border-radius: 999px;
-      padding: 5px 9px;
-      background: rgba(255, 255, 255, 0.08);
-      color: var(--muted);
-      font-size: 0.76rem;
-      font-weight: 900;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
     }
 
-    h3 {
-      margin: 0 0 8px;
-      font-size: 1.16rem;
+    .section-head h2 {
+      margin-bottom: 0;
+      font-size: clamp(2.1rem, 4vw, 4.5rem);
+      line-height: 0.94;
       letter-spacing: 0;
     }
 
-    .card p,
-    .step p {
-      margin: 0;
+    .section-head p {
+      margin-bottom: 0;
       color: var(--muted);
+      font-size: 1.05rem;
     }
 
-    .mission {
+    .work-grid,
+    .flow-grid,
+    .docs-grid {
       display: grid;
-      grid-template-columns: 0.95fr 1.05fr;
-      gap: 16px;
-      align-items: stretch;
+      gap: 14px;
     }
 
-    .console {
-      overflow: hidden;
+    .work-grid {
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    }
+
+    .work-card,
+    .flow-card,
+    .doc-card,
+    .terminal-card {
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #080c0a;
-      box-shadow: var(--shadow);
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
     }
 
-    .console-top {
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px solid var(--line);
-      padding: 12px 14px;
+    .work-card {
+      min-height: 410px;
+      display: grid;
+      align-content: end;
+      padding: 24px;
+      position: relative;
+      isolation: isolate;
+    }
+
+    .work-card::before {
+      position: absolute;
+      inset: 0;
+      z-index: -2;
+      content: "";
+      background: url("assets/stasis-forest-real.jpg") center / cover no-repeat;
+      transform: scale(1.02);
+    }
+
+    .work-card::after {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      content: "";
+      background:
+        linear-gradient(180deg, rgba(3, 4, 2, 0.1), rgba(3, 4, 2, 0.88)),
+        linear-gradient(90deg, rgba(3, 4, 2, 0.86), rgba(3, 4, 2, 0.1));
+    }
+
+    .work-card.compact {
+      min-height: 410px;
+      background:
+        linear-gradient(145deg, rgba(154, 196, 107, 0.12), transparent 42%),
+        linear-gradient(180deg, rgba(13, 15, 11, 0.92), rgba(5, 6, 4, 0.86));
+    }
+
+    .work-card.compact::before,
+    .work-card.compact::after { display: none; }
+
+    .caption {
+      display: inline-flex;
+      width: fit-content;
+      margin-bottom: 14px;
+      border: 1px solid rgba(215, 163, 79, 0.38);
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(6, 7, 5, 0.64);
+      color: #f3d7a0;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .work-card h3,
+    .flow-card h3,
+    .doc-card h3,
+    .terminal-card h3 {
+      margin-bottom: 9px;
+      font-size: 1.45rem;
+      line-height: 1.05;
+    }
+
+    .work-card p,
+    .flow-card p,
+    .doc-card p,
+    .terminal-card p {
+      margin-bottom: 0;
       color: var(--muted);
-      font-size: 0.85rem;
+    }
+
+    .signal-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .signal {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      border-top: 1px solid rgba(245, 240, 230, 0.12);
+      padding-top: 12px;
+    }
+
+    .signal code,
+    .terminal code {
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    .signal code {
+      color: var(--moss);
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+
+    .flow-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .flow-card {
+      min-height: 230px;
+      padding: 22px;
+      background:
+        linear-gradient(180deg, rgba(245, 240, 230, 0.04), transparent),
+        var(--panel);
+    }
+
+    .flow-number {
+      display: grid;
+      width: 38px;
+      height: 38px;
+      margin-bottom: 28px;
+      place-items: center;
+      border: 1px solid rgba(154, 196, 107, 0.34);
+      border-radius: 50%;
+      color: var(--moss);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
       font-weight: 800;
     }
 
-    .camera {
-      position: relative;
-      min-height: 260px;
-      background:
-        linear-gradient(rgba(118, 190, 232, 0.1) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(118, 190, 232, 0.1) 1px, transparent 1px),
-        linear-gradient(135deg, #102119, #0b100d);
-      background-size: 34px 34px;
-    }
-
-    .camera::before {
-      position: absolute;
-      inset: 28px;
-      content: "";
-      border: 1px solid rgba(103, 211, 154, 0.65);
-      border-radius: 8px;
-    }
-
-    .camera::after {
-      position: absolute;
-      left: 50%;
-      top: 50%;
-      width: 116px;
-      height: 154px;
-      content: "human";
+    .terminal-layout {
       display: grid;
-      place-items: end center;
-      border: 2px solid var(--red);
-      color: var(--red);
-      font-size: 0.82rem;
-      font-weight: 900;
-      transform: translate(-50%, -50%);
+      grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+      gap: 14px;
+      align-items: stretch;
     }
 
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
-      gap: 10px;
+    .terminal-card {
+      padding: 26px;
+      background: rgba(8, 10, 7, 0.82);
     }
 
-    .step {
-      border-top: 3px solid var(--green);
-      padding: 16px 0 0;
-    }
-
-    .step b {
-      display: block;
-      margin-bottom: 10px;
-      color: var(--amber);
-      font-size: 1.8rem;
-    }
-
-    .code {
-      overflow-x: auto;
-      border: 1px solid var(--line);
+    .terminal {
+      min-height: 100%;
+      border: 1px solid rgba(245, 240, 230, 0.14);
       border-radius: 8px;
-      padding: 18px;
-      background: #080c0a;
-      color: #d8ead4;
-      font: 0.92rem/1.7 "Cascadia Code", Consolas, monospace;
+      background: #050604;
+      overflow: hidden;
     }
 
-    footer {
-      border-top: 1px solid var(--line);
-      padding: 30px 0;
-      background: #050806;
-      color: var(--muted);
-    }
-
-    .footer-row {
+    .terminal-bar {
       display: flex;
-      align-items: center;
+      gap: 7px;
+      padding: 13px 15px;
+      border-bottom: 1px solid rgba(245, 240, 230, 0.11);
+      background: rgba(245, 240, 230, 0.04);
+    }
+
+    .terminal-bar span {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--quiet);
+    }
+
+    .terminal pre {
+      margin: 0;
+      overflow-x: auto;
+      padding: 20px;
+      color: #d9e6cf;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.87rem;
+      line-height: 1.7;
+    }
+
+    .terminal b {
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .docs-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .doc-card {
+      display: grid;
+      min-height: 210px;
+      align-content: space-between;
+      padding: 22px;
+      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+    }
+
+    .doc-card:hover {
+      border-color: rgba(215, 163, 79, 0.38);
+      background: rgba(14, 17, 12, 0.84);
+      transform: translateY(-2px);
+    }
+
+    .doc-card span {
+      color: var(--amber);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .footer {
+      padding: 42px 0 56px;
+      color: var(--quiet);
+    }
+
+    .footer-inner {
+      display: flex;
       justify-content: space-between;
       gap: 18px;
+      border-top: 1px solid rgba(245, 240, 230, 0.12);
+      padding-top: 22px;
     }
 
-    @media (max-width: 860px) {
-      .links { display: none; }
-      .hero { min-height: auto; }
-      .hero-main { padding: 58px 0 30px; }
-      .signal-row,
-      .grid,
-      .mission,
-      .steps {
+    @media (max-width: 920px) {
+      .site-nav {
+        align-items: flex-start;
+        border-radius: 24px;
+        flex-wrap: wrap;
+      }
+
+      .nav-links {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 2px;
+      }
+
+      .hero {
+        padding-top: 142px;
+      }
+
+      .hero-strip,
+      .flow-grid,
+      .docs-grid,
+      .work-grid,
+      .terminal-layout,
+      .section-head {
         grid-template-columns: 1fr;
       }
-      .section-head {
-        display: block;
+
+      .work-card,
+      .work-card.compact {
+        min-height: 340px;
       }
-      .section-head p {
-        margin-top: 12px;
+    }
+
+    @media (max-width: 560px) {
+      .wrap {
+        width: min(100% - 24px, 1180px);
       }
-      .footer-row {
-        align-items: flex-start;
+
+      .site-nav {
+        top: 10px;
+        width: calc(100% - 16px);
+        padding: 9px;
+      }
+
+      .brand {
+        letter-spacing: 0.08em;
+      }
+
+      .nav-action {
+        padding: 9px 11px;
+      }
+
+      .hero {
+        padding-top: 172px;
+      }
+
+      .hero-card {
+        padding: 30px 18px;
+      }
+
+      h1 {
+        font-size: clamp(2.55rem, 16vw, 4rem);
+      }
+
+      section {
+        padding: 58px 0;
+      }
+
+      .actions,
+      .footer-inner {
         flex-direction: column;
       }
-      .actions .button {
+
+      .button {
         width: 100%;
       }
     }
   </style>
 </head>
 <body>
-  <div class="hero">
-    <header>
-      <div class="wrap nav">
-        <a class="brand" href="https://github.com/Catkartikwastaken/Stasis">
-          <img src="assets/stasis-mark.svg" alt="">
-          <span>STASIS</span>
-        </a>
-        <nav class="links" aria-label="Primary navigation">
-          <a href="#mission">Mission</a>
-          <a href="#flow">Flow</a>
-          <a href="#setup">Start</a>
-          <a href="#docs">Docs</a>
-          <a href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
-        </nav>
-      </div>
-    </header>
+  <nav class="site-nav" aria-label="Primary navigation">
+    <a class="brand" href="#top" aria-label="STASIS home">
+      <span class="brand-mark">S</span>
+      <span>STASIS</span>
+    </a>
+    <div class="nav-links" aria-label="Documentation">
+      <a href="#system">System</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#setup">Setup</a>
+      <a href="#docs">Docs</a>
+    </div>
+    <a class="nav-action" href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
+  </nav>
 
-    <main class="hero-main">
-      <div class="wrap">
-        <div class="hero-copy">
-          <span class="eyebrow">Raspberry Pi forest rover</span>
-          <h1>STASIS</h1>
-          <p class="lead">A compact monitoring rover that streams its Pi webcam, detects people and demo targets, and turns live alerts into dashboard-guided response.</p>
+  <main id="top">
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-card">
+          <h1>Build field intelligence with <span class="serif">STASIS.</span></h1>
+          <p>A Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
           <div class="actions">
-            <a class="button primary" href="https://github.com/Catkartikwastaken/Stasis">Open Repository</a>
-            <a class="button" href="#setup">Start Build</a>
-            <a class="button" href="README_ROVER_SYSTEM.html">Read Setup Guide</a>
+            <a class="button primary" href="README_ROVER_SYSTEM.html">Read Rover Guide</a>
+            <a class="button" href="#setup">Start Setup</a>
+            <a class="button" href="PROJECT_BRIEF.html">Project Brief</a>
+          </div>
+        </div>
+
+        <div class="hero-strip" aria-label="STASIS capabilities">
+          <div class="hero-stat">
+            <strong>Pi Camera</strong>
+            <span>Live rover frames over WebSocket.</span>
+          </div>
+          <div class="hero-stat">
+            <strong>Local AI</strong>
+            <span>ONNX, YOLO, Ollama, or LM Studio.</span>
+          </div>
+          <div class="hero-stat">
+            <strong>Telemetry</strong>
+            <span>Status, heading, distance, and heartbeat.</span>
+          </div>
+          <div class="hero-stat">
+            <strong>Alerts</strong>
+            <span>Human, animal, track, fire, and marker events.</span>
           </div>
         </div>
       </div>
-    </main>
+    </header>
 
-    <div class="wrap">
-      <div class="signal-row" aria-label="STASIS status summary">
-        <div class="signal"><small>Vision</small><strong>Pi webcam</strong></div>
-        <div class="signal"><small>Alerts</small><strong>Human first</strong></div>
-        <div class="signal"><small>Control</small><strong>Rover map</strong></div>
-        <div class="signal"><small>Model</small><strong>Custom-ready</strong></div>
-      </div>
-    </div>
-  </div>
-
-  <section id="mission">
-    <div class="wrap">
-      <div class="section-head">
-        <h2>Built for a real tabletop rover demo.</h2>
-        <p>No GPS theater, no fake field infrastructure. STASIS is tuned for an indoor forest-like arena where the rover can see, report, stop, scan, and respond.</p>
-      </div>
-      <div class="grid">
-        <article class="card">
-          <span class="tag">Live view</span>
-          <h3>Rover-eye camera feed</h3>
-          <p>The USB webcam stays on the Raspberry Pi, so the dashboard shows the scene from the rover's point of view.</p>
-        </article>
-        <article class="card">
-          <span class="tag">Detection</span>
-          <h3>Focused event alerts</h3>
-          <p>Humans, demo objects, red strips, animals, track cues, and fire-style hazards map into the STASIS alert contract.</p>
-        </article>
-        <article class="card">
-          <span class="tag">Control</span>
-          <h3>Dashboard-guided response</h3>
-          <p>Stop, scan, return-home, marker search, and clicked map goals stay visible beside rover status.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <section class="alt">
-    <div class="wrap mission">
-      <div class="console" aria-label="Dashboard preview">
-        <div class="console-top">
-          <span>STASIS dashboard</span>
-          <span>tracking alert</span>
+    <section id="system">
+      <div class="wrap">
+        <div class="section-head">
+          <h2><span class="serif">Selected</span> system work.</h2>
+          <p>The site keeps the original docs and project purpose, but presents it like a real field platform: grounded, inspectable, and ready for the next build stage.</p>
         </div>
-        <div class="camera"></div>
-      </div>
-      <div>
-        <span class="eyebrow">Detection path</span>
-        <h2>Camera frames become action.</h2>
-        <p class="lead">The laptop handles heavier AI work while the Pi keeps responsibility for movement and final rover-side decisions.</p>
-        <div class="actions">
-          <a class="button primary" href="WINDOWS_YOLO_ONNX_DETECTION.html">Windows Detector</a>
-          <a class="button" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">Pi Detection Path</a>
+
+        <div class="work-grid">
+          <article class="work-card">
+            <span class="caption">Field operation</span>
+            <h3>Rover vision for real terrain</h3>
+            <p>The rover side captures camera frames and status data, then sends them to the Windows server for display, detection, and alert routing.</p>
+          </article>
+
+          <article class="work-card compact">
+            <span class="caption">Local decision loop</span>
+            <h3>Detection, context, response</h3>
+            <p>STASIS can combine object detection with a local model through Ollama or LM Studio so the system can summarize what it sees and decide what deserves attention.</p>
+            <div class="signal-list">
+              <div class="signal">
+                <code>detect</code>
+                <p>Run camera frames through local YOLO or ONNX providers.</p>
+              </div>
+              <div class="signal">
+                <code>alert</code>
+                <p>Raise events for people, animals, signs of fire, tracks, and markers.</p>
+              </div>
+              <div class="signal">
+                <code>reason</code>
+                <p>Send selected observations to Qwen or another local model for plain-language output.</p>
+              </div>
+            </div>
+          </article>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <section id="flow">
-    <div class="wrap">
-      <div class="section-head">
-        <h2>Rover to laptop to dashboard.</h2>
-        <p>The build keeps responsibilities clear, so failures are easier to debug during a live demo.</p>
-      </div>
-      <div class="steps">
-        <div class="step"><b>01</b><p>Pi captures webcam frames.</p></div>
-        <div class="step"><b>02</b><p>Frames and telemetry stream to Windows.</p></div>
-        <div class="step"><b>03</b><p>Vision detects targets and markers.</p></div>
-        <div class="step"><b>04</b><p>The Pi receives the result.</p></div>
-        <div class="step"><b>05</b><p>The dashboard shows alerts and controls.</p></div>
-      </div>
-    </div>
-  </section>
+    <section id="pipeline">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>How the <span class="serif">pipeline</span> moves.</h2>
+          <p>A simple split: the Pi handles capture and rover-side telemetry; the laptop handles heavier inference, the dashboard, and local model workflows.</p>
+        </div>
 
-  <section id="setup" class="alt">
-    <div class="wrap">
-      <div class="section-head">
-        <h2>Start the demo.</h2>
-        <p>Run the Windows server first, then point the Raspberry Pi rover client at the laptop IP.</p>
+        <div class="flow-grid">
+          <article class="flow-card">
+            <span class="flow-number">01</span>
+            <h3>Capture</h3>
+            <p>Pi camera frames and rover state are collected close to the sensor.</p>
+          </article>
+          <article class="flow-card">
+            <span class="flow-number">02</span>
+            <h3>Transmit</h3>
+            <p>WebSocket channels carry frames, status, and detection payloads.</p>
+          </article>
+          <article class="flow-card">
+            <span class="flow-number">03</span>
+            <h3>Infer</h3>
+            <p>Windows-side providers run object detection and prepare alert context.</p>
+          </article>
+          <article class="flow-card">
+            <span class="flow-number">04</span>
+            <h3>Act</h3>
+            <p>The dashboard surfaces events and can hand observations to a local LLM.</p>
+          </article>
+        </div>
       </div>
-      <pre class="code">cd server
-py -m venv .venv
-.\.venv\Scripts\activate
-pip install -r requirements-api.txt
-python security_rover_server_windows.py
+    </section>
 
-cd ~/Documents/Stasis/rover/rpi2b
-python3 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-python rover_client.py --config config.json</pre>
-    </div>
-  </section>
+    <section id="setup">
+      <div class="wrap">
+        <div class="terminal-layout">
+          <article class="terminal-card">
+            <span class="caption">Bring-up path</span>
+            <h3>Start from the real repository commands.</h3>
+            <p>These entry points mirror the project docs instead of the placeholder copy from the redesign mockup. The Pi and Windows pieces can still evolve independently while the Pages front door stays accurate.</p>
+            <div class="actions">
+              <a class="button primary" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">Pi Detection Guide</a>
+              <a class="button" href="WINDOWS_YOLO_ONNX_DETECTION.html">Windows YOLO Guide</a>
+            </div>
+          </article>
 
-  <section id="docs">
-    <div class="wrap">
-      <div class="section-head">
-        <h2>Project docs.</h2>
-        <p>Jump straight into setup, providers, dataset capture, and detector notes.</p>
+          <div class="terminal" aria-label="Example STASIS setup commands">
+            <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+            <pre><code><b># rover side</b>
+python rover.py --camera 0 --server ws://laptop.local:8765
+
+<b># windows detection server</b>
+python windows_yolo_server.py --provider onnx
+
+<b># optional local model reasoning</b>
+ollama run qwen2.5
+# or connect LM Studio's local OpenAI-compatible endpoint</code></pre>
+          </div>
+        </div>
       </div>
-      <div class="grid">
-        <a class="card" href="README_ROVER_SYSTEM.html"><span class="tag">Build</span><h3>Rover System</h3><p>Setup, wiring notes, and operating flow.</p></a>
-        <a class="card" href="VISION_PROVIDERS.html"><span class="tag">AI</span><h3>Vision Providers</h3><p>Cloud APIs, Ollama, LM Studio, and local model options.</p></a>
-        <a class="card" href="DATASET_CAPTURE_ASSISTANT.html"><span class="tag">Dataset</span><h3>Dataset Capture</h3><p>Collect clean images for the custom detector.</p></a>
-        <a class="card" href="WINDOWS_YOLO_ONNX_DETECTION.html"><span class="tag">Detector</span><h3>Windows YOLO ONNX</h3><p>Faster Windows-side object detection setup.</p></a>
-        <a class="card" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html"><span class="tag">Pi</span><h3>Pi Object Detection</h3><p>Raspberry Pi OpenCV detections plus local model alert review.</p></a>
-        <a class="card" href="PROJECT_BRIEF.html"><span class="tag">Scope</span><h3>Project Brief</h3><p>Mission, assumptions, and demo limits.</p></a>
-      </div>
-    </div>
-  </section>
+    </section>
 
-  <footer>
-    <div class="wrap footer-row">
-      <span>STASIS is an open-source rover prototype for learning and demo testing.</span>
-      <a class="button" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
+    <section id="docs">
+      <div class="wrap">
+        <div class="section-head">
+          <h2>Project <span class="serif">docs</span>.</h2>
+          <p>Everything useful from the original Pages index is still here, now organized as a clean field manual for the rover and detection stack.</p>
+        </div>
+
+        <div class="docs-grid">
+          <a class="doc-card" href="README_ROVER_SYSTEM.html">
+            <span>Rover</span>
+            <div>
+              <h3>Rover System</h3>
+              <p>Architecture, message flow, and operator notes for STASIS.</p>
+            </div>
+          </a>
+          <a class="doc-card" href="VISION_PROVIDERS.html">
+            <span>Vision</span>
+            <div>
+              <h3>Vision Providers</h3>
+              <p>How the detection provider layer is organized and swapped.</p>
+            </div>
+          </a>
+          <a class="doc-card" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">
+            <span>Pi</span>
+            <div>
+              <h3>Pi Object Detection</h3>
+              <p>Local model options for Raspberry Pi object identification.</p>
+            </div>
+          </a>
+          <a class="doc-card" href="WINDOWS_YOLO_ONNX_DETECTION.html">
+            <span>Windows</span>
+            <div>
+              <h3>YOLO ONNX Detection</h3>
+              <p>Run heavier object detection from the Windows laptop server.</p>
+            </div>
+          </a>
+          <a class="doc-card" href="DATASET_CAPTURE_ASSISTANT.html">
+            <span>Dataset</span>
+            <div>
+              <h3>Capture Assistant</h3>
+              <p>Collect and organize field samples for later training runs.</p>
+            </div>
+          </a>
+          <a class="doc-card" href="PROJECT_BRIEF.html">
+            <span>Brief</span>
+            <div>
+              <h3>Project Brief</h3>
+              <p>High-level goals, planned integrations, and build direction.</p>
+            </div>
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span>STASIS field monitoring rover.</span>
+      <a href="https://github.com/Catkartikwastaken/Stasis">Catkartikwastaken/Stasis</a>
     </div>
   </footer>
 </body>

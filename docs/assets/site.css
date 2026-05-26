@@ -1,14 +1,14 @@
 :root {
   color-scheme: dark;
-  --bg: #08091a;
-  --panel: #111632;
-  --panel-2: #171d42;
-  --line: rgba(170, 184, 255, 0.22);
-  --text: #f7f8ff;
-  --muted: #c7c3d8;
-  --blue: #79dfff;
-  --purple: #7c5cff;
-  --violet: #c7b8ff;
+  --bg: #030402;
+  --panel: #0d0f0b;
+  --panel-2: #151911;
+  --line: rgba(245, 240, 230, 0.16);
+  --text: #f5f0e6;
+  --muted: #c9c1b0;
+  --moss: #9ac46b;
+  --amber: #d7a34f;
+  --steel: #7e918f;
 }
 
 * { box-sizing: border-box; }
@@ -17,16 +17,16 @@ body {
   margin: 0;
   min-height: 100vh;
   background:
-    radial-gradient(circle at 10% 0%, rgba(121, 223, 255, 0.12), transparent 24rem),
-    radial-gradient(circle at 90% 6%, rgba(124, 92, 255, 0.18), transparent 28rem),
-    linear-gradient(135deg, #08091a, #10133a 52%, #06131f);
+    radial-gradient(circle at 10% 0%, rgba(215, 163, 79, 0.12), transparent 24rem),
+    radial-gradient(circle at 90% 6%, rgba(154, 196, 107, 0.11), transparent 28rem),
+    linear-gradient(135deg, #030402, #10130d 54%, #050705);
   color: var(--text);
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.68;
 }
 
 a {
-  color: var(--blue);
+  color: var(--amber);
   text-decoration: none;
 }
 
@@ -43,7 +43,7 @@ a:hover { text-decoration: underline; }
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(10, 13, 32, 0.9);
+  background: rgba(8, 10, 7, 0.92);
 }
 
 .doc-brand {
@@ -79,8 +79,8 @@ a:hover { text-decoration: underline; }
 .doc-nav a:hover,
 .doc-sidebar a:hover {
   transform: translateY(-2px);
-  background: rgba(121, 223, 255, 0.1);
-  border-color: rgba(121, 223, 255, 0.3);
+  background: rgba(215, 163, 79, 0.1);
+  border-color: rgba(215, 163, 79, 0.3);
   text-decoration: none;
 }
 
@@ -101,12 +101,12 @@ a:hover { text-decoration: underline; }
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: rgba(10, 13, 32, 0.88);
+  background: rgba(8, 10, 7, 0.88);
 }
 
 .doc-sidebar strong {
   margin-bottom: 6px;
-  color: var(--violet);
+  color: var(--amber);
 }
 
 .doc-sidebar a {
@@ -120,7 +120,7 @@ a:hover { text-decoration: underline; }
   padding: clamp(24px, 5vw, 52px);
   border: 1px solid var(--line);
   border-radius: 22px;
-  background: rgba(13, 17, 42, 0.92);
+  background: rgba(13, 15, 11, 0.92);
   box-shadow: 0 22px 70px rgba(0, 0, 0, 0.28);
 }
 
@@ -134,15 +134,15 @@ a:hover { text-decoration: underline; }
 .doc-content h2 {
   margin-top: 2.1em;
   padding-top: 0.8em;
-  border-top: 1px solid rgba(170, 184, 255, 0.18);
-  color: var(--violet);
+  border-top: 1px solid rgba(245, 240, 230, 0.16);
+  color: var(--moss);
 }
 
 .doc-content h3 { color: #ffffff; }
 
 .doc-content p,
 .doc-content li {
-  color: rgba(247, 248, 255, 0.88);
+  color: rgba(245, 240, 230, 0.88);
 }
 
 .doc-content table {
@@ -155,13 +155,13 @@ a:hover { text-decoration: underline; }
 
 .doc-content th,
 .doc-content td {
-  border: 1px solid rgba(170, 184, 255, 0.16);
+  border: 1px solid rgba(245, 240, 230, 0.14);
   padding: 12px 14px;
   vertical-align: top;
 }
 
 .doc-content th {
-  background: rgba(121, 223, 255, 0.1);
+  background: rgba(215, 163, 79, 0.1);
   color: #ffffff;
   text-align: left;
 }
@@ -169,30 +169,30 @@ a:hover { text-decoration: underline; }
 .doc-content code {
   padding: 0.14em 0.38em;
   border-radius: 7px;
-  background: rgba(121, 223, 255, 0.1);
-  color: #e9fbff;
+  background: rgba(215, 163, 79, 0.12);
+  color: #fff0ce;
 }
 
 .doc-content pre {
   overflow-x: auto;
   padding: 18px;
-  border: 1px solid rgba(170, 184, 255, 0.18);
+  border: 1px solid rgba(245, 240, 230, 0.16);
   border-radius: 16px;
-  background: #050816;
+  background: #050604;
 }
 
 .doc-content pre code {
   padding: 0;
   background: transparent;
-  color: #edf5ff;
+  color: #edf5d7;
 }
 
 .doc-content blockquote {
   margin: 22px 0;
   padding: 14px 18px;
-  border-left: 4px solid var(--blue);
+  border-left: 4px solid var(--amber);
   border-radius: 12px;
-  background: rgba(121, 223, 255, 0.08);
+  background: rgba(215, 163, 79, 0.08);
   color: var(--muted);
 }
 
