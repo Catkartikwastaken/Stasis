@@ -3,20 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>STASIS Rover</title>
+  <title>STASIS</title>
+  <meta name="description" content="A Raspberry Pi rover platform for live monitoring, object detection, and dashboard-guided response.">
   <style>
     :root {
       color-scheme: dark;
-      --bg: #070817;
-      --panel: rgba(13, 17, 42, 0.86);
-      --panel-solid: #121735;
-      --line: rgba(170, 184, 255, 0.22);
-      --text: #f7f8ff;
-      --muted: #c7c3d8;
-      --blue: #79dfff;
-      --purple: #7c5cff;
-      --violet: #c7b8ff;
-      --green: #9be7c4;
+      --bg: #07100d;
+      --surface: #101713;
+      --surface-2: #151d18;
+      --line: rgba(230, 238, 226, 0.14);
+      --text: #f2f5ef;
+      --muted: #b8c4b6;
+      --green: #67d39a;
+      --amber: #efc35a;
+      --blue: #76bee8;
+      --red: #f06f5f;
+      --shadow: 0 22px 80px rgba(0, 0, 0, 0.36);
     }
 
     * { box-sizing: border-box; }
@@ -27,37 +29,38 @@
       margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       line-height: 1.55;
     }
 
     a { color: inherit; text-decoration: none; }
-
-    .page {
-      min-height: 100vh;
-      background:
-        linear-gradient(90deg, rgba(7, 8, 23, 0.88), rgba(7, 8, 23, 0.38), rgba(7, 8, 23, 0.62)),
-        radial-gradient(circle at 74% 28%, rgba(124, 92, 255, 0.22), transparent 28rem),
-        url("assets/forest-hero.jpg") center top / cover no-repeat fixed,
-        linear-gradient(135deg, #11184a, #071527);
-    }
 
     .wrap {
       width: min(1160px, calc(100% - 36px));
       margin: 0 auto;
     }
 
+    .hero {
+      min-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      background:
+        linear-gradient(90deg, rgba(7, 16, 13, 0.96) 0%, rgba(7, 16, 13, 0.72) 48%, rgba(7, 16, 13, 0.24) 100%),
+        linear-gradient(0deg, rgba(7, 16, 13, 0.82) 0%, rgba(7, 16, 13, 0.08) 48%),
+        url("assets/forest-hero.jpg") center / cover no-repeat;
+    }
+
     header {
       position: sticky;
       top: 0;
       z-index: 10;
-      padding: 16px 0;
-      backdrop-filter: blur(14px);
-      background: rgba(7, 8, 23, 0.68);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      border-bottom: 1px solid var(--line);
+      background: rgba(7, 16, 13, 0.78);
+      backdrop-filter: blur(16px);
     }
 
     .nav {
+      min-height: 70px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -69,389 +72,337 @@
       align-items: center;
       gap: 10px;
       font-weight: 900;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
     }
 
-    .brand img { width: 34px; height: 34px; }
+    .brand img {
+      width: 34px;
+      height: 34px;
+    }
 
     .links {
       display: flex;
       align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .links a,
-    .button {
-      min-height: 38px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 14px;
-      border-radius: 999px;
-      color: var(--text);
+      gap: 6px;
+      color: var(--muted);
       font-size: 0.93rem;
-      border: 1px solid transparent;
-      transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+      font-weight: 700;
     }
 
-    .links a:hover,
-    .button:hover {
-      transform: translateY(-2px);
+    .links a {
+      border-radius: 8px;
+      padding: 9px 11px;
+    }
+
+    .links a:hover {
       background: rgba(255, 255, 255, 0.08);
-      border-color: var(--line);
+      color: var(--text);
     }
 
-    .button {
-      border-color: var(--line);
-      background: rgba(255, 255, 255, 0.07);
-      font-weight: 800;
-    }
-
-    .button.primary {
-      border: 0;
-      background: linear-gradient(135deg, var(--blue), var(--purple));
-      box-shadow: 0 16px 38px rgba(80, 82, 220, 0.28);
-    }
-
-    .hero {
-      min-height: calc(100vh - 72px);
+    .hero-main {
+      flex: 1;
       display: grid;
-      grid-template-columns: 0.98fr 1.02fr;
-      gap: 42px;
       align-items: center;
-      padding: 72px 0;
+      padding: 62px 0 42px;
+    }
+
+    .hero-copy {
+      max-width: 720px;
     }
 
     .eyebrow {
       display: inline-flex;
       align-items: center;
-      min-height: 34px;
-      padding: 0 13px;
-      border: 1px solid var(--line);
+      gap: 8px;
+      color: var(--green);
+      font-size: 0.82rem;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+    }
+
+    .eyebrow::before {
+      width: 8px;
+      height: 8px;
+      content: "";
       border-radius: 999px;
-      background: rgba(13, 17, 42, 0.7);
-      color: var(--violet);
-      font-weight: 850;
-      font-size: 0.88rem;
+      background: var(--green);
+      box-shadow: 0 0 22px var(--green);
     }
 
     h1 {
-      margin: 22px 0 0;
       max-width: 780px;
-      font-size: clamp(3.2rem, 7vw, 6.4rem);
-      line-height: 0.9;
+      margin: 18px 0 18px;
+      font-size: clamp(4.6rem, 10vw, 9.8rem);
+      line-height: 0.88;
       letter-spacing: 0;
     }
 
-    h1 span { color: var(--violet); }
-
     .lead {
-      max-width: 620px;
-      margin: 24px 0 0;
-      color: var(--muted);
-      font-size: 1.12rem;
+      max-width: 650px;
+      margin: 0;
+      color: #dbe5d7;
+      font-size: clamp(1.08rem, 2vw, 1.35rem);
     }
 
     .actions {
       display: flex;
       flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 34px;
+      gap: 10px;
+      margin-top: 28px;
     }
 
-    .dashboard {
-      border: 1px solid var(--line);
-      border-radius: 26px;
-      padding: 18px;
-      background:
-        linear-gradient(145deg, rgba(121, 223, 255, 0.08), rgba(124, 92, 255, 0.08)),
-        var(--panel);
-      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.38);
-      animation: rise 700ms ease both;
-      backdrop-filter: blur(10px);
-    }
-
-    .dashboard::before {
-      content: "LIVE FIELD VIEW";
+    .button {
       display: inline-flex;
-      margin-bottom: 12px;
-      padding: 5px 9px;
-      border-radius: 999px;
-      color: var(--blue);
-      background: rgba(121, 223, 255, 0.09);
-      border: 1px solid rgba(121, 223, 255, 0.18);
-      font-size: 0.72rem;
-      font-weight: 900;
-      letter-spacing: 0.05em;
-    }
-
-    .hero-note {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-top: 22px;
-      max-width: 620px;
-    }
-
-    .hero-note span {
-      min-height: 54px;
-      display: flex;
+      min-height: 44px;
       align-items: center;
-      padding: 10px 12px;
-      border: 1px solid rgba(255, 255, 255, 0.11);
-      border-radius: 16px;
-      background: rgba(13, 17, 42, 0.56);
-      color: rgba(247, 248, 255, 0.86);
-      font-weight: 750;
-      font-size: 0.88rem;
-    }
-
-    .dash-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 14px;
-      color: var(--muted);
-      font-size: 0.86rem;
-    }
-
-    .camera {
-      min-height: 280px;
-      position: relative;
-      overflow: hidden;
-      border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background:
-        linear-gradient(rgba(121, 223, 255, 0.1) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(121, 223, 255, 0.1) 1px, transparent 1px),
-        radial-gradient(circle at 75% 30%, rgba(124, 92, 255, 0.2), transparent 14rem),
-        linear-gradient(135deg, #0a0e23, #151942);
-      background-size: 28px 28px, 28px 28px, auto;
-    }
-
-    .scan {
-      position: absolute;
-      left: 17%;
-      top: 20%;
-      width: 36%;
-      height: 56%;
-      border: 2px solid var(--blue);
-      border-radius: 10px;
-      box-shadow: 0 0 26px rgba(121, 223, 255, 0.3);
-      animation: pulse 2.6s ease-in-out infinite;
-    }
-
-    .scan::before {
-      content: "human 92%";
-      position: absolute;
-      left: -2px;
-      top: -31px;
-      padding: 5px 8px;
+      justify-content: center;
+      gap: 9px;
+      border: 1px solid var(--line);
       border-radius: 8px;
-      color: #04111d;
-      background: var(--blue);
-      font-size: 0.8rem;
-      font-weight: 900;
+      padding: 10px 14px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text);
+      font-weight: 850;
     }
 
-    .strip {
-      position: absolute;
-      right: 17%;
-      bottom: 22%;
-      width: 28%;
-      height: 9px;
-      border-radius: 99px;
-      background: #ff536b;
-      box-shadow: 0 0 24px rgba(255, 83, 107, 0.42);
-      transform: rotate(-12deg);
+    .button.primary {
+      border-color: rgba(103, 211, 154, 0.55);
+      background: #dbeed7;
+      color: #092015;
     }
 
-    .metrics {
+    .signal-row {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-top: 12px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--line);
+      box-shadow: var(--shadow);
     }
 
-    .metric {
-      border: 1px solid rgba(255, 255, 255, 0.11);
-      border-radius: 16px;
-      padding: 13px;
-      background: rgba(255, 255, 255, 0.055);
+    .signal {
+      min-height: 92px;
+      padding: 16px;
+      background: rgba(16, 23, 19, 0.88);
     }
 
-    .metric small {
+    .signal small {
       display: block;
       color: var(--muted);
-      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
     }
 
-    .metric strong {
+    .signal strong {
       display: block;
-      margin-top: 4px;
+      margin-top: 6px;
+      font-size: 1.2rem;
     }
 
     section {
-      padding: 82px 0;
-      background:
-        radial-gradient(circle at 12% 4%, rgba(121, 223, 255, 0.08), transparent 22rem),
-        linear-gradient(180deg, rgba(7, 8, 23, 0.96), rgba(10, 13, 32, 0.98));
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 86px 0;
+      background: var(--bg);
+    }
+
+    section.alt {
+      background: var(--surface);
+      border-block: 1px solid var(--line);
     }
 
     h2 {
+      max-width: 760px;
       margin: 0;
-      font-size: clamp(2.1rem, 5vw, 4.4rem);
-      line-height: 0.95;
+      font-size: clamp(2rem, 4vw, 3.4rem);
+      line-height: 1;
       letter-spacing: 0;
     }
 
-    .copy {
-      max-width: 760px;
-      margin: 16px 0 0;
+    .section-head {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 26px;
+    }
+
+    .section-head p {
+      max-width: 440px;
+      margin: 0;
       color: var(--muted);
-      font-size: 1.05rem;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-top: 30px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
     }
 
     .card {
-      min-height: 176px;
-      padding: 22px;
-      border-radius: 22px;
+      min-height: 190px;
       border: 1px solid var(--line);
-      background: rgba(18, 23, 53, 0.84);
-      box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
-      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+      border-radius: 8px;
+      padding: 20px;
+      background: var(--surface-2);
     }
 
-    .card:hover {
-      transform: translateY(-6px);
-      border-color: rgba(121, 223, 255, 0.48);
-      background: rgba(25, 31, 70, 0.92);
-      box-shadow: 0 22px 54px rgba(49, 65, 170, 0.22);
+    .card .tag {
+      display: inline-flex;
+      margin-bottom: 28px;
+      border-radius: 999px;
+      padding: 5px 9px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      font-size: 0.76rem;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
-    .card svg {
-      width: 34px;
-      height: 34px;
-      margin-bottom: 16px;
-      color: var(--blue);
-    }
-
-    .card h3 {
+    h3 {
       margin: 0 0 8px;
-      font-size: 1.08rem;
+      font-size: 1.16rem;
+      letter-spacing: 0;
     }
 
-    .card p { margin: 0; color: var(--muted); }
+    .card p,
+    .step p {
+      margin: 0;
+      color: var(--muted);
+    }
 
-    .split {
+    .mission {
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-      margin-top: 30px;
+      grid-template-columns: 0.95fr 1.05fr;
+      gap: 16px;
+      align-items: stretch;
     }
 
-    .photo {
-      min-height: 320px;
-      border-radius: 24px;
+    .console {
+      overflow: hidden;
       border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #080c0a;
+      box-shadow: var(--shadow);
+    }
+
+    .console-top {
+      display: flex;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 800;
+    }
+
+    .camera {
+      position: relative;
+      min-height: 260px;
       background:
-        linear-gradient(rgba(121, 223, 255, 0.1) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(121, 223, 255, 0.1) 1px, transparent 1px),
-        linear-gradient(135deg, #0a0e23, #151942);
-      background-size: 28px 28px, 28px 28px, auto;
+        linear-gradient(rgba(118, 190, 232, 0.1) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(118, 190, 232, 0.1) 1px, transparent 1px),
+        linear-gradient(135deg, #102119, #0b100d);
+      background-size: 34px 34px;
+    }
+
+    .camera::before {
+      position: absolute;
+      inset: 28px;
+      content: "";
+      border: 1px solid rgba(103, 211, 154, 0.65);
+      border-radius: 8px;
+    }
+
+    .camera::after {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 116px;
+      height: 154px;
+      content: "human";
+      display: grid;
+      place-items: end center;
+      border: 2px solid var(--red);
+      color: var(--red);
+      font-size: 0.82rem;
+      font-weight: 900;
+      transform: translate(-50%, -50%);
     }
 
     .steps {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
-      margin-top: 30px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
     }
 
     .step {
-      min-height: 145px;
-      padding: 18px;
-      border-radius: 20px;
-      border: 1px solid var(--line);
-      background: rgba(18, 23, 53, 0.82);
-      transition: transform 180ms ease;
+      border-top: 3px solid var(--green);
+      padding: 16px 0 0;
     }
-
-    .step:hover { transform: translateY(-5px); }
 
     .step b {
-      display: inline-grid;
-      place-items: center;
-      width: 32px;
-      height: 32px;
-      margin-bottom: 12px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--blue), var(--purple));
+      display: block;
+      margin-bottom: 10px;
+      color: var(--amber);
+      font-size: 1.8rem;
     }
 
-    pre {
-      margin: 0;
-      min-height: 248px;
+    .code {
       overflow-x: auto;
-      padding: 20px;
-      border-radius: 20px;
       border: 1px solid var(--line);
-      background: #050816;
-      color: #edf5ff;
-      font-size: 0.88rem;
-      line-height: 1.55;
+      border-radius: 8px;
+      padding: 18px;
+      background: #080c0a;
+      color: #d8ead4;
+      font: 0.92rem/1.7 "Cascadia Code", Consolas, monospace;
     }
 
     footer {
-      padding: 44px 0 56px;
-      background: #070817;
+      border-top: 1px solid var(--line);
+      padding: 30px 0;
+      background: #050806;
       color: var(--muted);
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
     }
 
     .footer-row {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
+      gap: 18px;
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 0.82; }
-      50% { opacity: 1; box-shadow: 0 0 38px rgba(121, 223, 255, 0.46); }
-    }
-
-    @keyframes rise {
-      from { opacity: 0; transform: translateY(18px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    @media (max-width: 900px) {
-      .nav { align-items: flex-start; flex-direction: column; }
-      .hero,
-      .split { grid-template-columns: 1fr; }
+    @media (max-width: 860px) {
+      .links { display: none; }
       .hero { min-height: auto; }
+      .hero-main { padding: 58px 0 30px; }
+      .signal-row,
       .grid,
-      .steps,
-      .metrics,
-      .hero-note { grid-template-columns: 1fr; }
-      .links a,
-      .button { width: 100%; }
+      .mission,
+      .steps {
+        grid-template-columns: 1fr;
+      }
+      .section-head {
+        display: block;
+      }
+      .section-head p {
+        margin-top: 12px;
+      }
+      .footer-row {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .actions .button {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="page">
+  <div class="hero">
     <header>
       <div class="wrap nav">
         <a class="brand" href="https://github.com/Catkartikwastaken/Stasis">
@@ -459,146 +410,145 @@
           <span>STASIS</span>
         </a>
         <nav class="links" aria-label="Primary navigation">
-          <a href="#features">Features</a>
-          <a href="#model">Model</a>
-          <a href="#system">System</a>
+          <a href="#mission">Mission</a>
+          <a href="#flow">Flow</a>
+          <a href="#setup">Start</a>
           <a href="#docs">Docs</a>
-          <a class="button primary" href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
+          <a href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
         </nav>
       </div>
     </header>
 
-    <main>
-      <section class="hero wrap">
-        <div>
-          <span class="eyebrow">Forest-themed Raspberry Pi rover</span>
-          <h1>Night-forest monitoring with a <span>live rover eye</span>.</h1>
-          <p class="lead">STASIS streams the Raspberry Pi webcam, detects humans and demo objects, and gives the dashboard a clean way to track what the rover sees.</p>
-          <div class="hero-note" aria-label="STASIS quick highlights">
-            <span>Pi webcam feed</span>
-            <span>Human alerts</span>
-            <span>Custom object model</span>
-          </div>
+    <main class="hero-main">
+      <div class="wrap">
+        <div class="hero-copy">
+          <span class="eyebrow">Raspberry Pi forest rover</span>
+          <h1>STASIS</h1>
+          <p class="lead">A compact monitoring rover that streams its Pi webcam, detects people and demo targets, and turns live alerts into dashboard-guided response.</p>
           <div class="actions">
             <a class="button primary" href="https://github.com/Catkartikwastaken/Stasis">Open Repository</a>
-            <a class="button" href="#system">See System Flow</a>
-            <a class="button" href="README_ROVER_SYSTEM.html">Read Docs</a>
+            <a class="button" href="#setup">Start Build</a>
+            <a class="button" href="README_ROVER_SYSTEM.html">Read Setup Guide</a>
           </div>
         </div>
+      </div>
+    </main>
 
-        <div class="dashboard" aria-label="STASIS dashboard preview">
-          <div class="dash-top">
-            <span>STASIS dashboard</span>
-            <span>Pi feed online</span>
-          </div>
-          <div class="camera">
-            <div class="scan"></div>
-            <div class="strip"></div>
-          </div>
-          <div class="metrics">
-            <div class="metric"><small>rover</small><strong>online</strong></div>
-            <div class="metric"><small>camera</small><strong>webcam</strong></div>
-            <div class="metric"><small>alert</small><strong>tracking</strong></div>
-          </div>
+    <div class="wrap">
+      <div class="signal-row" aria-label="STASIS status summary">
+        <div class="signal"><small>Vision</small><strong>Pi webcam</strong></div>
+        <div class="signal"><small>Alerts</small><strong>Human first</strong></div>
+        <div class="signal"><small>Control</small><strong>Rover map</strong></div>
+        <div class="signal"><small>Model</small><strong>Custom-ready</strong></div>
+      </div>
+    </div>
+  </div>
+
+  <section id="mission">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Built for a real tabletop rover demo.</h2>
+        <p>No GPS theater, no fake field infrastructure. STASIS is tuned for an indoor forest-like arena where the rover can see, report, stop, scan, and respond.</p>
+      </div>
+      <div class="grid">
+        <article class="card">
+          <span class="tag">Live view</span>
+          <h3>Rover-eye camera feed</h3>
+          <p>The USB webcam stays on the Raspberry Pi, so the dashboard shows the scene from the rover's point of view.</p>
+        </article>
+        <article class="card">
+          <span class="tag">Detection</span>
+          <h3>Focused event alerts</h3>
+          <p>Humans, demo objects, red strips, animals, track cues, and fire-style hazards map into the STASIS alert contract.</p>
+        </article>
+        <article class="card">
+          <span class="tag">Control</span>
+          <h3>Dashboard-guided response</h3>
+          <p>Stop, scan, return-home, marker search, and clicked map goals stay visible beside rover status.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="alt">
+    <div class="wrap mission">
+      <div class="console" aria-label="Dashboard preview">
+        <div class="console-top">
+          <span>STASIS dashboard</span>
+          <span>tracking alert</span>
         </div>
-      </section>
-
-      <section id="features">
-        <div class="wrap">
-          <h2>Built For A Small Rover Demo</h2>
-          <p class="copy">Compact hardware, live video, AI detection, command control, tracking, and custom dataset collection.</p>
-          <div class="grid">
-            <article class="card">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 7h4l2-2h4l2 2h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
-              <h3>Pi Camera Stream</h3>
-              <p>The USB webcam stays on the rover so the dashboard sees the scene from the Raspberry Pi.</p>
-            </article>
-            <article class="card">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v18M3 12h18"/><circle cx="12" cy="12" r="7"/></svg>
-              <h3>Detection Alerts</h3>
-              <p>Humans, demo objects, and red strips become dashboard events with confidence and location.</p>
-            </article>
-            <article class="card">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 5h14v14H5z"/><path d="M9 9h6M9 13h6"/></svg>
-              <h3>Dataset Studio</h3>
-              <p>A webcam tool helps collect training photos for custom alpha tester objects.</p>
-            </article>
-          </div>
+        <div class="camera"></div>
+      </div>
+      <div>
+        <span class="eyebrow">Detection path</span>
+        <h2>Camera frames become action.</h2>
+        <p class="lead">The laptop handles heavier AI work while the Pi keeps responsibility for movement and final rover-side decisions.</p>
+        <div class="actions">
+          <a class="button primary" href="WINDOWS_YOLO_ONNX_DETECTION.html">Windows Detector</a>
+          <a class="button" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">Pi Detection Path</a>
         </div>
-      </section>
+      </div>
+    </div>
+  </section>
 
-      <section id="model">
-        <div class="wrap">
-          <h2>Custom Object Detection</h2>
-          <p class="copy">STASIS is being prepared for a specific trained object detection model instead of relying only on generic classes.</p>
-          <div class="split">
-            <div class="card">
-              <h3>Training Plan</h3>
-              <p>Collect real demo photos from webcam and phone, label alpha tester objects, red strips, and empty backgrounds, then train a small detector for the exact demo environment.</p>
-            </div>
-            <div class="photo" aria-label="Raspberry Pi board photo"></div>
-          </div>
-        </div>
-      </section>
+  <section id="flow">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Rover to laptop to dashboard.</h2>
+        <p>The build keeps responsibilities clear, so failures are easier to debug during a live demo.</p>
+      </div>
+      <div class="steps">
+        <div class="step"><b>01</b><p>Pi captures webcam frames.</p></div>
+        <div class="step"><b>02</b><p>Frames and telemetry stream to Windows.</p></div>
+        <div class="step"><b>03</b><p>Vision detects targets and markers.</p></div>
+        <div class="step"><b>04</b><p>The Pi receives the result.</p></div>
+        <div class="step"><b>05</b><p>The dashboard shows alerts and controls.</p></div>
+      </div>
+    </div>
+  </section>
 
-      <section id="system">
-        <div class="wrap">
-          <h2>Rover To Laptop To Dashboard</h2>
-          <p class="copy">The Raspberry Pi captures frames and controls the rover. The Windows laptop handles the web dashboard and heavier vision work.</p>
-          <div class="steps">
-            <div class="step"><b>1</b><br>Pi webcam captures the scene.</div>
-            <div class="step"><b>2</b><br>Frames stream to Windows.</div>
-            <div class="step"><b>3</b><br>Vision detects targets.</div>
-            <div class="step"><b>4</b><br>Results return to the Pi.</div>
-            <div class="step"><b>5</b><br>Dashboard tracks and controls.</div>
-          </div>
-        </div>
-      </section>
-
-      <section id="setup">
-        <div class="wrap">
-          <h2>Start It</h2>
-          <p class="copy">Run the Windows server first, then point the Raspberry Pi rover client to the server IP.</p>
-          <div class="split">
-            <pre><code>cd server
+  <section id="setup" class="alt">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Start the demo.</h2>
+        <p>Run the Windows server first, then point the Raspberry Pi rover client at the laptop IP.</p>
+      </div>
+      <pre class="code">cd server
 py -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements-api.txt
-copy vision_config.example.json vision_config.json
-python security_rover_server_windows.py</code></pre>
-            <pre><code>cd ~/Documents/Stasis/rover/rpi2b
+python security_rover_server_windows.py
+
+cd ~/Documents/Stasis/rover/rpi2b
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r requirements.txt
-cp config.example.json config.json
-nano config.json
-python rover_client.py --config config.json</code></pre>
-          </div>
-        </div>
-      </section>
+python rover_client.py --config config.json</pre>
+    </div>
+  </section>
 
-      <section id="docs">
-        <div class="wrap">
-          <h2>Project Docs</h2>
-          <p class="copy">The documentation pages now open as readable styled pages instead of raw Markdown.</p>
-          <div class="grid">
-            <a class="card" href="README_ROVER_SYSTEM.html"><h3>Rover System</h3><p>Setup, wiring notes, and operating flow.</p></a>
-            <a class="card" href="VISION_PROVIDERS.html"><h3>Vision Providers</h3><p>Cloud APIs, Ollama, LM Studio, and local model options.</p></a>
-            <a class="card" href="PROJECT_BRIEF.html"><h3>Project Brief</h3><p>Mission, scope, and demo assumptions.</p></a>
-            <a class="card" href="WINDOWS_YOLO_ONNX_DETECTION.html"><h3>Windows YOLO ONNX</h3><p>Faster Windows-side detector setup.</p></a>
-            <a class="card" href="DATASET_CAPTURE_ASSISTANT.html"><h3>Dataset Capture</h3><p>Collect clean images for the custom detector.</p></a>
-            <a class="card" href="https://github.com/Catkartikwastaken/Stasis"><h3>GitHub Repository</h3><p>Source code, commits, and project history.</p></a>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      <div class="wrap footer-row">
-        <span>STASIS is an open-source rover prototype for learning, testing, and building better small robot systems.</span>
-        <a class="button" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
+  <section id="docs">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Project docs.</h2>
+        <p>Jump straight into setup, providers, dataset capture, and detector notes.</p>
       </div>
-    </footer>
-  </div>
+      <div class="grid">
+        <a class="card" href="README_ROVER_SYSTEM.html"><span class="tag">Build</span><h3>Rover System</h3><p>Setup, wiring notes, and operating flow.</p></a>
+        <a class="card" href="VISION_PROVIDERS.html"><span class="tag">AI</span><h3>Vision Providers</h3><p>Cloud APIs, Ollama, LM Studio, and local model options.</p></a>
+        <a class="card" href="DATASET_CAPTURE_ASSISTANT.html"><span class="tag">Dataset</span><h3>Dataset Capture</h3><p>Collect clean images for the custom detector.</p></a>
+        <a class="card" href="WINDOWS_YOLO_ONNX_DETECTION.html"><span class="tag">Detector</span><h3>Windows YOLO ONNX</h3><p>Faster Windows-side object detection setup.</p></a>
+        <a class="card" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html"><span class="tag">Pi</span><h3>Pi Object Detection</h3><p>Raspberry Pi OpenCV detections plus local model alert review.</p></a>
+        <a class="card" href="PROJECT_BRIEF.html"><span class="tag">Scope</span><h3>Project Brief</h3><p>Mission, assumptions, and demo limits.</p></a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap footer-row">
+      <span>STASIS is an open-source rover prototype for learning and demo testing.</span>
+      <a class="button" href="https://github.com/Catkartikwastaken/Stasis">Open GitHub</a>
+    </div>
+  </footer>
 </body>
 </html>
