@@ -25,7 +25,7 @@ Pick the class from the dropdown, then follow the on-screen prompts.
 You can also start a class directly:
 
 ```powershell
-python tools\dataset_capture_assistant.py --class-name red_strip
+python tools\dataset_capture_assistant.py --class-name green_strip
 python tools\dataset_capture_assistant.py --class-name alpha_tester_object
 python tools\dataset_capture_assistant.py --class-name empty_background
 ```
@@ -82,7 +82,7 @@ For the current demo dataset, use:
 
 ```text
 alpha_tester_object
-red_strip
+green_strip
 empty_background
 ```
 

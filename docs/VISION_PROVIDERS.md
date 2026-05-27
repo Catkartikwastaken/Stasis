@@ -241,7 +241,7 @@ Use this only if your laptop has enough RAM and the model starts reliably. API m
 Every provider is asked to return this JSON:
 
 ```json
-{"detected": true, "category": "human", "message": "person visible near the red strip"}
+{"detected": true, "category": "human", "message": "person visible near the Green Strip"}
 ```
 
 Allowed categories:

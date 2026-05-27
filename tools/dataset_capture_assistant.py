@@ -2,7 +2,7 @@
 STASIS simple dataset capture app.
 
 Manual-only webcam capture for the current demo dataset:
-alpha tester objects, red strips, and empty backgrounds.
+alpha tester objects, green strips, and empty backgrounds.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from PIL import Image, ImageTk
 
 DEFAULT_CLASSES = [
     "alpha_tester_object",
-    "red_strip",
+    "green_strip",
     "empty_background",
 ]
 
@@ -41,8 +41,8 @@ SHOT_IDEAS = {
         "Use a messy background",
         "Use a clean background",
     ],
-    "red_strip": [
-        "Show the red strip clearly",
+    "green_strip": [
+        "Show the green strip clearly",
         "Place it horizontal, vertical, or diagonal",
         "Put it on the floor or wall",
         "Move it far from the camera",
@@ -52,7 +52,7 @@ SHOT_IDEAS = {
     "empty_background": [
         "No target objects in view",
         "Only floor/wall/background",
-        "Harmless objects but no red strip",
+        "Harmless objects but no green strip",
         "Different lighting",
         "Different camera angle",
         "Messy but empty demo area",

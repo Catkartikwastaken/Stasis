@@ -148,7 +148,7 @@ human   -> humans, intruders, people in the test area
 animal  -> animals or wildlife stand-ins
 track   -> footprints, trails, soil changes, disturbed ground, track marks
 fire    -> flame, smoke, fire-like hazards
-marker  -> custom navigation markers such as red strips
+marker  -> custom navigation markers such as green strips
 ```
 
 The demo is indoors, but the prompt treats the scene as a staged forest floor. It intentionally avoids alerting on ordinary doors or windows unless they matter to the demo setup.

@@ -12,7 +12,7 @@ The current build is focused on an indoor forest-like demo space: no GPS, no com
 | --- | --- |
 | Live rover vision | Streams the Raspberry Pi webcam feed to the dashboard. |
 | Human detection | Detects people and surfaces them as high-priority dashboard alerts. |
-| Object and marker detection | Supports demo objects, red-strip navigation markers, and empty-background dataset collection. |
+| Object and marker detection | Supports demo objects, green-strip navigation markers, and empty-background dataset collection. |
 | Rover control | Sends manual, scan, stop, return-home, and marker navigation commands from the dashboard to the Pi. |
 | Minimal wiring | Keeps the main system centered on the Raspberry Pi, webcam, motor driver path, and optional ESP32-S3 bridge. |
 | Extensible AI | Supports local or API-based vision providers, plus custom dataset capture for training a better model. |
@@ -47,7 +47,7 @@ STASIS keeps detections focused on the rover mission:
 human              people or intruders in the demo area
 animal             animal stand-ins or wildlife-style targets
 alpha_tester_object custom demo objects for the trained dataset
-red_strip          navigation marker strips
+green_strip          navigation marker strips
 empty_background   clean negative examples for model training
 fire / track       supported in the broader alert contract
 ```
@@ -129,7 +129,7 @@ python tools\dataset_capture_assistant.py
 It captures:
 
 - `alpha_tester_object`
-- `red_strip`
+- `green_strip`
 - `empty_background`
 
 The tool lets you choose camera resolution, FPS, brightness, contrast, exposure, focus, and save location from the app itself. See [Dataset Capture Assistant](docs/DATASET_CAPTURE_ASSISTANT.md).

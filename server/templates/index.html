@@ -364,8 +364,8 @@
           <button id="stopRover" type="button">Stop</button>
           <button id="returnHome" type="button">Return to Home</button>
           <button id="scanArea" type="button">Scan Area</button>
-          <button id="searchRedStrip" type="button">Search Red Strip</button>
-          <button id="goToRedStrip" type="button">Go to Red Strip</button>
+          <button id="searchGreenStrip" type="button">Search Green Strip</button>
+          <button id="goToGreenStrip" type="button">Go to Green Strip</button>
         </div>
         <div class="event-status">Rover status: <span id="roverStatus">waiting</span></div>
         <section class="guidance" aria-label="Tracking guidance" aria-live="polite">
@@ -423,8 +423,8 @@
       const stopRoverBtn = document.getElementById("stopRover");
       const returnHomeBtn = document.getElementById("returnHome");
       const scanAreaBtn = document.getElementById("scanArea");
-      const searchRedStripBtn = document.getElementById("searchRedStrip");
-      const goToRedStripBtn = document.getElementById("goToRedStrip");
+      const searchGreenStripBtn = document.getElementById("searchGreenStrip");
+      const goToGreenStripBtn = document.getElementById("goToGreenStrip");
       const scanResultsEl = document.getElementById("scanResults");
       const roverStatusEl = document.getElementById("roverStatus");
 
@@ -651,12 +651,12 @@
         socket.emit("request_scan");
       });
 
-      searchRedStripBtn.addEventListener("click", () => {
-        socket.emit("search_marker", { marker: "red_strip" });
+      searchGreenStripBtn.addEventListener("click", () => {
+        socket.emit("search_marker", { marker: "green_strip" });
       });
 
-      goToRedStripBtn.addEventListener("click", () => {
-        socket.emit("go_to_marker", { marker: "red_strip" });
+      goToGreenStripBtn.addEventListener("click", () => {
+        socket.emit("go_to_marker", { marker: "green_strip" });
       });
 
       renderPose();

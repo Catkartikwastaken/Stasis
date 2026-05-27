@@ -115,11 +115,11 @@ MARKER_COLORS: set[str] = {"red", "blue", "green", "yellow", "orange", "white", 
 DEFAULT_ANALYSIS_PROMPT: str = (
     "Analyze this STASIS forest-monitoring rover frame. Look for humans or intruders, "
     "animals or wildlife stand-ins, soil differences, footprints, trails, disturbed ground, "
-    "fire, smoke, flame, and custom colored navigation markers such as red strips. "
+    "fire, smoke, flame, and custom colored navigation markers such as green strips. "
     "Respond with exactly one JSON object and no Markdown. Use this schema: "
     "{\"detected\": boolean, \"category\": \"human|animal|track|fire|marker\", "
     "\"message\": string}. Set detected to true only when a relevant STASIS monitoring event or "
-    "marker is visible. Intruders are category human. Use category marker for colored strips. "
+    "marker is visible. Intruders are category human. Use category marker for colored green strips. "
     "Keep message short and specific; use an empty string when detected is false."
 )
 ANALYSIS_PROMPT: str = os.getenv("STASIS_ANALYSIS_PROMPT", DEFAULT_ANALYSIS_PROMPT)
@@ -778,7 +778,7 @@ def analyze_with_ollama_moondream_pipeline(config: Dict[str, Any], frame: Any) -
         config.get(
             "vision_prompt",
             "Inspect this STASIS rover frame. List whether you see a person/human, animal, "
-            "fire/smoke/flame, footprints/tracks/soil disturbance, colored marker/red strip, "
+            "fire/smoke/flame, footprints/tracks/soil disturbance, colored marker/green strip, "
             "and important objects. Be concise.",
         )
     )
@@ -815,7 +815,7 @@ def analyze_with_ollama_moondream_pipeline(config: Dict[str, Any], frame: Any) -
             "Convert the vision notes into exactly one STASIS JSON object and no Markdown. "
             "Allowed categories: human, animal, track, fire, marker. "
             "Return detected true only for those STASIS events. Intruders are human. "
-            "Colored strips are marker. If no event is visible, return "
+            "Colored green strips are marker. If no event is visible, return "
             "{\"detected\": false, \"category\": \"\", \"message\": \"\"}. "
             "Keep message short and specific.",
         )
@@ -1411,7 +1411,7 @@ def on_search_marker(payload: Optional[Dict[str, Any]] = None) -> None:
     """
     Dispatches targeted scan directives to look for specific visual markers.
     """
-    marker = "red_strip"
+    marker = "green_strip"
     if isinstance(payload, dict):
         marker = str(payload.get("marker") or marker).strip().lower().replace(" ", "_")
     sent = send_rover_command({"cmd": "scan", "target": marker})
@@ -1425,7 +1425,7 @@ def on_go_to_marker(payload: Optional[Dict[str, Any]] = None) -> None:
     """
     global pending_goal
 
-    marker = "red_strip"
+    marker = "green_strip"
     if isinstance(payload, dict):
         marker = str(payload.get("marker") or marker).strip().lower().replace(" ", "_")
 

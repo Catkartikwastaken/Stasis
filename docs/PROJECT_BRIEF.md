@@ -17,7 +17,7 @@ Humans/intruders
 Animals or wildlife stand-ins
 Soil changes, tracks, footprints, trails, or disturbed ground
 Fire, smoke, or flame-like hazards
-Custom colored markers or strips, especially red strips
+Custom colored markers or strips, especially green strips
 ```
 
 Intruders are classified under the `human` category. Ordinary indoor doors and windows are not target classes for this project.
@@ -56,9 +56,9 @@ Fire alerts
 Custom marker search and marker-directed patrol
 ```
 
-For the colored-strip demo, the rover should be able to scan for a requested strip, remember where it was found, and later drive back to that strip when commanded.
+For the green-strip demo, the rover should be able to scan for a requested strip, remember where it was found, and later drive back to that strip when commanded.
 
-The Pi now receives vision results before an alert is shown. For humans and fire it stops and approves an alert; for markers it approves the marker memory path so the dashboard can request a red-strip search and command the rover back to the last seen strip.
+The Pi now receives vision results before an alert is shown. For humans and fire it stops and approves an alert; for markers it approves the marker memory path so the dashboard can request a green-strip search and command the rover back to the last seen strip.
 
 ## Open Decisions
 

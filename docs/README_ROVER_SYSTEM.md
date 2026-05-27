@@ -91,7 +91,7 @@ When the rover finishes, it sends:
 {"status":"goal_reached"}
 ```
 
-When the selected multimodal provider detects a relevant forest-monitoring event, the laptop sends a `vision_result` back to the Raspberry Pi. The Pi decides the action, for example `stop_and_alert` for humans or fire, then returns `vision_decision`. The server uses that Pi decision to emit `new_alert` to the dashboard. Target events include humans/intruders, animals, visible track or soil changes, fire/smoke/flame, and custom colored markers such as red strips. API, Ollama, LM Studio, and local Gemma setup details live in `docs/VISION_PROVIDERS.md`.
+When the selected multimodal provider detects a relevant forest-monitoring event, the laptop sends a `vision_result` back to the Raspberry Pi. The Pi decides the action, for example `stop_and_alert` for humans or fire, then returns `vision_decision`. The server uses that Pi decision to emit `new_alert` to the dashboard. Target events include humans/intruders, animals, visible track or soil changes, fire/smoke/flame, and custom colored markers such as green strips. API, Ollama, LM Studio, and local Gemma setup details live in `docs/VISION_PROVIDERS.md`.
 
 The server accepts alerts only for these categories:
 
@@ -387,7 +387,7 @@ Ultrasonic scan
 Multimodal event alerts
 ```
 
-The dashboard includes red-strip search and go-to-red-strip controls. Marker detections are stored against the rover's current map position, so the rover can drive back to the last seen strip when commanded. The next behavior layer should add richer patrol scripts around those stored marker points.
+The dashboard includes green-strip search and go-to-green-strip controls. Marker detections are stored against the rover's current map position, so the rover can drive back to the last seen strip when commanded. The next behavior layer should add richer patrol scripts around those stored marker points.
 
 ## Calibration Notes
 

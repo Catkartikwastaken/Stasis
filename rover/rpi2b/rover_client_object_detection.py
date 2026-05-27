@@ -88,14 +88,16 @@ class ObjectDetectionConfig:
     nms_threshold: float = 20.0
     input_size: int = 320
     target_classes: list[str] = field(default_factory=list)
+    common_detection_enabled: bool = True
+    common_target_classes: list[str] = field(default_factory=lambda: ["person", "cell phone"])
     ignored_classes: list[str] = field(default_factory=lambda: sorted(BACKGROUND_LABELS))
     min_box_area_percent: float = 1.0
     max_box_area_percent: float = 85.0
     overlay_enabled: bool = True
-    red_strip_enabled: bool = False
-    red_strip_min_area: int = 2500
-    red_strip_min_aspect_ratio: float = 4.0
-    red_strip_min_fill_ratio: float = 0.7
+    green_strip_enabled: bool = False
+    green_strip_min_area: int = 2500
+    green_strip_min_aspect_ratio: float = 4.0
+    green_strip_min_fill_ratio: float = 0.7
     stream_interval_seconds: float = 0.12
     stream_jpeg_quality: int = 50
     upload_interval_seconds: float = 2.0
@@ -293,46 +295,77 @@ class YoloObjectDetector:
         return detections
 
 
-class RedStripDetector:
+class CombinedObjectDetector:
+    def __init__(self, config: ObjectDetectionConfig, root: Path) -> None:
+        self.config = config
+        self.root = root
+        self.custom_detector = YoloObjectDetector(config, root)
+        self.common_detector: CocoObjectDetector | None = None
+
+    def setup(self) -> bool:
+        custom_ready = self.custom_detector.setup()
+        common_ready = False
+        if self.config.common_detection_enabled:
+            common_config = ObjectDetectionConfig(**self.config.__dict__)
+            common_config.backend = "opencv"
+            common_config.target_classes = list(self.config.common_target_classes or ["person", "cell phone"])
+            common_config.ignored_classes = []
+            self.common_detector = CocoObjectDetector(common_config, self.root)
+            common_ready = self.common_detector.setup()
+        if custom_ready and common_ready:
+            logging.info("Combined detector ready: custom YOLO plus common person/cell-phone COCO.")
+        elif custom_ready:
+            logging.warning("Combined detector running custom YOLO only; common COCO detector unavailable.")
+        elif common_ready:
+            logging.warning("Combined detector running common COCO only; custom YOLO detector unavailable.")
+        return custom_ready or common_ready
+
+    def detect(self, frame: Any) -> list[dict[str, Any]]:
+        detections = self.custom_detector.detect(frame)
+        if self.common_detector is not None:
+            detections.extend(self.common_detector.detect(frame))
+        detections.sort(key=lambda item: item["confidence"], reverse=True)
+        return detections[:12]
+
+
+class GreenStripDetector:
     def __init__(self, config: ObjectDetectionConfig) -> None:
         self.config = config
 
     def detect(self, frame: Any) -> list[dict[str, Any]]:
-        if not self.config.red_strip_enabled:
+        if not self.config.green_strip_enabled:
             return []
         import cv2
 
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        lower_red_a = (0, 135, 80)
-        upper_red_a = (12, 255, 255)
-        lower_red_b = (170, 135, 80)
-        upper_red_b = (180, 255, 255)
-        mask = cv2.inRange(hsv, lower_red_a, upper_red_a) | cv2.inRange(hsv, lower_red_b, upper_red_b)
+        lower_green = (35, 70, 60)
+        upper_green = (90, 255, 255)
+        mask = cv2.inRange(hsv, lower_green, upper_green)
         mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, None, iterations=1)
         mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, None, iterations=2)
         contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         detections: list[dict[str, Any]] = []
         for contour in contours:
             area = float(cv2.contourArea(contour))
-            if area < float(self.config.red_strip_min_area):
+            if area < float(self.config.green_strip_min_area):
                 continue
             x, y, width, height = cv2.boundingRect(contour)
             if width < 12 or height < 8:
                 continue
             aspect_ratio = max(width / max(1, height), height / max(1, width))
-            if aspect_ratio < float(self.config.red_strip_min_aspect_ratio):
+            if aspect_ratio < float(self.config.green_strip_min_aspect_ratio):
                 continue
             crop = mask[y : y + height, x : x + width]
             fill_ratio = float(cv2.countNonZero(crop)) / float(max(1, width * height))
-            if fill_ratio < float(self.config.red_strip_min_fill_ratio):
+            if fill_ratio < float(self.config.green_strip_min_fill_ratio):
                 continue
             detections.append(
                 {
-                    "label": "red strip",
+                    "label": "green strip",
                     "category_hint": "marker",
                     "confidence": min(0.99, round(max(fill_ratio, area / max(1.0, frame.shape[0] * frame.shape[1] * 0.08)), 3)),
                     "box": {"x": int(x), "y": int(y), "width": int(width), "height": int(height)},
-                    "marker": "red_strip",
+                    "marker": "green_strip",
                 }
             )
         detections.sort(key=lambda item: item["confidence"], reverse=True)
@@ -361,8 +394,13 @@ class ObjectDetectionRoverClient(base.RoverClient):
     def __init__(self, config: base.RoverConfig, hardware: base.HardwareBase, detector_config: ObjectDetectionConfig, root: Path) -> None:
         super().__init__(config, hardware)
         backend = str(detector_config.backend or "yolo").strip().lower()
-        self.detector = YoloObjectDetector(detector_config, root) if backend == "yolo" else CocoObjectDetector(detector_config, root)
-        self.red_strip_detector = RedStripDetector(detector_config)
+        if backend == "combined":
+            self.detector = CombinedObjectDetector(detector_config, root)
+        elif backend == "yolo":
+            self.detector = YoloObjectDetector(detector_config, root)
+        else:
+            self.detector = CocoObjectDetector(detector_config, root)
+        self.green_strip_detector = GreenStripDetector(detector_config)
         self.detector_config = detector_config
         self.detector_ready = False
         self.last_detection_sent = 0.0
@@ -427,7 +465,7 @@ class ObjectDetectionRoverClient(base.RoverClient):
                 time.sleep(0.05)
                 continue
             detections = self.detector.detect(frame) if self.detector_ready else []
-            detections.extend(self.red_strip_detector.detect(frame))
+            detections.extend(self.green_strip_detector.detect(frame))
             with self.detection_lock:
                 self.latest_detections = detections
             self._send_object_detection(detections, frame)
@@ -455,7 +493,7 @@ class ObjectDetectionRoverClient(base.RoverClient):
             label = str(item.get("label", "object"))
             confidence = float(item.get("confidence", 0))
             confidence_percent = confidence if confidence > 1.0 else confidence * 100.0
-            color = (0, 255, 0) if item.get("category_hint") != "marker" else (0, 0, 255)
+            color = (0, 255, 0) if item.get("category_hint") != "marker" else (80, 255, 80)
             cv2.rectangle(overlay, (x, y), (x + width, y + height), color, 2)
             caption = f"{label} {confidence_percent:.0f}%"
             cv2.putText(overlay, caption, (x, max(18, y - 6)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)

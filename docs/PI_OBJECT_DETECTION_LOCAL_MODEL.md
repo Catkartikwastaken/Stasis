@@ -2,65 +2,130 @@
 title: Pi Object Detection Local Model
 ---
 
-# Legacy Pi Object Detection
+# Pi Object Detection Local Model
 
-This document is kept for reference only.
+STASIS can run a Pi-only detector when the demo must work without laptop-side AI.
 
-The current recommended STASIS demo does **not** run YOLO or object detection on the Raspberry Pi 2B. The Pi 2B has trouble installing the Torch dependency required by Ultralytics/YOLO, especially on Python 3.13 and ARMv7.
-
-Use this instead:
+For best Pi 2B behavior, use the combined detector:
 
 ```text
-Pi webcam stream -> Windows laptop -> YOLO ONNX detection -> dashboard + rover command
+custom YOLO model -> your demo objects
+OpenCV COCO model -> person + cell phone
+Green Strip detector -> optional color marker
 ```
 
-See:
+This lets your custom model stay focused on your demo objects while the older COCO detector covers humans and mobile phones.
+
+## Recommended Config
+
+Edit:
+
+```bash
+nano ~/Documents/Stasis/rover/rpi2b/config.json
+```
+
+Use these important values inside `object_detection`:
+
+```json
+{
+  "backend": "combined",
+  "yolo_model_path": "models/best.pt",
+  "target_classes": ["alpha_tester_object", "green_strip"],
+  "common_detection_enabled": true,
+  "common_target_classes": ["person", "cell phone"],
+  "class_names_path": "models/coco.names",
+  "config_path": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
+  "weights_path": "models/frozen_inference_graph.pb",
+  "confidence_threshold": 55,
+  "nms_threshold": 20,
+  "input_size": 320,
+  "overlay_enabled": true,
+  "stream_interval_seconds": 0.12,
+  "stream_jpeg_quality": 50,
+  "upload_interval_seconds": 1.5
+}
+```
+
+If your custom model is an exported NCNN folder, set:
+
+```json
+"yolo_model_path": "models/best_ncnn_model"
+```
+
+## Files Needed On The Pi
+
+Put custom model here:
 
 ```text
-docs/WINDOWS_YOLO_ONNX_DETECTION.md
+~/Documents/Stasis/rover/rpi2b/models/best.pt
 ```
 
-## Why Pi Detection Was Replaced
-
-The Pi-side YOLO path failed with:
+Or:
 
 ```text
-ultralytics depends on torch
-no matching distributions available for your environment: torch
+~/Documents/Stasis/rover/rpi2b/models/best_ncnn_model/
 ```
 
-That means the Pi can stream frames, but it cannot run the YOLO detector reliably in this setup.
+Keep these COCO files too:
 
-## What To Run On The Pi Now
+```text
+~/Documents/Stasis/rover/rpi2b/models/coco.names
+~/Documents/Stasis/rover/rpi2b/models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
+~/Documents/Stasis/rover/rpi2b/models/frozen_inference_graph.pb
+```
 
-Run the normal rover client:
+## Install
 
 ```bash
 cd ~/Documents/Stasis/rover/rpi2b
 source .venv/bin/activate
-python rover_client.py --config config.json
+pip install -r requirements.txt
+pip install -r requirements-object-detection.txt
 ```
 
-The Pi only needs:
+If your custom model needs Ultralytics:
+
+```bash
+python -m pip install ultralytics
+```
+
+If this fails because of `torch`, use an exported model format that works on your Pi environment, or run only the OpenCV COCO detector with:
+
+```json
+"backend": "opencv"
+```
+
+## Run
+
+```bash
+cd ~/Documents/Stasis/rover/rpi2b
+source .venv/bin/activate
+python rover_client_object_detection.py --config config.json
+```
+
+Good startup logs should include:
 
 ```text
-websocket-client
-smbus2
-RPi.GPIO
-pyserial
-opencv-python
+Pi-side YOLO object detector loaded
+Pi-side COCO object detector loaded
+Combined detector ready
+WebSocket handshake successful
 ```
 
-It does not need:
+## What It Detects
+
+Your custom model detects:
 
 ```text
-torch
-ultralytics
-onnxruntime
+alpha_tester_object
+green_strip
 ```
 
-## If You Still Want To Experiment
+The common model detects:
 
-The file `rover_client_object_detection.py` still exists as an experimental path. It can use older OpenCV DNN model files or YOLO if a compatible environment is available.
+```text
+person
+cell phone
+```
 
-For the competition demo, use Windows YOLO ONNX instead.
+All detections are drawn on the livestream when `overlay_enabled` is `true`.
