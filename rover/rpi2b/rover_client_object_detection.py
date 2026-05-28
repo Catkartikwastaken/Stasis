@@ -572,9 +572,23 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def validate_json_config(path: Path) -> None:
+    if not path.exists():
+        raise SystemExit(f"Config file not found: {path}")
+    try:
+        json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(
+            f"Config file is invalid JSON: {path}\n"
+            f"Line {exc.lineno}, column {exc.colno}: {exc.msg}\n"
+            "Fix config.json first. The object-detection client will not run with safe defaults."
+        ) from exc
+
+
 def main() -> None:
     args = parse_args()
     logging.basicConfig(level=args.log_level.upper(), format="%(asctime)s %(levelname)s %(message)s")
+    validate_json_config(args.config)
     config = base.read_config(args.config)
     if args.server:
         config.server_host = args.server
