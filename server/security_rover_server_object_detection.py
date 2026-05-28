@@ -29,6 +29,8 @@ base.ALLOWED_EVENT_CATEGORIES.add("object")
 
 SERVER_DIR = Path(__file__).resolve().parent
 DEFAULT_MODEL_PATH = SERVER_DIR / "models" / "yolo11n.onnx"
+DEFAULT_CUSTOM_MODEL_PATH = SERVER_DIR / "models" / "stasis_custom.onnx"
+DEFAULT_CUSTOM_LABELS_PATH = SERVER_DIR / "models" / "stasis_custom.labels.txt"
 
 COCO_LABELS = [
     "person",
@@ -125,6 +127,7 @@ ANIMAL_LABELS = {
     "zebra",
     "giraffe",
 }
+COMMON_ALLOWED_LABELS = {"person", "cell phone", *ANIMAL_LABELS}
 IGNORED_LABELS = {
     "street",
     "road",
@@ -148,7 +151,10 @@ OBJECT_REVIEW_TIMEOUT = float(os.getenv("STASIS_OBJECT_REVIEW_TIMEOUT", "20"))
 OBJECT_REVIEW_COOLDOWN = float(os.getenv("STASIS_OBJECT_REVIEW_COOLDOWN", "8"))
 OBJECT_ANALYSIS_INTERVAL = float(os.getenv("STASIS_OBJECT_ANALYSIS_INTERVAL_SECONDS", "0.8"))
 ONNX_MODEL_PATH = Path(os.getenv("STASIS_YOLO_ONNX_MODEL", str(DEFAULT_MODEL_PATH)))
+CUSTOM_ONNX_MODEL_PATH = Path(os.getenv("STASIS_CUSTOM_YOLO_ONNX_MODEL", str(DEFAULT_CUSTOM_MODEL_PATH)))
+CUSTOM_LABELS_PATH = Path(os.getenv("STASIS_CUSTOM_YOLO_LABELS", str(DEFAULT_CUSTOM_LABELS_PATH)))
 ONNX_INPUT_SIZE = int(os.getenv("STASIS_YOLO_INPUT_SIZE", "640"))
+CUSTOM_ONNX_INPUT_SIZE = int(os.getenv("STASIS_CUSTOM_YOLO_INPUT_SIZE", str(ONNX_INPUT_SIZE)))
 ONNX_CONFIDENCE = float(os.getenv("STASIS_YOLO_CONFIDENCE", "0.35"))
 ONNX_NMS_THRESHOLD = float(os.getenv("STASIS_YOLO_NMS_THRESHOLD", "0.45"))
 ONNX_MAX_DETECTIONS = int(os.getenv("STASIS_YOLO_MAX_DETECTIONS", "12"))
@@ -160,14 +166,21 @@ LMSTUDIO_TEXT_MODEL = os.getenv("STASIS_LMSTUDIO_TEXT_MODEL", "qwen2.5-0.5b-inst
 
 last_object_signature = ""
 last_object_review_at = 0.0
-detector: "YoloOnnxDetector | None" = None
+detectors: list["YoloOnnxDetector"] = []
 original_handle_rover_report = base.handle_rover_report
+
+
+def label_key(label: str) -> str:
+    return str(label).strip().lower().replace("_", " ")
 
 
 def category_for_label(label: str) -> str:
     label = label.strip().lower()
+    label = label.replace("_", " ")
     if label == "person":
         return "human"
+    if label == "green strip":
+        return "marker"
     if label in ANIMAL_LABELS:
         return "animal"
     if label in IGNORED_LABELS:
@@ -204,9 +217,19 @@ def letterbox(frame: np.ndarray, size: int) -> tuple[np.ndarray, float, float, f
 
 
 class YoloOnnxDetector:
-    def __init__(self, model_path: Path, input_size: int) -> None:
+    def __init__(
+        self,
+        model_path: Path,
+        input_size: int,
+        labels: list[str],
+        name: str,
+        allowed_labels: set[str] | None = None,
+    ) -> None:
         self.model_path = model_path
         self.input_size = input_size
+        self.labels = labels
+        self.name = name
+        self.allowed_labels = {label_key(label) for label in allowed_labels} if allowed_labels else set()
         self.session: Any = None
         self.input_name = ""
         self.output_names: list[str] = []
@@ -224,7 +247,7 @@ class YoloOnnxDetector:
         self.session = ort.InferenceSession(str(self.model_path), providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [output.name for output in self.session.get_outputs()]
-        logging.info("Windows YOLO ONNX detector loaded from %s.", self.model_path)
+        logging.info("Windows YOLO ONNX detector %s loaded from %s with %d labels.", self.name, self.model_path, len(self.labels))
         return True
 
     def detect(self, frame: np.ndarray) -> list[dict[str, Any]]:
@@ -266,7 +289,7 @@ class YoloOnnxDetector:
                 class_scores = row[5:]
             class_id = int(np.argmax(class_scores))
             confidence = float(class_scores[class_id]) * objectness
-            if confidence < ONNX_CONFIDENCE or class_id >= len(COCO_LABELS):
+            if confidence < ONNX_CONFIDENCE or class_id >= len(self.labels):
                 continue
 
             cx, cy, width, height = [float(value) for value in row[:4]]
@@ -280,7 +303,9 @@ class YoloOnnxDetector:
             y2 = max(0, min(frame_height - 1, y2))
             if x2 <= x1 or y2 <= y1:
                 continue
-            label = COCO_LABELS[class_id]
+            label = label_key(self.labels[class_id])
+            if self.allowed_labels and label not in self.allowed_labels:
+                continue
             category = category_for_label(label)
             if not category:
                 continue
@@ -294,7 +319,7 @@ class YoloOnnxDetector:
 
         detections: list[dict[str, Any]] = []
         for index in np.array(indices).flatten()[:ONNX_MAX_DETECTIONS]:
-            label = COCO_LABELS[class_ids[int(index)]]
+            label = label_key(self.labels[class_ids[int(index)]])
             detections.append(
                 {
                     "label": label,
@@ -306,10 +331,19 @@ class YoloOnnxDetector:
                         "width": int(boxes[int(index)][2]),
                         "height": int(boxes[int(index)][3]),
                     },
+                    "detector": self.name,
                 }
             )
         detections.sort(key=confidence_score, reverse=True)
         return detections
+
+
+def load_labels(path: Path) -> list[str]:
+    if not path.exists():
+        logging.warning("Custom YOLO labels file missing: %s", path)
+        return []
+    labels = [label_key(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    return labels
 
 
 def draw_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> np.ndarray:
@@ -571,12 +605,22 @@ def process_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> N
 
 
 def windows_object_detection_loop() -> None:
-    global detector
+    global detectors
 
-    detector = YoloOnnxDetector(ONNX_MODEL_PATH, ONNX_INPUT_SIZE)
-    if not detector.setup():
-        logging.warning("Windows-side YOLO is inactive until the ONNX model and onnxruntime are available.")
+    detectors = []
+    common_detector = YoloOnnxDetector(ONNX_MODEL_PATH, ONNX_INPUT_SIZE, COCO_LABELS, "coco", COMMON_ALLOWED_LABELS)
+    if common_detector.setup():
+        detectors.append(common_detector)
+
+    custom_labels = load_labels(CUSTOM_LABELS_PATH)
+    custom_detector = YoloOnnxDetector(CUSTOM_ONNX_MODEL_PATH, CUSTOM_ONNX_INPUT_SIZE, custom_labels, "stasis_custom")
+    if custom_labels and custom_detector.setup():
+        detectors.append(custom_detector)
+
+    if not detectors:
+        logging.warning("Windows-side YOLO is inactive until at least one ONNX model and onnxruntime are available.")
         return
+    logging.info("Windows-side detection active with %d detector(s).", len(detectors))
 
     while True:
         time.sleep(max(0.2, OBJECT_ANALYSIS_INTERVAL))
@@ -585,11 +629,16 @@ def windows_object_detection_loop() -> None:
             continue
         try:
             working_frame = frame.copy()
-            detections = detector.detect(working_frame)
+            detections: list[dict[str, Any]] = []
+            for detector in detectors:
+                detections.extend(detector.detect(working_frame))
+            detections.sort(key=confidence_score, reverse=True)
+            detections = detections[:ONNX_MAX_DETECTIONS]
             logging.info(
                 "Windows YOLO detections: %s",
                 [
                     {
+                        "detector": item.get("detector"),
                         "label": item.get("label"),
                         "category": item.get("category_hint"),
                         "confidence": item.get("confidence"),

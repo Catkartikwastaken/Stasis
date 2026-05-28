@@ -5,6 +5,7 @@ title: Pi Object Detection Local Model
 # Pi Object Detection Local Model
 
 STASIS can run a Pi-only detector when the demo must work without laptop-side AI.
+For the fastest demo, use the Windows laptop-side detector instead and keep the Pi as the camera and motor controller.
 
 For best Pi 2B behavior, use the combined detector:
 

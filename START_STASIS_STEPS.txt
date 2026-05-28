@@ -33,17 +33,23 @@ PART 2 - CHECK MODEL FILES
 
 ls -la models
 
-2. You must have this custom NCNN model folder:
+2. For Pi-only fallback, you can keep this custom NCNN model folder:
 
 models/best_ncnn_model
 
-3. You should also have these common detector files:
+3. For the fast Windows laptop detector, the Windows server should have:
+
+server/models/yolo11n.onnx
+server/models/stasis_custom.onnx
+server/models/stasis_custom.labels.txt
+
+4. You should also have these Pi-only fallback common detector files:
 
 models/coco.names
 models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
 models/frozen_inference_graph.pb
 
-4. If best_ncnn_model is missing, copy it to:
+5. If best_ncnn_model is missing, copy it to:
 
 ~/Documents/Stasis/rover/rpi2b/models/best_ncnn_model
 
@@ -105,8 +111,8 @@ pip install ultralytics
 If ultralytics fails because of torch, tell Codex exact error.
 
 
-PART 5 - START WINDOWS SERVER
------------------------------
+PART 5 - START WINDOWS SERVER WITH LAPTOP DETECTION
+---------------------------------------------------
 
 1. Open PowerShell on Windows laptop.
 
@@ -118,9 +124,12 @@ cd C:\Users\haris\Downloads\Stasis-main\Stasis\server
 
 .\.venv\Scripts\activate
 
-4. Start server:
+4. Start the faster laptop-side YOLO server:
 
-python security_rover_server_windows.py
+set STASIS_OBJECT_ANALYSIS_INTERVAL_SECONDS=0.25
+set STASIS_YOLO_INPUT_SIZE=640
+set STASIS_CUSTOM_YOLO_INPUT_SIZE=416
+python security_rover_server_object_detection.py
 
 5. Keep this PowerShell window open.
 
@@ -133,14 +142,14 @@ Or from phone/Pi network:
 http://YOUR_WINDOWS_LAPTOP_IP:5000
 
 
-PART 6 - START PI ROVER WITH DETECTION
+PART 6 - START PI ROVER STREAMING ONLY
 --------------------------------------
 
 On Raspberry Pi terminal:
 
 cd ~/Documents/Stasis/rover/rpi2b
 source .venv/bin/activate
-python rover_client_object_detection.py --config config.json
+python rover_client.py --config config.json
 
 
 PART 7 - GOOD OUTPUT SHOULD SHOW
@@ -149,11 +158,8 @@ PART 7 - GOOD OUTPUT SHOULD SHOW
 Look for these lines:
 
 Configuration successfully loaded
-Pi-side YOLO object detector loaded
-Pi-side COCO object detector loaded
-Combined detector ready
 WebSocket handshake successful
-Streaming Pi webcam smoothly
+Streaming Raspberry Pi webcam
 
 
 PART 8 - TEST OBJECTS
@@ -168,7 +174,7 @@ Show these to camera:
 
 Expected:
 
-custom model detects alpha_tester_object and green_strip
+Windows laptop detects human, cell phone, animals, your trained demo objects, and green strip.
 common COCO model detects person and cell phone
 dashboard shows boxes on livestream
 dashboard green strip buttons send green_strip marker commands
