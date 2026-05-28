@@ -23,7 +23,7 @@
     "confidence_threshold": 55,
     "nms_threshold": 20,
     "input_size": 320,
-    "target_classes": ["alpha_tester_object", "green_strip"],
+    "target_classes": [],
     "common_detection_enabled": true,
     "common_target_classes": ["person", "cell phone"],
     "ignored_classes": ["street", "road", "sidewalk", "floor", "wall", "ceiling", "door", "window", "room", "building", "house", "sky", "tree", "plant", "parking meter"],

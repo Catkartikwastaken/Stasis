@@ -72,6 +72,7 @@ BACKGROUND_LABELS = {
 }
 
 HUMAN_LABELS = {"person", "human", "man", "woman", "boy", "girl", "face", "head"}
+MARKER_LABELS = {"green strip", "green_strip"}
 ANIMAL_LABELS = set(COCO_TO_STASIS)
 ANIMAL_LABELS.discard("person")
 
@@ -107,6 +108,8 @@ class ObjectDetectionConfig:
 
 def category_for_label(label: str, allow_general_objects: bool = True) -> str:
     label = label.strip().lower()
+    if label in MARKER_LABELS:
+        return "marker"
     if label in HUMAN_LABELS:
         return "human"
     if label in ANIMAL_LABELS:
@@ -118,9 +121,13 @@ def category_for_label(label: str, allow_general_objects: bool = True) -> str:
     return ""
 
 
+def label_key(label: str) -> str:
+    return label.strip().lower().replace("_", " ")
+
+
 def should_keep_detection(label: str, box: dict[str, int], frame_width: int, frame_height: int, config: ObjectDetectionConfig) -> bool:
-    label = label.strip().lower()
-    ignored = {item.lower() for item in config.ignored_classes}
+    label = label_key(label)
+    ignored = {label_key(item) for item in config.ignored_classes}
     if label in ignored:
         return False
     area_percent = (float(box.get("width", 0)) * float(box.get("height", 0)) * 100.0) / max(1.0, float(frame_width * frame_height))
@@ -181,13 +188,13 @@ class CocoObjectDetector:
             nmsThreshold=self._ratio(self.config.nms_threshold),
         )
         detections: list[dict[str, Any]] = []
-        target_classes = {item.lower() for item in self.config.target_classes}
+        target_classes = {label_key(item) for item in self.config.target_classes}
         if len(class_ids) == 0:
             return detections
         for class_id, confidence, box in zip(class_ids.flatten(), confidences.flatten(), boxes):
             index = int(class_id) - 1
             label = self.class_names[index] if 0 <= index < len(self.class_names) else str(class_id)
-            label_lower = label.lower()
+            label_lower = label_key(label)
             if target_classes and label_lower not in target_classes:
                 continue
             x, y, width, height = [int(value) for value in box]
@@ -254,7 +261,7 @@ class YoloObjectDetector:
     def detect(self, frame: Any) -> list[dict[str, Any]]:
         if self.model is None:
             return []
-        target_classes = {item.lower() for item in self.config.target_classes}
+        target_classes = {label_key(item) for item in self.config.target_classes}
         results = self.model.predict(
             source=frame,
             imgsz=int(self.config.input_size),
@@ -272,7 +279,7 @@ class YoloObjectDetector:
             return detections
         for box in boxes:
             class_id = int(box.cls[0])
-            label = str(names.get(class_id, class_id)).lower()
+            label = label_key(str(names.get(class_id, class_id)))
             if target_classes and label not in target_classes:
                 continue
             x1, y1, x2, y2 = [int(value) for value in box.xyxy[0].tolist()]
@@ -289,6 +296,7 @@ class YoloObjectDetector:
                     "category_hint": category_hint,
                     "confidence": round(confidence, 3),
                     "box": bbox,
+                    **({"marker": "green_strip"} if category_hint == "marker" else {}),
                 }
             )
         detections.sort(key=lambda item: item["confidence"], reverse=True)

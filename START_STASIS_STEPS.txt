@@ -73,7 +73,7 @@ Example:
 
 "backend": "combined",
 "yolo_model_path": "models/best.pt",
-"target_classes": ["alpha_tester_object", "green_strip"],
+"target_classes": [],
 "common_detection_enabled": true,
 "common_target_classes": ["person", "cell phone"],
 "green_strip_enabled": false,
@@ -197,4 +197,3 @@ If detection does not start:
 Send Codex the Pi terminal output after running:
 
 python rover_client_object_detection.py --config config.json
-

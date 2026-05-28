@@ -30,7 +30,7 @@ Use these important values inside `object_detection`:
 {
   "backend": "combined",
   "yolo_model_path": "models/best.pt",
-  "target_classes": ["alpha_tester_object", "green_strip"],
+  "target_classes": [],
   "common_detection_enabled": true,
   "common_target_classes": ["person", "cell phone"],
   "class_names_path": "models/coco.names",
@@ -114,11 +114,19 @@ WebSocket handshake successful
 
 ## What It Detects
 
-Your custom model detects:
+Your custom model detects the classes it was trained with. For the current exported model, examples include:
 
 ```text
-alpha_tester_object
-green_strip
+cardboard
+debit card
+green strip
+paper
+plastic covers
+plastic water bottle
+steel water bottle
+torch
+wallet
+wood
 ```
 
 The common model detects:
