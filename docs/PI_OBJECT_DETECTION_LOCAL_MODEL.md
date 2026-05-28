@@ -29,16 +29,17 @@ Use these important values inside `object_detection`:
 ```json
 {
   "backend": "combined",
-  "yolo_model_path": "models/best.pt",
+  "yolo_model_path": "models/best_ncnn_model",
   "target_classes": [],
   "common_detection_enabled": true,
   "common_target_classes": ["person", "cell phone"],
   "class_names_path": "models/coco.names",
   "config_path": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
   "weights_path": "models/frozen_inference_graph.pb",
-  "confidence_threshold": 55,
+  "confidence_threshold": 45,
   "nms_threshold": 20,
   "input_size": 320,
+  "max_box_area_percent": 100.0,
   "overlay_enabled": true,
   "stream_interval_seconds": 0.12,
   "stream_jpeg_quality": 50,
@@ -56,16 +57,18 @@ With an NCNN folder, the Pi client loads `model.ncnn.param` and `model.ncnn.bin`
 
 ## Files Needed On The Pi
 
-Put custom model here:
-
-```text
-~/Documents/Stasis/rover/rpi2b/models/best.pt
-```
-
-Or:
+Put custom NCNN model here:
 
 ```text
 ~/Documents/Stasis/rover/rpi2b/models/best_ncnn_model/
+```
+
+The folder must contain:
+
+```text
+model.ncnn.param
+model.ncnn.bin
+metadata.yaml
 ```
 
 Keep these COCO files too:

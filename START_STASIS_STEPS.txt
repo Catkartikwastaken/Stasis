@@ -33,9 +33,9 @@ PART 2 - CHECK MODEL FILES
 
 ls -la models
 
-2. You must have this custom model:
+2. You must have this custom NCNN model folder:
 
-models/best.pt
+models/best_ncnn_model
 
 3. You should also have these common detector files:
 
@@ -43,9 +43,9 @@ models/coco.names
 models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
 models/frozen_inference_graph.pb
 
-4. If best.pt is missing, copy it to:
+4. If best_ncnn_model is missing, copy it to:
 
-~/Documents/Stasis/rover/rpi2b/models/best.pt
+~/Documents/Stasis/rover/rpi2b/models/best_ncnn_model
 
 
 PART 3 - MAKE NEW CONFIG
@@ -72,10 +72,12 @@ Example:
 5. Inside object_detection, make sure these lines exist:
 
 "backend": "combined",
-"yolo_model_path": "models/best.pt",
+"yolo_model_path": "models/best_ncnn_model",
 "target_classes": [],
 "common_detection_enabled": true,
 "common_target_classes": ["person", "cell phone"],
+"confidence_threshold": 45,
+"max_box_area_percent": 100.0,
 "green_strip_enabled": false,
 "overlay_enabled": true
 

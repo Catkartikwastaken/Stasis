@@ -315,13 +315,18 @@ class YoloObjectDetector:
 
         input_size = int(self.config.input_size)
         frame_height, frame_width = int(frame.shape[0]), int(frame.shape[1])
-        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        resized = cv2.resize(rgb, (input_size, input_size), interpolation=cv2.INTER_LINEAR)
-        tensor = resized.astype("float32") / 255.0
-        tensor = np.transpose(tensor, (2, 0, 1))
+        mat = ncnn.Mat.from_pixels_resize(
+            frame,
+            ncnn.Mat.PixelType.PIXEL_BGR2RGB,
+            frame_width,
+            frame_height,
+            input_size,
+            input_size,
+        )
+        mat.substract_mean_normalize([], [1.0 / 255.0, 1.0 / 255.0, 1.0 / 255.0])
 
         with self.ncnn_net.create_extractor() as ex:
-            ex.input("in0", ncnn.Mat(tensor).clone())
+            ex.input("in0", mat)
             _, out0 = ex.extract("out0")
 
         raw = np.array(out0)
