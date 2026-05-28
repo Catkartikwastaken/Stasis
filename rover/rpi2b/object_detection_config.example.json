@@ -16,7 +16,7 @@
   "object_detection": {
     "enabled": true,
     "backend": "combined",
-    "yolo_model_path": "models/yolo11n_ncnn_model",
+    "yolo_model_path": "models/best_ncnn_model",
     "class_names_path": "models/coco.names",
     "config_path": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
     "weights_path": "models/frozen_inference_graph.pb",
