@@ -94,7 +94,9 @@ Run these on Raspberry Pi:
 pip install -r requirements.txt
 pip install -r requirements-object-detection.txt
 
-If custom YOLO model needs ultralytics, run:
+For NCNN model folders, do not install ultralytics on the Pi.
+
+Only if you are trying to run a .pt model directly, run:
 
 pip install ultralytics
 

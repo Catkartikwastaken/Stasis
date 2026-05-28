@@ -52,6 +52,8 @@ If your custom model is an exported NCNN folder, set:
 "yolo_model_path": "models/best_ncnn_model"
 ```
 
+With an NCNN folder, the Pi client loads `model.ncnn.param` and `model.ncnn.bin` directly. It does not need Ultralytics for the custom model.
+
 ## Files Needed On The Pi
 
 Put custom model here:
@@ -83,7 +85,7 @@ pip install -r requirements.txt
 pip install -r requirements-object-detection.txt
 ```
 
-If your custom model needs Ultralytics:
+Only install Ultralytics if you are trying to run a `.pt` model directly on the Pi:
 
 ```bash
 python -m pip install ultralytics

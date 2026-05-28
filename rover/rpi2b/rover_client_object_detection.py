@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import importlib
 import json
 import logging
 import signal
@@ -221,6 +222,10 @@ class YoloObjectDetector:
         self.config = config
         self.root = root
         self.model: Any = None
+        self.ncnn_net: Any = None
+        self.ncnn_names: dict[int, str] = {}
+        self.ncnn_param_path: Path | None = None
+        self.ncnn_bin_path: Path | None = None
 
     def _resolve(self, value: str) -> Path:
         path = Path(value)
@@ -237,16 +242,23 @@ class YoloObjectDetector:
         if not self.config.enabled:
             logging.info("Pi-side object detection disabled by config.")
             return False
-        try:
-            from ultralytics import YOLO
-        except ImportError:
-            logging.error("ultralytics is required for YOLO object detection. Install with: python -m pip install ultralytics")
-            return False
-
         model_path = self._resolve(self.config.yolo_model_path)
         if not model_path.exists():
             logging.warning("YOLO model path missing: %s", model_path)
             return False
+
+        if model_path.is_dir() and (model_path / "model.ncnn.param").exists() and (model_path / "model.ncnn.bin").exists():
+            return self._setup_ncnn(model_path)
+
+        try:
+            from ultralytics import YOLO
+        except ImportError:
+            logging.error(
+                "ultralytics is required for .pt/.onnx YOLO model loading. "
+                "For Pi without ultralytics, use an exported NCNN folder containing model.ncnn.param and model.ncnn.bin."
+            )
+            return False
+
         self.model = YOLO(str(model_path))
         names = {str(value).lower() for value in getattr(self.model, "names", {}).values()}
         if "person" not in names:
@@ -258,7 +270,121 @@ class YoloObjectDetector:
         logging.info("Pi-side YOLO object detector loaded from %s.", model_path)
         return True
 
+    def _setup_ncnn(self, model_path: Path) -> bool:
+        try:
+            ncnn = importlib.import_module("ncnn")
+        except ImportError:
+            logging.error("ncnn is required for direct NCNN model loading. Install with: python -m pip install ncnn")
+            return False
+
+        self.ncnn_param_path = model_path / "model.ncnn.param"
+        self.ncnn_bin_path = model_path / "model.ncnn.bin"
+        self.ncnn_names = self._load_ncnn_names(model_path / "metadata.yaml")
+        self.ncnn_net = ncnn.Net()
+        self.ncnn_net.load_param(str(self.ncnn_param_path))
+        self.ncnn_net.load_model(str(self.ncnn_bin_path))
+        logging.info("Pi-side NCNN YOLO detector loaded from %s with %d classes.", model_path, len(self.ncnn_names))
+        return True
+
+    @staticmethod
+    def _load_ncnn_names(path: Path) -> dict[int, str]:
+        if not path.exists():
+            return {}
+        names: dict[int, str] = {}
+        in_names = False
+        for raw_line in path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.rstrip()
+            if line.strip() == "names:":
+                in_names = True
+                continue
+            if in_names and line and not line.startswith(" "):
+                break
+            if in_names and ":" in line:
+                key, value = line.split(":", 1)
+                key = key.strip()
+                if key.isdigit():
+                    names[int(key)] = value.strip().strip("'\"")
+        return names
+
+    def _detect_ncnn(self, frame: Any) -> list[dict[str, Any]]:
+        if self.ncnn_net is None:
+            return []
+        import cv2
+        import ncnn
+        import numpy as np
+
+        input_size = int(self.config.input_size)
+        frame_height, frame_width = int(frame.shape[0]), int(frame.shape[1])
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        resized = cv2.resize(rgb, (input_size, input_size), interpolation=cv2.INTER_LINEAR)
+        tensor = resized.astype("float32") / 255.0
+        tensor = np.transpose(tensor, (2, 0, 1))
+
+        with self.ncnn_net.create_extractor() as ex:
+            ex.input("in0", ncnn.Mat(tensor).clone())
+            _, out0 = ex.extract("out0")
+
+        raw = np.array(out0)
+        if raw.ndim != 2:
+            raw = raw.reshape(raw.shape[0], -1)
+        if raw.shape[0] < raw.shape[1]:
+            raw = raw.T
+        if raw.shape[1] < 5:
+            return []
+
+        boxes: list[list[int]] = []
+        scores: list[float] = []
+        class_ids: list[int] = []
+        target_classes = {label_key(item) for item in self.config.target_classes}
+        threshold = self._ratio(self.config.confidence_threshold)
+
+        for row in raw:
+            class_scores = row[4:]
+            class_id = int(np.argmax(class_scores))
+            confidence = float(class_scores[class_id])
+            if confidence < threshold:
+                continue
+            label = label_key(self.ncnn_names.get(class_id, str(class_id)))
+            if target_classes and label not in target_classes:
+                continue
+            cx, cy, width, height = [float(value) for value in row[:4]]
+            x = int((cx - width / 2.0) * frame_width / input_size)
+            y = int((cy - height / 2.0) * frame_height / input_size)
+            w = int(width * frame_width / input_size)
+            h = int(height * frame_height / input_size)
+            bbox = {"x": max(0, x), "y": max(0, y), "width": max(1, w), "height": max(1, h)}
+            if not should_keep_detection(label, bbox, frame_width, frame_height, self.config):
+                continue
+            boxes.append([bbox["x"], bbox["y"], bbox["width"], bbox["height"]])
+            scores.append(confidence)
+            class_ids.append(class_id)
+
+        if not boxes:
+            return []
+
+        kept = cv2.dnn.NMSBoxes(boxes, scores, threshold, self._ratio(self.config.nms_threshold))
+        kept_indices = [int(i) for i in np.array(kept).flatten()] if len(kept) else []
+        detections: list[dict[str, Any]] = []
+        for index in kept_indices[:12]:
+            label = label_key(self.ncnn_names.get(class_ids[index], str(class_ids[index])))
+            category_hint = category_for_label(label, allow_general_objects=not bool(target_classes))
+            if not category_hint:
+                continue
+            detections.append(
+                {
+                    "label": label,
+                    "category_hint": category_hint,
+                    "confidence": round(float(scores[index]), 3),
+                    "box": {"x": boxes[index][0], "y": boxes[index][1], "width": boxes[index][2], "height": boxes[index][3]},
+                    **({"marker": "green_strip"} if category_hint == "marker" else {}),
+                }
+            )
+        detections.sort(key=lambda item: item["confidence"], reverse=True)
+        return detections
+
     def detect(self, frame: Any) -> list[dict[str, Any]]:
+        if self.ncnn_net is not None:
+            return self._detect_ncnn(frame)
         if self.model is None:
             return []
         target_classes = {label_key(item) for item in self.config.target_classes}
