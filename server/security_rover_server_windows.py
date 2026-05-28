@@ -130,14 +130,14 @@ def load_vision_config() -> Dict[str, Any]:
     Loads provider configuration without requiring code edits.
     """
     default_config: Dict[str, Any] = {
-        "enabled": VISION_ENABLED,
-        "provider_order": ["local_gemma"],
+        "enabled": False,
+        "provider_order": [],
         "max_output_tokens": VISION_MAX_NEW_TOKENS,
         "request_timeout_seconds": 45,
         "providers": {
             "local_gemma": {
                 "type": "local_gemma",
-                "enabled": True,
+                "enabled": False,
                 "model": VISION_MODEL,
                 "pipeline_task": VISION_PIPELINE_TASK,
             }
@@ -167,7 +167,7 @@ def load_vision_config() -> Dict[str, Any]:
 
 VISION_CONFIG: Dict[str, Any] = load_vision_config()
 VISION_PROVIDER_ORDER: List[str] = [
-    str(provider) for provider in VISION_CONFIG.get("provider_order", ["local_gemma"])
+    str(provider) for provider in VISION_CONFIG.get("provider_order", [])
 ]
 VISION_PROVIDERS: Dict[str, Any] = (
     VISION_CONFIG.get("providers", {}) if isinstance(VISION_CONFIG.get("providers"), dict) else {}
@@ -1200,6 +1200,83 @@ def handle_vision_decision(payload: Dict[str, Any]) -> None:
     )
 
 
+def _object_detection_message(detection: Dict[str, Any]) -> str:
+    label = str(detection.get("label") or detection.get("category_hint") or "target").replace("_", " ")
+    category = str(detection.get("category_hint") or "object").lower()
+    confidence = detection.get("confidence", 0)
+    try:
+        confidence_value = float(confidence)
+        confidence_percent = confidence_value if confidence_value > 1.0 else confidence_value * 100.0
+        suffix = f" at {confidence_percent:.0f}%"
+    except (TypeError, ValueError):
+        suffix = ""
+    if category == "human":
+        return f"Human detected: {label}{suffix}."
+    if category == "marker":
+        return f"Green strip marker detected{suffix}."
+    if category == "animal":
+        return f"Animal detected: {label}{suffix}."
+    return f"Object detected: {label}{suffix}."
+
+
+def handle_object_detection_report(payload: Dict[str, Any]) -> None:
+    """
+    Converts Pi-side detector output into a rover vision_result command.
+
+    This keeps Gemma/VLM disabled for the demo: the Pi runs detection, the server
+    only turns structured detection output into the command format already used by
+    rover_client.py.
+    """
+    detections = payload.get("detections", [])
+    if not isinstance(detections, list) or not detections:
+        return
+
+    priority = {"human": 0, "marker": 1, "animal": 2, "object": 3}
+    valid: List[Dict[str, Any]] = []
+    for item in detections:
+        if not isinstance(item, dict):
+            continue
+        category = str(item.get("category_hint") or "").strip().lower()
+        if category not in {"human", "animal", "object", "marker"}:
+            continue
+        valid.append(item)
+    if not valid:
+        return
+
+    valid.sort(key=lambda item: (priority.get(str(item.get("category_hint", "")).lower(), 9), -float(item.get("confidence", 0) or 0)))
+    detection = valid[0]
+    category = str(detection.get("category_hint") or "object").lower()
+    image_path = ""
+    if payload.get("image_b64"):
+        try:
+            image_bytes = base64.b64decode(str(payload["image_b64"]))
+            image_path = save_alert_frame(cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR))
+        except Exception as exc:
+            logging.warning("Could not save object detection snapshot: %s", exc)
+
+    marker = str(detection.get("marker") or "")
+    if category == "marker" and not marker:
+        marker = "green_strip"
+
+    command = {
+        "type": "vision_result",
+        "detected": True,
+        "category": category,
+        "message": _object_detection_message(detection),
+        "image_path": image_path,
+        "x": rover_pose["x"],
+        "y": rover_pose["y"],
+        "heading": rover_pose["heading"],
+    }
+    if marker:
+        command["marker"] = marker
+
+    logging.info("Pi object detection converted to rover vision_result: %s", command["message"])
+    sent = send_rover_command(command)
+    if not sent:
+        logging.warning("Object detection result could not be sent to rover for decision.")
+
+
 def handle_rover_report(payload: Any) -> None:
     """
     Validates, handles, and routes all raw message structures arriving from the rover.
@@ -1221,6 +1298,10 @@ def handle_rover_report(payload: Any) -> None:
 
     if payload.get("type") == "vision_decision":
         handle_vision_decision(payload)
+        return
+
+    if payload.get("type") == "object_detection":
+        handle_object_detection_report(payload)
         return
 
     # Parse telemetry updates
