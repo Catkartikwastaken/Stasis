@@ -28,7 +28,7 @@
     "common_target_classes": ["person", "cell phone"],
     "ignored_classes": ["street", "road", "sidewalk", "floor", "wall", "ceiling", "door", "window", "room", "building", "house", "sky", "tree", "plant", "parking meter"],
     "min_box_area_percent": 1.0,
-    "max_box_area_percent": 100.0,
+    "max_box_area_percent": 80.0,
     "overlay_enabled": true,
     "green_strip_enabled": false,
     "green_strip_min_area": 2500,

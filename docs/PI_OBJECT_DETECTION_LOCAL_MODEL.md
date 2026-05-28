@@ -39,7 +39,7 @@ Use these important values inside `object_detection`:
   "confidence_threshold": 45,
   "nms_threshold": 20,
   "input_size": 320,
-  "max_box_area_percent": 100.0,
+  "max_box_area_percent": 80.0,
   "overlay_enabled": true,
   "stream_interval_seconds": 0.12,
   "stream_jpeg_quality": 50,

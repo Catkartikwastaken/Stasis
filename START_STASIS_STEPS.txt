@@ -77,7 +77,7 @@ Example:
 "common_detection_enabled": true,
 "common_target_classes": ["person", "cell phone"],
 "confidence_threshold": 45,
-"max_box_area_percent": 100.0,
+"max_box_area_percent": 80.0,
 "green_strip_enabled": false,
 "overlay_enabled": true
 
