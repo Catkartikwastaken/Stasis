@@ -156,6 +156,7 @@ CUSTOM_LABELS_PATH = Path(os.getenv("STASIS_CUSTOM_YOLO_LABELS", str(DEFAULT_CUS
 ONNX_INPUT_SIZE = int(os.getenv("STASIS_YOLO_INPUT_SIZE", "640"))
 CUSTOM_ONNX_INPUT_SIZE = int(os.getenv("STASIS_CUSTOM_YOLO_INPUT_SIZE", str(ONNX_INPUT_SIZE)))
 ONNX_CONFIDENCE = float(os.getenv("STASIS_YOLO_CONFIDENCE", "0.35"))
+CUSTOM_ONNX_CONFIDENCE = float(os.getenv("STASIS_CUSTOM_YOLO_CONFIDENCE", "0.20"))
 ONNX_NMS_THRESHOLD = float(os.getenv("STASIS_YOLO_NMS_THRESHOLD", "0.45"))
 ONNX_MAX_DETECTIONS = int(os.getenv("STASIS_YOLO_MAX_DETECTIONS", "12"))
 DRAW_OVERLAY = os.getenv("STASIS_YOLO_DRAW_OVERLAY", "true").strip().lower() not in {"0", "false", "no", "off"}
@@ -224,12 +225,14 @@ class YoloOnnxDetector:
         labels: list[str],
         name: str,
         allowed_labels: set[str] | None = None,
+        confidence: float | None = None,
     ) -> None:
         self.model_path = model_path
         self.input_size = input_size
         self.labels = labels
         self.name = name
         self.allowed_labels = {label_key(label) for label in allowed_labels} if allowed_labels else set()
+        self.confidence = ONNX_CONFIDENCE if confidence is None else confidence
         self.session: Any = None
         self.input_name = ""
         self.output_names: list[str] = []
@@ -273,7 +276,7 @@ class YoloOnnxDetector:
         if predictions.ndim != 2:
             logging.warning("Unexpected YOLO ONNX output shape: %s", raw.shape)
             return []
-        if predictions.shape[0] < predictions.shape[1] and predictions.shape[0] in {84, 85, 116}:
+        if predictions.shape[0] < predictions.shape[1]:
             predictions = predictions.T
 
         boxes: list[list[int]] = []
@@ -289,7 +292,7 @@ class YoloOnnxDetector:
                 class_scores = row[5:]
             class_id = int(np.argmax(class_scores))
             confidence = float(class_scores[class_id]) * objectness
-            if confidence < ONNX_CONFIDENCE or class_id >= len(self.labels):
+            if confidence < self.confidence or class_id >= len(self.labels):
                 continue
 
             cx, cy, width, height = [float(value) for value in row[:4]]
@@ -313,7 +316,7 @@ class YoloOnnxDetector:
             scores.append(confidence)
             class_ids.append(class_id)
 
-        indices = cv2.dnn.NMSBoxes(boxes, scores, ONNX_CONFIDENCE, ONNX_NMS_THRESHOLD)
+        indices = cv2.dnn.NMSBoxes(boxes, scores, self.confidence, ONNX_NMS_THRESHOLD)
         if len(indices) == 0:
             return []
 
@@ -613,7 +616,13 @@ def windows_object_detection_loop() -> None:
         detectors.append(common_detector)
 
     custom_labels = load_labels(CUSTOM_LABELS_PATH)
-    custom_detector = YoloOnnxDetector(CUSTOM_ONNX_MODEL_PATH, CUSTOM_ONNX_INPUT_SIZE, custom_labels, "stasis_custom")
+    custom_detector = YoloOnnxDetector(
+        CUSTOM_ONNX_MODEL_PATH,
+        CUSTOM_ONNX_INPUT_SIZE,
+        custom_labels,
+        "stasis_custom",
+        confidence=CUSTOM_ONNX_CONFIDENCE,
+    )
     if custom_labels and custom_detector.setup():
         detectors.append(custom_detector)
 
