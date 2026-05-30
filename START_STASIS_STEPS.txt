@@ -126,3 +126,36 @@ Then send Codex:
 1. Pi terminal output.
 2. Windows server output.
 3. A screenshot of the dashboard Detections panel.
+
+
+PART 7 - ALL SENSOR MODE
+------------------------
+
+Use this only after the ultrasonic sensor, scanner servo, MPU6050, and compass are physically connected.
+
+cd ~/Documents/Stasis/rover/rpi2b
+cp config.json config.before_all_sensors.json
+cp profiles/demo_all_sensors_pi.json config.json
+nano config.json
+
+Set server_host to the Windows laptop IP.
+
+Run:
+
+source .venv/bin/activate
+python rover_client_object_detection.py --config config.json
+
+The all-sensors profile enables:
+
+- direct Raspberry Pi GPIO motor control
+- USB webcam
+- custom NCNN YOLO object detection
+- COCO person/cell-phone detection
+- HC-SR04 ultrasonic obstacle checks
+- scanner servo sweep
+- MPU6050
+- HMC5883L/QMC5883L compass
+
+If any optional component is missing, the rover should continue running camera streaming and object detection. Missing sensors or motor outputs will be logged as warnings and disabled.
+
+Do not enable ESP32-S3 motor mode unless the L911S motor input wires are moved from the Pi GPIO pins to the ESP32-S3 GPIO pins.

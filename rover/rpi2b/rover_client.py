@@ -732,15 +732,11 @@ class RealRoverHardware(HardwareBase):
         """
         try:
             import RPi.GPIO as GPIO
-        except ImportError as exc:
-            # If ESP32 serial motor control is enabled, we don't strictly require RPi.GPIO
-            # unless sweep sensors are also toggled. This allows running motor control
-            # directly from a PC/Mac for testing!
-            if not self.config.hardware.esp32_serial_control or self.config.hardware.ultrasonic_enabled or self.config.hardware.scanner_servo_enabled:
-                raise RuntimeError(
-                    "RPi.GPIO is required on the physical Raspberry Pi platform. "
-                    "Use --simulate to run virtual hardware simulation on a laptop."
-                ) from exc
+        except ImportError:
+            logging.warning(
+                "RPi.GPIO is unavailable; GPIO motors, ultrasonic sensor, and scanner servo will be disabled. "
+                "Camera streaming and object detection can still run."
+            )
             GPIO = None
 
         self.gpio = GPIO
@@ -754,12 +750,21 @@ class RealRoverHardware(HardwareBase):
                 self.config.hardware.esp32_serial_port,
                 self.config.hardware.esp32_baudrate
             )
-            self.motors.setup()
+            try:
+                self.motors.setup()
+            except Exception:
+                logging.exception("ESP32-S3 serial motor controller unavailable; continuing without motor output.")
+                self.motors = None
         elif self.config.hardware.direct_motor_control:
             if GPIO is None:
-                raise RuntimeError("RPi.GPIO library is missing; direct motor control impossible.")
-            self.motors = MotorDriver(GPIO, self.config.pins)
-            self.motors.setup()
+                logging.warning("Direct motor control requested, but GPIO is unavailable; continuing without motor output.")
+            else:
+                self.motors = MotorDriver(GPIO, self.config.pins)
+                try:
+                    self.motors.setup()
+                except Exception:
+                    logging.exception("Direct GPIO motor driver unavailable; continuing without motor output.")
+                    self.motors = None
         else:
             logging.warning("Motor drivers disabled in configuration; speeds will be ignored.")
 

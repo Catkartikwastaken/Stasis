@@ -15,6 +15,9 @@
   },
   "hardware": {
     "direct_motor_control": true,
+    "esp32_serial_control": false,
+    "esp32_serial_port": "/dev/ttyUSB0",
+    "esp32_baudrate": 115200,
     "i2c_enabled": false,
     "mpu6050_enabled": false,
     "compass_enabled": false,

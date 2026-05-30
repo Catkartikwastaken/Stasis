@@ -361,6 +361,85 @@ WebSocket handshake successful
 Streaming Pi webcam smoothly
 ```
 
+## Enable Every Sensor
+
+Use this only after the ultrasonic sensor, scanner servo, MPU6050, and compass are physically wired.
+
+The rover is fault-tolerant in this mode. If a sensor is enabled in config but not physically detected, startup continues and the missing part is disabled. Camera streaming and object detection should still run.
+
+```bash
+cd ~/Documents/Stasis/rover/rpi2b
+cp config.json config.before_all_sensors.json
+cp profiles/demo_all_sensors_pi.json config.json
+nano config.json
+```
+
+Set:
+
+```json
+"server_host": "<WINDOWS_LAPTOP_IP>"
+```
+
+Then run:
+
+```bash
+source .venv/bin/activate
+python rover_client_object_detection.py --config config.json
+```
+
+Expected all-sensor startup logs:
+
+```text
+Direct GPIO motor driver setup complete
+MPU6050 initialized
+HMC5883L compass initialized
+Streaming Pi webcam smoothly
+Combined detector ready
+WebSocket handshake successful
+```
+
+If something is missing, acceptable warning logs include:
+
+```text
+MPU6050 sensor not found on I2C bus; heading tracking disabled.
+HMC5883L compass sensor not found on I2C bus; compass disabled.
+Failed to configure Ultrasonic rangefinder.
+Failed to configure SG90 scanner servo.
+Direct GPIO motor driver unavailable; continuing without motor output.
+ESP32-S3 serial motor controller unavailable; continuing without motor output.
+```
+
+Those warnings mean the connected parts still run, while missing parts are skipped.
+
+If the servo and ultrasonic are enabled together, dashboard `scan` commands sweep the servo and read distance samples. If ultrasonic is enabled, forward driving stops when distance is below `obstacle_stop_distance_cm`.
+
+## ESP32-S3 Or Direct Pi Motors
+
+Choose exactly one motor mode:
+
+```text
+Option A: Raspberry Pi GPIO -> L911S
+Option B: Raspberry Pi USB -> ESP32-S3 -> L911S
+```
+
+Do not connect both Raspberry Pi motor GPIO pins and ESP32-S3 motor GPIO pins to the L911S inputs at the same time.
+
+The all-sensors profile uses Option A by default:
+
+```json
+"direct_motor_control": true,
+"esp32_serial_control": false
+```
+
+To use ESP32-S3 motor control instead, first move the L911S input wires from the Pi GPIO pins to ESP32-S3 GPIO4/GPIO5/GPIO6/GPIO7, then change:
+
+```json
+"direct_motor_control": false,
+"esp32_serial_control": true,
+"esp32_serial_port": "/dev/ttyUSB0",
+"esp32_baudrate": 115200
+```
+
 ## Current Detection Setup
 
 The current stable setup is:
