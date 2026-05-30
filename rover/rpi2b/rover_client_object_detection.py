@@ -354,12 +354,23 @@ class YoloObjectDetector:
             label = label_key(self.ncnn_names.get(class_id, str(class_id)))
             if target_classes and label not in target_classes:
                 continue
-            cx, cy, width, height = [float(value) for value in row[:4]]
-            x = int((cx - width / 2.0) * frame_width / input_size)
-            y = int((cy - height / 2.0) * frame_height / input_size)
-            w = int(width * frame_width / input_size)
-            h = int(height * frame_height / input_size)
-            bbox = {"x": max(0, x), "y": max(0, y), "width": max(1, w), "height": max(1, h)}
+            x1, y1, x2, y2 = [float(value) for value in row[:4]]
+            if x2 <= x1 or y2 <= y1:
+                cx, cy, width, height = x1, y1, x2, y2
+                x1 = cx - width / 2.0
+                y1 = cy - height / 2.0
+                x2 = cx + width / 2.0
+                y2 = cy + height / 2.0
+            x = int(x1 * frame_width / input_size)
+            y = int(y1 * frame_height / input_size)
+            w = int((x2 - x1) * frame_width / input_size)
+            h = int((y2 - y1) * frame_height / input_size)
+            bbox = {
+                "x": max(0, min(frame_width - 1, x)),
+                "y": max(0, min(frame_height - 1, y)),
+                "width": max(1, min(frame_width, w)),
+                "height": max(1, min(frame_height, h)),
+            }
             if not should_keep_detection(label, bbox, frame_width, frame_height, self.config):
                 continue
             boxes.append([bbox["x"], bbox["y"], bbox["width"], bbox["height"]])

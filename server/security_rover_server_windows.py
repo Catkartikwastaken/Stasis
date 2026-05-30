@@ -1258,7 +1258,7 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
     priority = {"human": 0, "marker": 1, "animal": 2, "object": 3}
     ignored_demo_labels = {
         label.strip().lower()
-        for label in os.getenv("STASIS_PI_IGNORE_LABELS", "cardboard").split(",")
+        for label in os.getenv("STASIS_PI_IGNORE_LABELS", "").split(",")
         if label.strip()
     }
     min_custom_confidence = float(os.getenv("STASIS_PI_MIN_OBJECT_CONFIDENCE", "0.55"))
