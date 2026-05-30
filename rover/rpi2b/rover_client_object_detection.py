@@ -103,6 +103,7 @@ class ObjectDetectionConfig:
     stream_interval_seconds: float = 0.12
     stream_jpeg_quality: int = 50
     upload_interval_seconds: float = 2.0
+    common_detection_every_n: int = 2
     alert_cooldown_seconds: float = 8.0
     send_empty_results: bool = False
 
@@ -209,6 +210,7 @@ class CocoObjectDetector:
                 {
                     "label": label_lower,
                     "category_hint": category_hint,
+                    "detector": "coco",
                     "confidence": round(float(confidence), 3),
                     "box": bbox,
                 }
@@ -379,6 +381,7 @@ class YoloObjectDetector:
                 {
                     "label": label,
                     "category_hint": category_hint,
+                    "detector": "stasis_custom",
                     "confidence": round(float(scores[index]), 3),
                     "box": {"x": boxes[index][0], "y": boxes[index][1], "width": boxes[index][2], "height": boxes[index][3]},
                     **({"marker": "green_strip"} if category_hint == "marker" else {}),
@@ -425,6 +428,7 @@ class YoloObjectDetector:
                 {
                     "label": label,
                     "category_hint": category_hint,
+                    "detector": "stasis_custom",
                     "confidence": round(confidence, 3),
                     "box": bbox,
                     **({"marker": "green_strip"} if category_hint == "marker" else {}),
@@ -440,6 +444,7 @@ class CombinedObjectDetector:
         self.root = root
         self.custom_detector = YoloObjectDetector(config, root)
         self.common_detector: CocoObjectDetector | None = None
+        self.detect_count = 0
 
     def setup(self) -> bool:
         custom_ready = self.custom_detector.setup()
@@ -460,8 +465,10 @@ class CombinedObjectDetector:
         return custom_ready or common_ready
 
     def detect(self, frame: Any) -> list[dict[str, Any]]:
+        self.detect_count += 1
         detections = self.custom_detector.detect(frame)
-        if self.common_detector is not None:
+        common_every = max(1, int(getattr(self.config, "common_detection_every_n", 1) or 1))
+        if self.common_detector is not None and self.detect_count % common_every == 0:
             detections.extend(self.common_detector.detect(frame))
         detections.sort(key=lambda item: item["confidence"], reverse=True)
         return detections[:12]
@@ -502,6 +509,7 @@ class GreenStripDetector:
                 {
                     "label": "green strip",
                     "category_hint": "marker",
+                    "detector": "green_strip_color",
                     "confidence": min(0.99, round(max(fill_ratio, area / max(1.0, frame.shape[0] * frame.shape[1] * 0.08)), 3)),
                     "box": {"x": int(x), "y": int(y), "width": int(width), "height": int(height)},
                     "marker": "green_strip",
@@ -565,7 +573,7 @@ class ObjectDetectionRoverClient(base.RoverClient):
         encoded_ok, encoded = self._encode_frame(frame)
         payload: dict[str, Any] = {
             "type": "object_detection",
-            "source": "pi_opencv_coco",
+            "source": "pi_object_detection",
             "detections": detections,
             "captured_at": time.time(),
             "heading": self.last_heading,

@@ -1,209 +1,128 @@
 STASIS START AGAIN STEPS
 ========================
 
-Use this when you want to start fresh and make rover work again.
+Use this when the rover must start from a known working state.
 
 
-PART 1 - UPDATE CODE ON RASPBERRY PI
-------------------------------------
+PART 1 - WINDOWS SERVER
+-----------------------
+
+1. Open PowerShell on the Windows laptop.
+
+2. Start the server in Pi-authority mode:
+
+cd C:\Users\haris\Downloads\Stasis-main\Stasis\server
+$env:STASIS_DETECTION_AUTHORITY="pi"
+$env:STASIS_OBJECT_REVIEW_PROVIDER="fallback"
+$env:STASIS_PI_IGNORE_LABELS="cardboard"
+$env:STASIS_PI_MIN_OBJECT_CONFIDENCE="0.35"
+$env:STASIS_PI_MIN_COMMON_OBJECT_CONFIDENCE="0.35"
+python security_rover_server_object_detection.py
+
+3. Keep PowerShell open.
+
+4. Open the dashboard:
+
+http://127.0.0.1:5000
+
+
+PART 2 - RASPBERRY PI CONFIG
+----------------------------
 
 1. Open terminal on Raspberry Pi.
 
-2. Go to project folder:
-
-cd ~/Documents/Stasis
-
-3. Pull latest GitHub code:
-
-git pull origin main
-
-4. Go to Pi rover folder:
+2. Go to the Pi rover folder:
 
 cd ~/Documents/Stasis/rover/rpi2b
 
-5. Activate Python environment:
+3. Backup the current config:
 
-source .venv/bin/activate
+cp config.json config.before_demo.json
+
+4. Activate the stable demo profile:
+
+cp profiles/demo_stable_pi.json config.json
+
+5. Edit the Windows laptop IP:
+
+nano config.json
+
+Set:
+
+"server_host": "YOUR_WINDOWS_LAPTOP_IP",
+
+For example:
+
+"server_host": "192.168.29.69",
 
 
-PART 2 - CHECK MODEL FILES
---------------------------
+PART 3 - MODEL FILES
+--------------------
 
-1. Check models folder:
+The custom NCNN model must be here:
 
-ls -la models
+models/best_ncnn_model/model.ncnn.param
+models/best_ncnn_model/model.ncnn.bin
+models/best_ncnn_model/metadata.yaml
 
-2. For Pi-only fallback, you can keep this custom NCNN model folder:
-
-models/best_ncnn_model
-
-3. For the fast Windows laptop detector, the Windows server should have:
-
-server/models/yolo11n.onnx
-server/models/stasis_custom.onnx
-server/models/stasis_custom.labels.txt
-
-4. You should also have these Pi-only fallback common detector files:
+The COCO person/phone files must be here:
 
 models/coco.names
 models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
 models/frozen_inference_graph.pb
 
-5. If best_ncnn_model is missing, copy it to:
 
-~/Documents/Stasis/rover/rpi2b/models/best_ncnn_model
-
-
-PART 3 - MAKE NEW CONFIG
-------------------------
-
-1. Backup old config:
-
-cp config.json config.old.json
-
-2. Copy latest object detection config:
-
-cp object_detection_config.example.json config.json
-
-3. Edit config:
-
-nano config.json
-
-4. Set server_host to your Windows laptop IP.
-
-Example:
-
-"server_host": "192.168.29.69",
-
-5. Inside object_detection, make sure these lines exist:
-
-"backend": "combined",
-"yolo_model_path": "models/best_ncnn_model",
-"target_classes": [],
-"common_detection_enabled": true,
-"common_target_classes": ["person", "cell phone"],
-"confidence_threshold": 45,
-"max_box_area_percent": 80.0,
-"green_strip_enabled": false,
-"overlay_enabled": true
-
-6. Save nano:
-
-CTRL + O
-Enter
-CTRL + X
-
-
-PART 4 - INSTALL PI PACKAGES
-----------------------------
-
-Run these on Raspberry Pi:
-
-pip install -r requirements.txt
-pip install -r requirements-object-detection.txt
-
-For NCNN model folders, do not install ultralytics on the Pi.
-
-Only if you are trying to run a .pt model directly, run:
-
-pip install ultralytics
-
-If ultralytics fails because of torch, tell Codex exact error.
-
-
-PART 5 - START WINDOWS SERVER WITH LAPTOP DETECTION
----------------------------------------------------
-
-1. Open PowerShell on Windows laptop.
-
-2. Go to server folder:
-
-cd C:\Users\haris\Downloads\Stasis-main\Stasis\server
-
-3. Activate environment:
-
-.\.venv\Scripts\activate
-
-4. Start the faster laptop-side YOLO server:
-
-set STASIS_OBJECT_ANALYSIS_INTERVAL_SECONDS=0.25
-set STASIS_YOLO_INPUT_SIZE=640
-set STASIS_CUSTOM_YOLO_INPUT_SIZE=416
-python security_rover_server_object_detection.py
-
-5. Keep this PowerShell window open.
-
-6. Open dashboard in browser:
-
-http://127.0.0.1:5000
-
-Or from phone/Pi network:
-
-http://YOUR_WINDOWS_LAPTOP_IP:5000
-
-
-PART 6 - START PI ROVER STREAMING ONLY
---------------------------------------
-
-On Raspberry Pi terminal:
+PART 4 - START PI ROVER
+-----------------------
 
 cd ~/Documents/Stasis/rover/rpi2b
 source .venv/bin/activate
-python rover_client.py --config config.json
+python rover_client_object_detection.py --config config.json
 
-
-PART 7 - GOOD OUTPUT SHOULD SHOW
---------------------------------
-
-Look for these lines:
+Good logs:
 
 Configuration successfully loaded
+Pi-side NCNN YOLO detector loaded
+Pi-side COCO object detector loaded
+Combined detector ready
 WebSocket handshake successful
-Streaming Raspberry Pi webcam
+Streaming Pi webcam smoothly
 
 
-PART 8 - TEST OBJECTS
+PART 5 - DEMO BEHAVIOR
+----------------------
+
+Human detected:
+
+1. Rover immediately stops.
+2. Dashboard shows alert.
+3. Choose Follow, Stay, or Resume.
+
+Follow:
+
+Rover follows the latest human bounding box with simple left/right steering.
+If the target disappears, it stops.
+
+Stop:
+
+Dashboard Stop always cancels motion and stops motors.
+
+Green strip:
+
+Dashboard stores the marker and can go to it after it is seen.
+
+
+PART 6 - IF IT BREAKS
 ---------------------
 
-Show these to camera:
+Use debug profile:
 
-1. Your trained demo object
-2. Green strip
-3. Human face/body
-4. Mobile phone
-
-Expected:
-
-Windows laptop detects human, cell phone, animals, your trained demo objects, and green strip.
-common COCO model detects person and cell phone
-dashboard shows boxes on livestream
-dashboard green strip buttons send green_strip marker commands
-
-
-PART 9 - IF IT DOES NOT WORK
-----------------------------
-
-If GitHub code did not update, run:
-
-cd ~/Documents/Stasis
-git pull origin main
-
-Then check:
-
-grep -n "common_detection_enabled\|common_target_classes\|green_strip" rover/rpi2b/object_detection_config.example.json
-
-If model missing:
-
-ls -la ~/Documents/Stasis/rover/rpi2b/models
-
-If server connection fails:
-
-Check Windows laptop IP.
-Make sure Windows server is still running.
-Make sure Pi config server_host matches Windows IP.
-
-If detection does not start:
-
-Send Codex the Pi terminal output after running:
-
+cp profiles/debug_verbose.json config.json
+nano config.json
 python rover_client_object_detection.py --config config.json
+
+Then send Codex:
+
+1. Pi terminal output.
+2. Windows server output.
+3. A screenshot of the dashboard Detections panel.

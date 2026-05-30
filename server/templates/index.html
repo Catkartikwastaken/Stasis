@@ -345,6 +345,43 @@
         padding: 8px 10px;
       }
 
+      .decision-actions {
+        display: grid;
+        gap: 8px;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        margin: 0 12px 12px;
+      }
+
+      .decision-actions button,
+      .debug-list button {
+        border: 1px solid rgba(112, 255, 176, 0.24);
+        border-radius: 8px;
+        background: rgba(112, 255, 176, 0.08);
+        color: #d9e8dd;
+        cursor: pointer;
+        font: inherit;
+        padding: 8px;
+      }
+
+      .debug-list {
+        display: grid;
+        gap: 8px;
+        max-height: 220px;
+        overflow: auto;
+      }
+
+      .debug-row {
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 8px;
+        padding: 8px;
+        color: #b8c8bf;
+        font-size: 0.82rem;
+      }
+
+      .debug-row.accepted {
+        border-color: rgba(112, 255, 176, 0.28);
+      }
+
       @media (max-width: 860px) {
         main {
           grid-template-columns: 1fr;
@@ -404,6 +441,10 @@
           <h2>Alerts</h2>
         </div>
         <div id="alerts" class="alerts"></div>
+        <div class="topbar">
+          <h2>Detections</h2>
+        </div>
+        <div id="detectionDebug" class="debug-list"></div>
       </section>
     </main>
 
@@ -427,6 +468,7 @@
       const goToGreenStripBtn = document.getElementById("goToGreenStrip");
       const scanResultsEl = document.getElementById("scanResults");
       const roverStatusEl = document.getElementById("roverStatus");
+      const detectionDebugEl = document.getElementById("detectionDebug");
 
       const mapSize = 800;
       let roverPose = { x: 400, y: 400, yaw: 0 };
@@ -443,6 +485,9 @@
         positionMarker(roverEl, roverPose.x, roverPose.y);
         roverEl.style.setProperty("--yaw", `${roverPose.yaw || 0}deg`);
         homeDistanceEl.textContent = Math.round(roverPose.distance_from_home || 0);
+        if (roverPose.mode) {
+          roverStatusEl.textContent = `mode: ${roverPose.mode}`;
+        }
         updateGuidance(false);
       }
 
@@ -555,6 +600,30 @@
         }
       }
 
+      function sendHumanDecision(action) {
+        socket.emit("human_decision", { action });
+      }
+
+      function renderDetectionDebug(payload) {
+        const detections = Array.isArray(payload.detections) ? payload.detections.slice(-8).reverse() : [];
+        detectionDebugEl.textContent = "";
+        if (!detections.length) {
+          const empty = document.createElement("div");
+          empty.className = "debug-row";
+          empty.textContent = "No detections yet";
+          detectionDebugEl.append(empty);
+          return;
+        }
+        for (const detection of detections) {
+          const row = document.createElement("div");
+          row.className = `debug-row ${detection.accepted ? "accepted" : ""}`;
+          const confidence = Number(detection.confidence || 0);
+          const percent = confidence > 1 ? confidence : confidence * 100;
+          row.textContent = `${detection.accepted ? "accepted" : "filtered"} - ${detection.label || detection.category} ${Math.round(percent)}% (${detection.reason || "seen"})`;
+          detectionDebugEl.append(row);
+        }
+      }
+
       socket.on("connect", () => {
         statusEl.textContent = "online";
       });
@@ -569,6 +638,7 @@
       });
 
       socket.on("scan_data", renderScan);
+      socket.on("detection_debug", renderDetectionDebug);
 
       socket.on("rover_status", (payload) => {
         roverStatusEl.textContent = payload.message
@@ -619,7 +689,21 @@
         }
 
         if (alert.category === "human") {
-          roverStatusEl.textContent = "human detected - press Track";
+          roverStatusEl.textContent = "human detected - choose action";
+          const decisions = document.createElement("div");
+          decisions.className = "decision-actions";
+          const follow = document.createElement("button");
+          const stay = document.createElement("button");
+          const resume = document.createElement("button");
+          follow.type = stay.type = resume.type = "button";
+          follow.textContent = "Follow";
+          stay.textContent = "Stay";
+          resume.textContent = "Resume";
+          follow.addEventListener("click", () => sendHumanDecision("follow"));
+          stay.addEventListener("click", () => sendHumanDecision("stay_stopped"));
+          resume.addEventListener("click", () => sendHumanDecision("resume_patrol"));
+          decisions.append(follow, stay, resume);
+          item.append(decisions);
         }
         alertsEl.prepend(item);
       });
@@ -636,6 +720,7 @@
 
       startRobotBtn.addEventListener("click", () => {
         roverStatusEl.textContent = "robot started - scanning";
+        socket.emit("human_decision", { action: "resume_patrol" });
         socket.emit("request_scan");
       });
 

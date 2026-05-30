@@ -1,17 +1,17 @@
 {
-  "server_host": "192.168.1.10",
+  "server_host": "192.168.29.69",
   "server_port": 5000,
   "websocket_path": "/ws/rover",
   "rover_id": "rpi2b_rover",
   "simulate": false,
   "camera": {
-    "enabled": false,
+    "enabled": true,
     "index": 0,
     "width": 640,
     "height": 480,
     "fps": 10,
     "jpeg_quality": 70,
-    "upload_interval_seconds": 2.0
+    "upload_interval_seconds": 0.1
   },
   "object_detection": {
     "enabled": true,
@@ -20,26 +20,23 @@
     "class_names_path": "models/coco.names",
     "config_path": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
     "weights_path": "models/frozen_inference_graph.pb",
-    "confidence_threshold": 45,
+    "confidence_threshold": 20,
     "nms_threshold": 20,
     "input_size": 320,
     "target_classes": [],
     "common_detection_enabled": true,
     "common_target_classes": ["person", "cell phone"],
-    "common_detection_every_n": 2,
+    "common_detection_every_n": 1,
     "ignored_classes": ["street", "road", "sidewalk", "floor", "wall", "ceiling", "door", "window", "room", "building", "house", "sky", "tree", "plant", "parking meter"],
-    "min_box_area_percent": 1.0,
-    "max_box_area_percent": 80.0,
+    "min_box_area_percent": 0.2,
+    "max_box_area_percent": 95.0,
     "overlay_enabled": true,
     "green_strip_enabled": false,
-    "green_strip_min_area": 2500,
-    "green_strip_min_aspect_ratio": 4.0,
-    "green_strip_min_fill_ratio": 0.7,
     "stream_interval_seconds": 0.12,
     "stream_jpeg_quality": 50,
     "upload_interval_seconds": 1.5,
-    "alert_cooldown_seconds": 8.0,
-    "send_empty_results": false
+    "alert_cooldown_seconds": 2.0,
+    "send_empty_results": true
   },
   "hardware": {
     "direct_motor_control": true,

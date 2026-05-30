@@ -156,10 +156,20 @@ CUSTOM_LABELS_PATH = Path(os.getenv("STASIS_CUSTOM_YOLO_LABELS", str(DEFAULT_CUS
 ONNX_INPUT_SIZE = int(os.getenv("STASIS_YOLO_INPUT_SIZE", "640"))
 CUSTOM_ONNX_INPUT_SIZE = int(os.getenv("STASIS_CUSTOM_YOLO_INPUT_SIZE", str(ONNX_INPUT_SIZE)))
 ONNX_CONFIDENCE = float(os.getenv("STASIS_YOLO_CONFIDENCE", "0.35"))
-CUSTOM_ONNX_CONFIDENCE = float(os.getenv("STASIS_CUSTOM_YOLO_CONFIDENCE", "0.20"))
+CUSTOM_ONNX_CONFIDENCE = float(os.getenv("STASIS_CUSTOM_YOLO_CONFIDENCE", "0.45"))
 ONNX_NMS_THRESHOLD = float(os.getenv("STASIS_YOLO_NMS_THRESHOLD", "0.45"))
 ONNX_MAX_DETECTIONS = int(os.getenv("STASIS_YOLO_MAX_DETECTIONS", "12"))
 DRAW_OVERLAY = os.getenv("STASIS_YOLO_DRAW_OVERLAY", "true").strip().lower() not in {"0", "false", "no", "off"}
+DETECTION_AUTHORITY = os.getenv("STASIS_DETECTION_AUTHORITY", "windows").strip().lower()
+GREEN_STRIP_MIN_CONFIDENCE = float(os.getenv("STASIS_GREEN_STRIP_MIN_CONFIDENCE", "0.70"))
+GREEN_STRIP_MIN_CENTER_Y_RATIO = float(os.getenv("STASIS_GREEN_STRIP_MIN_CENTER_Y_RATIO", "0.45"))
+CUSTOM_MAX_BOX_AREA_RATIO = float(os.getenv("STASIS_CUSTOM_MAX_BOX_AREA_RATIO", "0.62"))
+CUSTOM_EDGE_TOUCH_LIMIT = int(os.getenv("STASIS_CUSTOM_EDGE_TOUCH_LIMIT", "2"))
+CUSTOM_MIN_OBJECT_CONFIDENCE = float(os.getenv("STASIS_CUSTOM_MIN_OBJECT_CONFIDENCE", "0.68"))
+CUSTOM_MAX_BOX_WIDTH_RATIO = float(os.getenv("STASIS_CUSTOM_MAX_BOX_WIDTH_RATIO", "0.58"))
+CUSTOM_MAX_BOX_HEIGHT_RATIO = float(os.getenv("STASIS_CUSTOM_MAX_BOX_HEIGHT_RATIO", "0.58"))
+COCO_MIN_ANIMAL_CONFIDENCE = float(os.getenv("STASIS_COCO_MIN_ANIMAL_CONFIDENCE", "0.68"))
+COCO_MIN_OBJECT_CONFIDENCE = float(os.getenv("STASIS_COCO_MIN_OBJECT_CONFIDENCE", "0.70"))
 OLLAMA_BASE_URL = os.getenv("STASIS_OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_TEXT_MODEL = os.getenv("STASIS_OLLAMA_TEXT_MODEL", "qwen2.5:0.5b")
 LMSTUDIO_BASE_URL = os.getenv("STASIS_LMSTUDIO_URL", "http://127.0.0.1:1234/v1").rstrip("/")
@@ -376,6 +386,103 @@ def draw_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> np.n
             2,
         )
     return overlay
+
+
+def filter_scene_detections(
+    detections: list[dict[str, Any]],
+    frame_width: int,
+    frame_height: int,
+) -> list[dict[str, Any]]:
+    filtered: list[dict[str, Any]] = []
+    for item in detections:
+        label = label_key(str(item.get("label", "")))
+        confidence = confidence_score(item)
+        box = item.get("box", {})
+        detector = str(item.get("detector", ""))
+        category = str(item.get("category_hint", ""))
+        x = float(box.get("x", 0))
+        y = float(box.get("y", 0))
+        width = float(box.get("width", 0))
+        height = float(box.get("height", 0))
+        center_y_ratio = (y + height / 2.0) / max(1.0, float(frame_height))
+
+        if detector == "stasis_custom" and category in {"object", "marker"}:
+            area_ratio = (width * height) / max(1.0, float(frame_width * frame_height))
+            width_ratio = width / max(1.0, float(frame_width))
+            height_ratio = height / max(1.0, float(frame_height))
+            edge_touches = sum(
+                (
+                    x <= 4,
+                    y <= 4,
+                    x + width >= frame_width - 4,
+                    y + height >= frame_height - 4,
+                )
+            )
+            if category == "object" and confidence < CUSTOM_MIN_OBJECT_CONFIDENCE:
+                logging.info(
+                    "Filtered weak custom %s detection at %s confidence.",
+                    label,
+                    confidence_percent_text(confidence),
+                )
+                continue
+            if area_ratio > CUSTOM_MAX_BOX_AREA_RATIO:
+                logging.info(
+                    "Filtered oversized %s detection: area_ratio=%.2f confidence=%s.",
+                    label,
+                    area_ratio,
+                    confidence_percent_text(confidence),
+                )
+                continue
+            if width_ratio > CUSTOM_MAX_BOX_WIDTH_RATIO or height_ratio > CUSTOM_MAX_BOX_HEIGHT_RATIO:
+                logging.info(
+                    "Filtered broad %s detection: width_ratio=%.2f height_ratio=%.2f confidence=%s.",
+                    label,
+                    width_ratio,
+                    height_ratio,
+                    confidence_percent_text(confidence),
+                )
+                continue
+            if edge_touches >= CUSTOM_EDGE_TOUCH_LIMIT:
+                logging.info(
+                    "Filtered edge-hugging %s detection: edge_touches=%d confidence=%s.",
+                    label,
+                    edge_touches,
+                    confidence_percent_text(confidence),
+                )
+                continue
+
+        if detector == "coco" and category == "animal" and confidence < COCO_MIN_ANIMAL_CONFIDENCE:
+            logging.info(
+                "Filtered weak COCO animal %s detection at %s confidence.",
+                label,
+                confidence_percent_text(confidence),
+            )
+            continue
+
+        if detector == "coco" and category == "object" and confidence < COCO_MIN_OBJECT_CONFIDENCE:
+            logging.info(
+                "Filtered weak COCO object %s detection at %s confidence.",
+                label,
+                confidence_percent_text(confidence),
+            )
+            continue
+
+        if label == "green strip":
+            if confidence < GREEN_STRIP_MIN_CONFIDENCE:
+                logging.info(
+                    "Filtered weak green strip detection at %s confidence.",
+                    confidence_percent_text(confidence),
+                )
+                continue
+            if center_y_ratio < GREEN_STRIP_MIN_CENTER_Y_RATIO:
+                logging.info(
+                    "Filtered green strip above floor zone: center_y_ratio=%.2f.",
+                    center_y_ratio,
+                )
+                continue
+
+        filtered.append(item)
+    return filtered
 
 
 def estimate_detection_guidance(best: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -641,6 +748,7 @@ def windows_object_detection_loop() -> None:
             detections: list[dict[str, Any]] = []
             for detector in detectors:
                 detections.extend(detector.detect(working_frame))
+            detections = filter_scene_detections(detections, working_frame.shape[1], working_frame.shape[0])
             detections.sort(key=confidence_score, reverse=True)
             detections = detections[:ONNX_MAX_DETECTIONS]
             logging.info(
@@ -669,6 +777,9 @@ def handle_rover_report(payload: Any) -> None:
         except json.JSONDecodeError:
             return
     if isinstance(payload, dict) and payload.get("type") == "object_detection":
+        if DETECTION_AUTHORITY in {"pi", "rover", "raspberry_pi", "raspberry-pi"}:
+            original_handle_rover_report(payload)
+            return
         logging.info("Ignoring Pi-side object_detection payload because Windows YOLO is authoritative.")
         return
     original_handle_rover_report(payload)
@@ -682,7 +793,10 @@ def main() -> None:
         base.socketio.start_background_task(base.webcam_capture_loop)
     else:
         logging.info("Waiting for Raspberry Pi webcam frames over the rover WebSocket.")
-    base.socketio.start_background_task(windows_object_detection_loop)
+    if DETECTION_AUTHORITY in {"pi", "rover", "raspberry_pi", "raspberry-pi"}:
+        logging.info("Pi-side detection authority enabled; Windows YOLO analysis loop is disabled.")
+    else:
+        base.socketio.start_background_task(windows_object_detection_loop)
     logging.info("Starting STASIS Windows YOLO server on 0.0.0.0:5000.")
     base.socketio.run(base.app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
 

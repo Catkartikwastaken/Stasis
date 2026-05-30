@@ -36,6 +36,13 @@ import websocket
 # Identifies the client device type to the server during WebSocket registration
 ROVER_TYPE = "rover"
 
+MODE_IDLE = "IDLE"
+MODE_MANUAL = "MANUAL"
+MODE_PATROL = "PATROL"
+MODE_FOLLOW = "FOLLOW"
+MODE_EMERGENCY_STOP = "EMERGENCY_STOP"
+MODE_WAITING_DECISION = "IDLE_WAITING_DECISION"
+
 
 @dataclass
 class PinConfig:
@@ -68,6 +75,12 @@ class MotionConfig:
     heartbeat_interval_seconds: float = 5.0   # Periodicity of keep-alive signals
     scan_step_deg: int = 30                   # Angle step increment during ultrasonic sonar sweep
     scan_settle_seconds: float = 0.25         # Delay to let servo stabilize before firing ultrasound trigger
+    follow_base_pwm: float = 42.0
+    follow_turn_pwm: float = 28.0
+    follow_target_area_ratio: float = 0.16
+    follow_deadband_ratio: float = 0.12
+    follow_lost_timeout_seconds: float = 2.5
+    follow_update_interval_seconds: float = 0.2
 
 
 @dataclass
@@ -922,6 +935,11 @@ class RoverClient:
         self.send_lock = threading.Lock()
         self.distance_traveled_cm = 0.0
         self.last_heading = 0.0
+        self.mode = MODE_IDLE
+        self.mode_lock = threading.Lock()
+        self.latest_follow_target: dict[str, Any] | None = None
+        self.last_follow_target_at = 0.0
+        self.follow_thread: threading.Thread | None = None
 
     @property
     def websocket_url(self) -> str:
@@ -940,6 +958,15 @@ class RoverClient:
             except Exception as exc:
                 logging.error("Failed to transmit WebSocket message: %s", exc)
                 self.connected.clear()
+
+    def set_mode(self, mode: str, message: str = "") -> None:
+        with self.mode_lock:
+            self.mode = mode
+        self.send_json({"status": mode.lower(), "mode": mode, "message": message})
+
+    def get_mode(self) -> str:
+        with self.mode_lock:
+            return self.mode
 
     def on_open(self, ws: websocket.WebSocketApp) -> None:
         logging.info("WebSocket handshake successful. Connected to %s", self.websocket_url)
@@ -968,7 +995,7 @@ class RoverClient:
             logging.info("Received immediate EMERGENCY STOP directive from server.")
             self.movement_cancel.set()
             self.hardware.stop_motors()
-            self.send_json({"status": "stopped"})
+            self.set_mode(MODE_EMERGENCY_STOP, "Emergency stop requested")
         elif isinstance(payload, dict) and payload.get("type") == "vision_result":
             self.handle_vision_result(payload)
         elif isinstance(payload, dict) and "cmd" in payload:
@@ -1040,11 +1067,21 @@ class RoverClient:
         message = str(payload.get("message") or "Activity detected.")
         action = "alert"
 
-        if category in {"human", "fire"}:
+        if category == "human":
+            self.latest_follow_target = payload
+            self.last_follow_target_at = time.monotonic()
+            if self.get_mode() == MODE_FOLLOW:
+                action = "follow_update"
+            else:
+                self.movement_cancel.set()
+                self.hardware.stop_motors()
+                action = "stop_and_alert"
+                self.set_mode(MODE_WAITING_DECISION, "human detected; waiting for dashboard decision")
+        elif category == "fire":
             self.movement_cancel.set()
             self.hardware.stop_motors()
             action = "stop_and_alert"
-            self.send_json({"status": "stopped", "message": f"{category} detected by Gemma"})
+            self.set_mode(MODE_WAITING_DECISION, "fire detected; waiting for dashboard decision")
         elif category == "marker":
             action = "remember_marker"
 
@@ -1061,6 +1098,12 @@ class RoverClient:
                 "x": payload.get("x", 400.0),
                 "y": payload.get("y", 400.0),
                 "heading": payload.get("heading", self.last_heading),
+                "label": payload.get("label", ""),
+                "box": payload.get("box", {}),
+                "frame_width": payload.get("frame_width", payload.get("width", 0)),
+                "frame_height": payload.get("frame_height", payload.get("height", 0)),
+                "guidance": payload.get("guidance", {}),
+                "mode": self.get_mode(),
             }
         )
 
@@ -1085,6 +1128,7 @@ class RoverClient:
                     {
                         "heading": self.last_heading,
                         "distance_traveled": self.distance_traveled_cm,
+                        "mode": self.get_mode(),
                     }
                 )
 
@@ -1118,6 +1162,7 @@ class RoverClient:
         """
         cmd = command.get("cmd")
         if cmd == "goto":
+            self.set_mode(MODE_MANUAL, "Manual map goal accepted")
             self.handle_goto(float(command.get("angle", 0.0)), float(command.get("distance", 0.0)))
         elif cmd == "scan":
             report: dict[str, Any] = {"type": "scan", "data": self.hardware.scan()}
@@ -1125,10 +1170,66 @@ class RoverClient:
                 report["target"] = str(command["target"])
             self.send_json(report)
         elif cmd == "stop":
+            self.movement_cancel.set()
             self.hardware.stop_motors()
-            self.send_json({"status": "stopped"})
+            self.set_mode(MODE_EMERGENCY_STOP, "Stopped by dashboard")
+        elif cmd == "follow":
+            self.start_follow_mode()
+        elif cmd == "stay_stopped":
+            self.movement_cancel.set()
+            self.hardware.stop_motors()
+            self.set_mode(MODE_WAITING_DECISION, "Staying stopped")
+        elif cmd == "resume_patrol":
+            self.movement_cancel.clear()
+            self.hardware.stop_motors()
+            self.set_mode(MODE_PATROL, "Patrol resumed")
         else:
             logging.warning("Unrecognized routing target requested: %s", command)
+
+    def start_follow_mode(self) -> None:
+        if self.latest_follow_target is None:
+            self.hardware.stop_motors()
+            self.set_mode(MODE_WAITING_DECISION, "No human target available to follow")
+            return
+        self.movement_cancel.clear()
+        self.set_mode(MODE_FOLLOW, "Following human target")
+        if self.follow_thread is None or not self.follow_thread.is_alive():
+            self.follow_thread = threading.Thread(target=self.follow_loop, name="follow-loop", daemon=True)
+            self.follow_thread.start()
+
+    def follow_loop(self) -> None:
+        motion = self.config.motion
+        while not self.stop_requested.is_set() and self.get_mode() == MODE_FOLLOW:
+            if time.monotonic() - self.last_follow_target_at > motion.follow_lost_timeout_seconds:
+                self.hardware.stop_motors()
+                self.set_mode(MODE_WAITING_DECISION, "Follow target lost")
+                break
+            target = self.latest_follow_target or {}
+            box = target.get("box") if isinstance(target.get("box"), dict) else {}
+            frame_width = float(target.get("frame_width") or target.get("width") or 640)
+            frame_height = float(target.get("frame_height") or target.get("height") or 480)
+            box_width = float(box.get("width", 0) or 0)
+            box_height = float(box.get("height", 0) or 0)
+            if box_width <= 0 or box_height <= 0:
+                self.hardware.stop_motors()
+                time.sleep(motion.follow_update_interval_seconds)
+                continue
+            front_distance = self.hardware.front_distance_cm()
+            if front_distance is not None and front_distance <= self.config.hardware.obstacle_stop_distance_cm:
+                self.movement_cancel.set()
+                self.hardware.stop_motors()
+                self.set_mode(MODE_EMERGENCY_STOP, f"Obstacle at {front_distance:.0f} cm")
+                break
+            center_x = float(box.get("x", 0) or 0) + box_width / 2.0
+            center_error = (center_x - frame_width / 2.0) / max(1.0, frame_width / 2.0)
+            area_ratio = (box_width * box_height) / max(1.0, frame_width * frame_height)
+            forward = motion.follow_base_pwm if area_ratio < motion.follow_target_area_ratio else 0.0
+            turn = 0.0 if abs(center_error) < motion.follow_deadband_ratio else center_error * motion.follow_turn_pwm
+            left_speed = max(-motion.turn_max_pwm, min(motion.turn_max_pwm, forward + turn))
+            right_speed = max(-motion.turn_max_pwm, min(motion.turn_max_pwm, forward - turn))
+            self.hardware.set_motors(left_speed, right_speed)
+            time.sleep(motion.follow_update_interval_seconds)
+        self.hardware.stop_motors()
 
     def handle_goto(self, angle: float, distance_cm: float) -> None:
         """

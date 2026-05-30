@@ -193,6 +193,7 @@ home_position: Dict[str, float] = {"x": 400.0, "y": 400.0}
 home_heading: Optional[float] = None
 last_distance_traveled: Optional[float] = None
 latest_scan: List[Dict[str, float]] = []
+recent_detections: List[Dict[str, Any]] = []
 
 rover_pose: Dict[str, float] = {
     "x": 400.0,
@@ -203,6 +204,20 @@ rover_pose: Dict[str, float] = {
 }
 pending_goal: Optional[Dict[str, float]] = None
 known_markers: Dict[str, Dict[str, Any]] = {}
+
+
+def record_detection_event(item: Dict[str, Any], accepted: bool, reason: str) -> None:
+    event = {
+        "label": str(item.get("label") or item.get("category_hint") or "unknown"),
+        "category": str(item.get("category_hint") or "unknown"),
+        "confidence": item.get("confidence", 0),
+        "accepted": accepted,
+        "reason": reason,
+        "seen_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    recent_detections.append(event)
+    del recent_detections[:-30]
+    socketio.emit("detection_debug", {"detections": recent_detections})
 
 
 def get_camera_backend() -> int:
@@ -1139,6 +1154,9 @@ def handle_rover_telemetry(payload: Dict[str, Any]) -> None:
         rover_pose["x"] += math.cos(yaw_rad) * (distance_delta / PIXEL_TO_CM)
         rover_pose["y"] += math.sin(yaw_rad) * (distance_delta / PIXEL_TO_CM)
 
+    mode = str(payload.get("mode") or "")
+    if mode:
+        rover_pose["mode"] = mode
     update_distance_from_home()
     socketio.emit("rover_position", rover_pose.copy())
 
@@ -1175,6 +1193,7 @@ def handle_vision_decision(payload: Dict[str, Any]) -> None:
     category = str(payload.get("category") or "event").lower()
     image_path = str(payload.get("image_path") or "")
     alert_payload = {
+        "id": f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}",
         "category": category,
         "message": str(payload.get("message") or "Activity detected."),
         "image_path": image_path,
@@ -1182,6 +1201,11 @@ def handle_vision_decision(payload: Dict[str, Any]) -> None:
         "x": float(payload.get("x", rover_pose["x"])),
         "y": float(payload.get("y", rover_pose["y"])),
         "heading": float(payload.get("heading", rover_pose["heading"])),
+        "label": str(payload.get("label") or ""),
+        "box": payload.get("box", {}),
+        "frame_width": payload.get("frame_width", 0),
+        "frame_height": payload.get("frame_height", 0),
+        "mode": payload.get("mode", ""),
     }
 
     marker = str(payload.get("marker") or "")
@@ -1232,6 +1256,19 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
         return
 
     priority = {"human": 0, "marker": 1, "animal": 2, "object": 3}
+    ignored_demo_labels = {
+        label.strip().lower()
+        for label in os.getenv("STASIS_PI_IGNORE_LABELS", "cardboard").split(",")
+        if label.strip()
+    }
+    min_custom_confidence = float(os.getenv("STASIS_PI_MIN_OBJECT_CONFIDENCE", "0.55"))
+    min_animal_confidence = float(os.getenv("STASIS_PI_MIN_ANIMAL_CONFIDENCE", "0.68"))
+    min_common_object_confidence = float(os.getenv("STASIS_PI_MIN_COMMON_OBJECT_CONFIDENCE", "0.55"))
+    max_box_area_ratio = float(os.getenv("STASIS_PI_MAX_BOX_AREA_RATIO", "0.70"))
+    max_box_width_ratio = float(os.getenv("STASIS_PI_MAX_BOX_WIDTH_RATIO", "0.96"))
+    max_box_height_ratio = float(os.getenv("STASIS_PI_MAX_BOX_HEIGHT_RATIO", "0.96"))
+    frame_width = float(payload.get("frame_width") or payload.get("width") or 640)
+    frame_height = float(payload.get("frame_height") or payload.get("height") or 480)
     valid: List[Dict[str, Any]] = []
     for item in detections:
         if not isinstance(item, dict):
@@ -1239,13 +1276,52 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
         category = str(item.get("category_hint") or "").strip().lower()
         if category not in {"human", "animal", "object", "marker"}:
             continue
+        label = str(item.get("label") or "").strip().lower()
+        confidence = float(item.get("confidence", 0) or 0)
+        detector = str(item.get("detector") or "").strip().lower()
+        box = item.get("box") if isinstance(item.get("box"), dict) else {}
+        box_width = float(box.get("width", 0) or 0)
+        box_height = float(box.get("height", 0) or 0)
+        box_area_ratio = (box_width * box_height) / max(1.0, frame_width * frame_height)
+        box_width_ratio = box_width / max(1.0, frame_width)
+        box_height_ratio = box_height / max(1.0, frame_height)
+        if label in ignored_demo_labels:
+            logging.info("Filtered ignored Pi detection label=%s confidence=%.2f.", label, confidence)
+            record_detection_event(item, False, "ignored_label")
+            continue
+        if category == "object" and (
+            box_area_ratio > max_box_area_ratio
+            or box_width_ratio > max_box_width_ratio
+            or box_height_ratio > max_box_height_ratio
+        ):
+            logging.info(
+                "Filtered oversized Pi object label=%s confidence=%.2f box_area=%.2f width=%.2f height=%.2f.",
+                label,
+                confidence,
+                box_area_ratio,
+                box_width_ratio,
+                box_height_ratio,
+            )
+            record_detection_event(item, False, "oversized_box")
+            continue
+        if category == "object" and detector != "coco" and confidence < min_custom_confidence:
+            logging.info("Filtered weak Pi custom object label=%s confidence=%.2f.", label, confidence)
+            record_detection_event(item, False, "weak_custom")
+            continue
+        if category == "object" and detector == "coco" and confidence < min_common_object_confidence:
+            logging.info("Filtered weak Pi common object label=%s confidence=%.2f.", label, confidence)
+            record_detection_event(item, False, "weak_common")
+            continue
+        if category == "animal" and confidence < min_animal_confidence:
+            logging.info("Filtered weak Pi animal label=%s confidence=%.2f.", label, confidence)
+            record_detection_event(item, False, "weak_animal")
+            continue
+        record_detection_event(item, True, "accepted")
         valid.append(item)
     if not valid:
         return
 
     valid.sort(key=lambda item: (priority.get(str(item.get("category_hint", "")).lower(), 9), -float(item.get("confidence", 0) or 0)))
-    detection = valid[0]
-    category = str(detection.get("category_hint") or "object").lower()
     image_path = ""
     if payload.get("image_b64"):
         try:
@@ -1254,27 +1330,40 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
         except Exception as exc:
             logging.warning("Could not save object detection snapshot: %s", exc)
 
-    marker = str(detection.get("marker") or "")
-    if category == "marker" and not marker:
-        marker = "green_strip"
+    emitted_categories: set[str] = set()
+    for detection in valid:
+        category = str(detection.get("category_hint") or "object").lower()
+        if category in emitted_categories:
+            continue
+        emitted_categories.add(category)
 
-    command = {
-        "type": "vision_result",
-        "detected": True,
-        "category": category,
-        "message": _object_detection_message(detection),
-        "image_path": image_path,
-        "x": rover_pose["x"],
-        "y": rover_pose["y"],
-        "heading": rover_pose["heading"],
-    }
-    if marker:
-        command["marker"] = marker
+        marker = str(detection.get("marker") or "")
+        if category == "marker" and not marker:
+            marker = "green_strip"
 
-    logging.info("Pi object detection converted to rover vision_result: %s", command["message"])
-    sent = send_rover_command(command)
-    if not sent:
-        logging.warning("Object detection result could not be sent to rover for decision.")
+        command = {
+            "type": "vision_result",
+            "detected": True,
+            "category": category,
+            "message": _object_detection_message(detection),
+            "image_path": image_path,
+            "x": rover_pose["x"],
+            "y": rover_pose["y"],
+            "heading": rover_pose["heading"],
+            "label": detection.get("label", ""),
+            "box": detection.get("box", {}),
+            "frame_width": int(frame_width),
+            "frame_height": int(frame_height),
+        }
+        if marker:
+            command["marker"] = marker
+
+        logging.info("Pi object detection converted to rover vision_result: %s", command["message"])
+        sent = send_rover_command(command)
+        if not sent:
+            logging.warning("Object detection result could not be sent to rover for decision.")
+        if len(emitted_categories) >= 4:
+            break
 
 
 def handle_rover_report(payload: Any) -> None:
@@ -1428,6 +1517,7 @@ def on_connect(auth: Optional[Dict[str, Any]] = None) -> None:
     # Direct sync dashboards with current posing stats
     emit("rover_position", rover_pose.copy())
     emit("scan_data", {"data": latest_scan})
+    emit("detection_debug", {"detections": recent_detections})
 
 
 @socketio.on("disconnect")
@@ -1530,6 +1620,27 @@ def on_stop_rover() -> None:
     """
     sent = send_rover_command({"cmd": "stop"})
     emit("stop_requested", {"sent": sent})
+
+
+@socketio.on("human_decision")
+def on_human_decision(payload: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Routes dashboard human-detection decisions to the rover mode controller.
+    """
+    action = ""
+    if isinstance(payload, dict):
+        action = str(payload.get("action") or "").strip().lower()
+    command_by_action = {
+        "follow": {"cmd": "follow"},
+        "stay_stopped": {"cmd": "stay_stopped"},
+        "resume_patrol": {"cmd": "resume_patrol"},
+    }
+    command = command_by_action.get(action)
+    if command is None:
+        emit("human_decision_error", {"message": "Unknown human decision action."})
+        return
+    sent = send_rover_command(command)
+    emit("human_decision_sent", {"sent": sent, "action": action})
 
 
 @socketio.on("rover_status")

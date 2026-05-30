@@ -17,31 +17,44 @@ Green Strip detector -> optional color marker
 
 This lets your custom model stay focused on your demo objects while the older COCO detector covers humans and mobile phones.
 
-## Recommended Config
+## Recommended Profiles
 
-Edit:
+Use a known-good profile instead of hand-editing detection values every run:
 
 ```bash
-nano ~/Documents/Stasis/rover/rpi2b/config.json
+cd ~/Documents/Stasis/rover/rpi2b
+cp profiles/demo_stable_pi.json config.json
+nano config.json
 ```
 
-Use these important values inside `object_detection`:
+Set only `server_host` to the Windows laptop IP. Keep `input_size` at `320` for the current NCNN export.
+
+Available profiles:
+
+```text
+profiles/demo_stable_pi.json  - recommended demo profile
+profiles/demo_fast_pi.json    - lower stream resolution and faster detection cadence
+profiles/debug_verbose.json   - loose thresholds and detection debug output
+```
+
+The stable profile uses these important values inside `object_detection`:
 
 ```json
 {
   "backend": "combined",
   "yolo_model_path": "models/best_ncnn_model",
-  "target_classes": [],
+  "target_classes": ["debit card", "green strip", "paper", "plastic covers", "plastic water bottle", "steel water bottle", "torch", "wallet", "wood"],
   "common_detection_enabled": true,
   "common_target_classes": ["person", "cell phone"],
+  "common_detection_every_n": 2,
   "class_names_path": "models/coco.names",
   "config_path": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
   "weights_path": "models/frozen_inference_graph.pb",
-  "confidence_threshold": 45,
+  "confidence_threshold": 35,
   "nms_threshold": 20,
   "input_size": 320,
-  "max_box_area_percent": 80.0,
-  "overlay_enabled": true,
+  "max_box_area_percent": 90.0,
+  "overlay_enabled": false,
   "stream_interval_seconds": 0.12,
   "stream_jpeg_quality": 50,
   "upload_interval_seconds": 1.5
@@ -143,3 +156,15 @@ cell phone
 ```
 
 All detections are drawn on the livestream when `overlay_enabled` is `true`.
+
+## Human Stop And Follow
+
+When a human is detected, the Pi stops the L911S motors immediately and sends a `vision_decision` to the dashboard. The dashboard then offers:
+
+```text
+Follow
+Stay
+Resume
+```
+
+`Follow` uses the human bounding box center to steer left/right and the box area as a rough distance signal. `Stop` on the dashboard always overrides follow, patrol, and goto.
