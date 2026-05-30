@@ -385,7 +385,7 @@ class YoloObjectDetector:
         detections: list[dict[str, Any]] = []
         for index in kept_indices[:12]:
             label = label_key(self.ncnn_names.get(class_ids[index], str(class_ids[index])))
-            category_hint = category_for_label(label, allow_general_objects=not bool(target_classes))
+            category_hint = category_for_label(label, allow_general_objects=True)
             if not category_hint:
                 continue
             detections.append(
@@ -432,7 +432,7 @@ class YoloObjectDetector:
             bbox = {"x": x1, "y": y1, "width": max(1, x2 - x1), "height": max(1, y2 - y1)}
             if not should_keep_detection(label, bbox, int(frame.shape[1]), int(frame.shape[0]), self.config):
                 continue
-            category_hint = category_for_label(label, allow_general_objects=not bool(target_classes))
+            category_hint = category_for_label(label, allow_general_objects=True)
             if not category_hint:
                 continue
             detections.append(
