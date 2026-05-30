@@ -177,6 +177,7 @@ docs/
 ## Documentation
 
 - [Full Rover System Guide](docs/README_ROVER_SYSTEM.md)
+- [Wiring And Runbook](docs/WIRING_AND_RUNBOOK.md)
 - [Vision Providers](docs/VISION_PROVIDERS.md)
 - [Windows YOLO ONNX Detection](docs/WINDOWS_YOLO_ONNX_DETECTION.md)
 - [Dataset Capture Assistant](docs/DATASET_CAPTURE_ASSISTANT.md)
