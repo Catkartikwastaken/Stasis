@@ -1341,7 +1341,6 @@
             <span>V-0.9.4</span>
           </div>
         </div>
-
         <div class="nav-stack">
           <button class="nav-pill active" type="button" data-tab="live">
             <span class="icon">explore</span>LIVE
@@ -1383,7 +1382,7 @@
               <span id="status">offline</span>
             </div>
             <div class="chip">
-              <strong style="color:#fff;font-weight:700;">ROVER</strong>&nbsp;ALPHA-7&nbsp;[&nbsp;<span id="roverStatusTop">NOMINAL</span>&nbsp;]
+              <strong style="color:#fff;font-weight:700;">ROVER</strong>&nbsp;ALPHA-7&nbsp;[&nbsp;<span id="roverStatusTop">OFFLINE</span>&nbsp;]
             </div>
             <div class="chip">
               SYS TIME: <span id="sys-time" style="color:#fff;font-weight:600;">00:00:00</span>
@@ -1409,7 +1408,7 @@
                   </div>
                   <div style="display:flex;gap:6px;">
                     <span class="panel-badge badge-rec">REC</span>
-                    <span class="panel-badge badge-live">LIVE</span>
+                    <span id="cameraStatusBadge" class="panel-badge badge-live">STREAM OFFLINE</span>
                   </div>
                 </div>
                 <div class="camera-feed">
@@ -1689,6 +1688,7 @@
 
       const statusEl = document.getElementById("status");
       const statusDot = document.getElementById("statusDot");
+      const cameraStatusBadgeEl = document.getElementById("cameraStatusBadge");
       const mapEl = document.getElementById("map");
       const roverEl = document.getElementById("rover");
       const goalEl = document.getElementById("goal");
@@ -1725,6 +1725,8 @@
       let roverPose = { x: 400, y: 400, yaw: 0 };
       let trackedAlert = null;
       let lastSpokenGuidance = "";
+      let isSocketOnline = false;
+      let isCameraStreamOnline = false;
       const mapAlertDots = [];
 
       /* =============================================
@@ -1737,9 +1739,31 @@
         cameraFeed.src = cameraUrl;
       }
 
-      /* =============================================
-         TAB NAVIGATION
-         ============================================= */
+      function setCameraBadge(text, online) {
+        if (!cameraStatusBadgeEl) return;
+        cameraStatusBadgeEl.textContent = text;
+        cameraStatusBadgeEl.classList.toggle("badge-live", Boolean(online));
+        cameraStatusBadgeEl.classList.toggle("badge-rec", !online);
+      }
+
+      function setBadgeState(node, text, online) {
+        if (!node) return;
+        node.textContent = text;
+        node.classList.toggle("online", Boolean(online));
+      }
+
+      function updateMetaStatus() {
+        const roverMode = (roverPose.mode || "").toString().trim();
+        const roverState = roverMode ? roverMode.replaceAll("_", " ").toUpperCase() : (isSocketOnline ? "STANDBY" : "OFFLINE");
+        statusEl.textContent = isSocketOnline ? "online" : "offline";
+        if (statusDot) {
+          statusDot.classList.toggle("online", isSocketOnline);
+        }
+        if (roverStatusTopEl) {
+          roverStatusTopEl.textContent = roverState.length > 20 ? roverState.substring(0, 20) + "..." : roverState;
+        }
+        setCameraBadge(isCameraStreamOnline ? "STREAM LIVE" : "STREAM OFFLINE", isCameraStreamOnline);
+      }
       function setTab(tab) {
         for (const button of navTabs) {
           button.classList.toggle("active", button.dataset.tab === tab);
@@ -1769,6 +1793,7 @@
         if (roverPose.mode) {
           roverStatusEl.textContent = `mode: ${roverPose.mode}`;
         }
+        updateMetaStatus();
         updateGuidance(false);
       }
 
@@ -2007,14 +2032,14 @@
          SOCKET.IO EVENT HANDLERS
          ============================================= */
       socket.on("connect", () => {
-        statusEl.textContent = "online";
-        statusDot.classList.add("online");
+        isSocketOnline = true;
+        updateMetaStatus();
         addLogEntry("CONNECTION ESTABLISHED.");
       });
 
       socket.on("disconnect", () => {
-        statusEl.textContent = "offline";
-        statusDot.classList.remove("online");
+        isSocketOnline = false;
+        updateMetaStatus();
         addLogEntry("CONNECTION LOST.", true);
       });
 
@@ -2032,6 +2057,10 @@
           : payload.status || "waiting";
         updateStatusTop();
         addLogEntry(`STATUS: ${roverStatusEl.textContent.toUpperCase()}`);
+        if (payload.status) {
+          roverPose = { ...roverPose, mode: payload.status };
+          updateMetaStatus();
+        }
       });
 
       socket.on("marker_seen", (marker) => {
@@ -2150,6 +2179,16 @@
       /* =============================================
          SYSTEM CLOCK
          ============================================= */
+      cameraFeed.addEventListener("load", () => {
+        isCameraStreamOnline = true;
+        updateMetaStatus();
+      });
+
+      cameraFeed.addEventListener("error", () => {
+        isCameraStreamOnline = false;
+        updateMetaStatus();
+      });
+
       function updateClock() {
         const node = document.getElementById("sys-time");
         if (!node) return;
@@ -2163,6 +2202,7 @@
 
       setInterval(updateClock, 1000);
       updateClock();
+      updateMetaStatus();
       renderPose();
     </script>
   </body>
