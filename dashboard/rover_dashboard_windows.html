@@ -1383,13 +1383,12 @@
         </header>
 
         <!-- ========================================
-             TAB: LIVE DASHBOARD
+             TAB: LIVE DASHBOARD (Camera + State + Controls)
              ======================================== -->
         <div id="liveTab" class="tab-panel active">
           <div class="dashboard-grid">
-            <!-- LEFT COLUMN -->
+            <!-- LEFT COLUMN: Camera Feed -->
             <section class="left-col">
-              <!-- Camera Feed Panel -->
               <section class="panel camera-frame" aria-label="Live rover camera">
                 <div class="panel-header">
                   <div>
@@ -1441,36 +1440,9 @@
                   </div>
                 </div>
               </section>
-
-              <!-- Tracking Guidance Panel -->
-              <section id="guidancePanel" class="panel" aria-label="Tracking guidance" aria-live="polite">
-                <div class="panel-header">
-                  <div>
-                    <p class="panel-kicker">Navigation</p>
-                    <h2 class="panel-title">
-                      <span class="material-symbols-outlined">explore</span>
-                      Tracking Guidance
-                    </h2>
-                  </div>
-                </div>
-                <div class="guidance-grid">
-                  <div class="guidance-box">
-                    <span class="metric-label">Target</span>
-                    <div id="trackingName" class="metric-value">none</div>
-                  </div>
-                  <div class="guidance-box">
-                    <span class="metric-label">Direction</span>
-                    <div id="guidanceDirection" class="metric-value">select a human alert</div>
-                  </div>
-                  <div class="guidance-box">
-                    <span class="metric-label">Distance</span>
-                    <div class="metric-value"><span id="guidanceDistance">--</span> cm</div>
-                  </div>
-                </div>
-              </section>
             </section>
 
-            <!-- RIGHT COLUMN -->
+            <!-- RIGHT COLUMN: State + Controls -->
             <section class="right-col">
               <!-- Rover State Panel -->
               <section class="panel" aria-label="Rover status">
@@ -1496,35 +1468,6 @@
                     <span class="metric-label">Marker</span>
                     <div class="metric-value">green strip</div>
                   </div>
-                </div>
-              </section>
-
-              <!-- LIDAR / Target Board Map -->
-              <section class="panel" aria-label="Rover map">
-                <div class="panel-header">
-                  <div>
-                    <p class="panel-kicker">Local Map</p>
-                    <h2 class="panel-title">
-                      <span class="material-symbols-outlined">radar</span>
-                      Target Board
-                    </h2>
-                  </div>
-                </div>
-                <div id="map" aria-label="Rover map">
-                  <div class="map-compass">N</div>
-                  <div class="lidar-sweep"></div>
-                  <div class="map-label home">home</div>
-                  <div class="map-label zone-a">scan zone</div>
-                  <div class="map-label zone-b">strip zone</div>
-                  <div class="map-legend">
-                    <span><i style="background:var(--red)"></i>human</span>
-                    <span><i style="background:var(--green)"></i>animal</span>
-                    <span><i style="background:var(--cyan)"></i>object</span>
-                    <span><i style="background:var(--violet)"></i>marker</span>
-                  </div>
-                  <div id="goal"></div>
-                  <div id="trackedTarget"></div>
-                  <div id="rover"></div>
                 </div>
               </section>
 
@@ -1560,64 +1503,73 @@
                   </button>
                 </div>
               </section>
-
-              <!-- Event Log Panel -->
-              <section class="panel" aria-label="Event log">
-                <div class="panel-header">
-                  <div>
-                    <p class="panel-kicker">Events</p>
-                    <h2 class="panel-title">
-                      <span class="material-symbols-outlined">notifications</span>
-                      Event Log
-                    </h2>
-                  </div>
-                  <span class="panel-badge">AUTO-SCROLL</span>
-                </div>
-                <div id="eventLog" class="event-log">
-                  <div class="log-entry">
-                    <span class="log-time">--:--:--</span>
-                    <span class="log-msg">SYSTEM INITIALIZED. AWAITING CONNECTION.</span>
-                  </div>
-                  <div class="log-cursor"><span></span></div>
-                </div>
-                <div class="log-hint">TARGET EVENTS STREAM HERE</div>
-              </section>
             </section>
           </div>
         </div>
 
         <!-- ========================================
-             TAB: MAP FOCUS
+             TAB: MAP (Map + Guidance + Scan Results)
              ======================================== -->
         <div id="mapTab" class="tab-panel">
           <div class="expanded-grid">
             <section class="expanded-col">
-              <section class="panel" aria-label="Expanded rover map">
+              <!-- Full Map Panel -->
+              <section class="panel" aria-label="Rover map panel">
                 <div class="panel-header">
                   <div>
                     <p class="panel-kicker">Navigation</p>
                     <h2 class="panel-title">
                       <span class="material-symbols-outlined">map</span>
-                      Map Focus
+                      Target Board
                     </h2>
                   </div>
                 </div>
-                <div id="mapDock"></div>
+                <div id="map" aria-label="Rover map">
+                  <div class="map-compass">N</div>
+                  <div class="lidar-sweep"></div>
+                  <div class="map-label home">home</div>
+                  <div class="map-label zone-a">scan zone</div>
+                  <div class="map-label zone-b">strip zone</div>
+                  <div class="map-legend">
+                    <span><i style="background:var(--red)"></i>human</span>
+                    <span><i style="background:var(--green)"></i>animal</span>
+                    <span><i style="background:var(--cyan)"></i>object</span>
+                    <span><i style="background:var(--violet)"></i>marker</span>
+                  </div>
+                  <div id="goal"></div>
+                  <div id="trackedTarget"></div>
+                  <div id="rover"></div>
+                </div>
               </section>
             </section>
             <section class="expanded-col">
-              <section class="panel" aria-label="Expanded tracking guidance">
+              <!-- Tracking Guidance Panel -->
+              <section class="panel" aria-label="Tracking guidance" aria-live="polite">
                 <div class="panel-header">
                   <div>
                     <p class="panel-kicker">Target</p>
                     <h2 class="panel-title">
-                      <span class="material-symbols-outlined">pin_drop</span>
-                      Guidance Focus
+                      <span class="material-symbols-outlined">explore</span>
+                      Tracking Guidance
                     </h2>
                   </div>
                 </div>
-                <div id="guidanceDock"></div>
+                <div class="guidance-grid">
+                  <div class="guidance-box">
+                    <span class="metric-label">Target</span>
+                    <div id="trackingName" class="metric-value">none</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Direction</span>
+                    <div id="guidanceDirection" class="metric-value">select a human alert</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Distance</span>
+                    <div class="metric-value"><span id="guidanceDistance">--</span> cm</div>
+                  </div>
+                </div>
               </section>
+              <!-- Scan Results Panel -->
               <section class="panel scan-panel" aria-label="Ultrasonic scan results">
                 <div class="panel-header">
                   <div>
@@ -1642,11 +1594,33 @@
         </div>
 
         <!-- ========================================
-             TAB: ALERT LOG
+             TAB: LOG (Event Log + Alerts + Debug)
              ======================================== -->
         <div id="alertsTab" class="tab-panel">
           <div class="expanded-grid">
             <section class="expanded-col">
+              <!-- Event Log -->
+              <section class="panel" aria-label="Event log">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">System</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">terminal</span>
+                      Event Log
+                    </h2>
+                  </div>
+                  <span class="panel-badge">AUTO-SCROLL</span>
+                </div>
+                <div id="eventLog" class="event-log" style="max-height:360px;">
+                  <div class="log-entry">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-msg">SYSTEM INITIALIZED. AWAITING CONNECTION.</span>
+                  </div>
+                  <div class="log-cursor"><span></span></div>
+                </div>
+                <div class="log-hint">TARGET EVENTS STREAM HERE</div>
+              </section>
+              <!-- Alert History -->
               <section class="panel">
                 <div class="panel-header">
                   <div>
@@ -1703,11 +1677,6 @@
         map: document.getElementById("mapTab"),
         alerts: document.getElementById("alertsTab"),
       };
-
-      const mapHome = document.querySelector('[aria-label="Rover map"]');
-      const guidanceHome = document.getElementById("guidancePanel");
-      const mapDock = document.getElementById("mapDock");
-      const guidanceDock = document.getElementById("guidanceDock");
 
       const statusEl = document.getElementById("status");
       const statusDot = document.getElementById("statusDot");
@@ -1768,13 +1737,6 @@
         }
         for (const [name, panel] of Object.entries(panels)) {
           panel.classList.toggle("active", name === tab);
-        }
-        if (tab === "map") {
-          mapDock.append(mapEl);
-          guidanceDock.append(guidanceHome);
-        } else {
-          mapHome.append(mapEl);
-          document.querySelector(".left-col").append(guidanceHome);
         }
         renderPose();
       }
