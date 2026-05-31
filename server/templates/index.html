@@ -1,25 +1,31 @@
 <!doctype html>
-<html lang="en">
+<html class="dark" lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>STASIS Mission Control</title>
+    <title>STASIS Mission Control Dashboard</title>
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
       rel="stylesheet"
     />
+    <!-- Socket.IO -->
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
+      /* =============================================
+         STASIS MISSION CONTROL — DESIGN SYSTEM
+         ============================================= */
       :root {
         color-scheme: dark;
         --bg: #000000;
         --bg-soft: #0e0e0e;
         --panel: #0e0e0e;
         --panel-strong: #141313;
+        --surface: #201f1f;
         --line: #444748;
-        --line-strong: #8e9192;
+        --line-soft: rgba(68, 71, 72, 0.45);
         --text: #ffffff;
         --muted: #c4c7c8;
         --soft: #8e9192;
@@ -32,78 +38,53 @@
         --shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
         --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
         --headline: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-        font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-        background: var(--bg);
-        color: var(--text);
+        --body: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
       }
 
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
 
       body {
-        margin: 0;
+        font-family: var(--body);
+        font-size: 14px;
+        line-height: 1.5;
+        background: var(--bg);
+        color: var(--text);
         min-height: 100vh;
         overflow-x: hidden;
-        background: var(--bg);
-        cursor: crosshair;
+        cursor: default;
       }
 
-      body::before {
-        position: fixed;
-        inset: 0;
-        z-index: -2;
-        content: "";
+      ::selection { background: #fff; color: #000; }
+
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: #0e0e0e; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb { background: #444748; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #ffffff; }
+
+      button { font: inherit; cursor: pointer; }
+
+      /* Grid overlay background */
+      .bg-grid {
         background-image:
           radial-gradient(circle at center, rgba(42, 42, 42, 0.4) 0%, rgba(0, 0, 0, 1) 100%),
           linear-gradient(to right, rgba(28, 27, 27, 0.6) 1px, transparent 1px),
           linear-gradient(to bottom, rgba(28, 27, 27, 0.6) 1px, transparent 1px);
         background-size: 100% 100%, 32px 32px, 32px 32px;
-        mask-image: radial-gradient(circle at center, black, transparent 78%);
+        background-attachment: fixed;
       }
 
-      body::after {
-        position: fixed;
-        inset: 0;
-        z-index: -1;
-        pointer-events: none;
-        content: "";
-        background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.018) 1px, transparent 1px, transparent 5px);
-        opacity: 0.55;
-      }
-
-      button {
-        font: inherit;
-      }
-
-      ::selection {
-        background: #fff;
-        color: #000;
-      }
-
-      ::-webkit-scrollbar {
-        width: 5px;
-        height: 5px;
-      }
-
-      ::-webkit-scrollbar-track {
-        background: #0e0e0e;
-      }
-
-      ::-webkit-scrollbar-thumb {
-        background: #444748;
-      }
-
-      ::-webkit-scrollbar-thumb:hover {
-        background: #fff;
-      }
-
+      /* =============================================
+         LAYOUT SHELL
+         ============================================= */
       .shell {
         display: grid;
         grid-template-columns: 96px minmax(0, 1fr);
         min-height: 100vh;
       }
 
+      /* =============================================
+         SIDEBAR
+         ============================================= */
       .sidebar {
         position: sticky;
         top: 0;
@@ -111,27 +92,24 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 36px;
+        gap: 12px;
         padding: 28px 10px;
         border-right: 1px solid var(--line);
         background:
           linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 24%),
-          #0e0e0e;
-        backdrop-filter: none;
-        z-index: 5;
+          var(--bg-soft);
+        z-index: 50;
       }
 
       .brand-mark {
         width: 76px;
-        min-height: 104px;
         display: grid;
         place-items: center;
         gap: 6px;
-        border: 0;
-        border-radius: 0;
-        background: transparent;
-        box-shadow: none;
         text-align: center;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--line-soft);
+        margin-bottom: 8px;
       }
 
       .brand-mark img {
@@ -140,260 +118,258 @@
         filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.18));
       }
 
+      .brand-icon {
+        font-family: "Material Symbols Outlined";
+        font-size: 1.8rem;
+        color: var(--text);
+        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.18));
+      }
+
       .brand-caption {
         display: grid;
         gap: 2px;
       }
 
       .brand-caption strong {
-        color: #fff;
+        color: var(--text);
         font-family: var(--headline);
         font-size: 0.74rem;
         letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .brand-caption span {
         color: var(--soft);
         font-family: var(--mono);
-        font-size: 0.62rem;
+        font-size: 0.6rem;
         letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
       .nav-stack {
         display: grid;
-        gap: 10px;
+        gap: 8px;
         width: 100%;
       }
 
-      .nav-pill,
-      .panic {
+      .nav-pill {
         width: 100%;
         min-height: 58px;
         border: 1px solid transparent;
         border-radius: 16px;
         background: transparent;
         color: var(--muted);
-        cursor: pointer;
-        transition:
-          transform 180ms ease,
-          border-color 180ms ease,
-          background 180ms ease,
-          color 180ms ease;
-      }
-
-      .nav-pill {
         display: grid;
         place-items: center;
-        gap: 4px;
-        font-size: 0.68rem;
+        gap: 3px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transition: all 150ms ease;
       }
 
-      .nav-pill strong {
-        display: block;
+      .nav-pill .icon {
         font-family: "Material Symbols Outlined";
-        font-size: 1.42rem;
+        font-size: 1.35rem;
         font-weight: 300;
         line-height: 1;
+        transition: transform 150ms ease;
       }
 
-      .nav-pill.active,
       .nav-pill:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        transform: scale(0.95);
+      }
+
+      .nav-pill:hover .icon { transform: scale(1.1); }
+
+      .nav-pill.active {
         color: #000;
         border-color: #fff;
         background: #fff;
         transform: scale(0.95);
       }
 
-      .tab-panel {
-        display: none;
-      }
-
-      .tab-panel.active {
-        display: grid;
-      }
-
-      .sidebar-spacer {
-        flex: 1;
-      }
+      .sidebar-spacer { flex: 1; }
 
       .panic {
-        font-family: var(--mono);
-        letter-spacing: 0.08em;
-        color: var(--red);
-        border-color: rgba(255, 100, 109, 0.35);
+        width: 100%;
+        min-height: 54px;
+        border: 1px solid rgba(255, 100, 109, 0.35);
+        border-radius: 16px;
         background: rgba(255, 100, 109, 0.08);
+        color: var(--red);
+        font-family: var(--mono);
+        font-size: 0.7rem;
         font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        display: grid;
+        place-items: center;
+        transition: all 150ms ease;
       }
 
       .panic:hover {
         transform: translateY(-2px);
-        background: rgba(255, 100, 109, 0.18);
+        background: rgba(255, 100, 109, 0.22);
+        border-color: rgba(255, 100, 109, 0.6);
       }
 
+      .sidebar-footer {
+        display: grid;
+        gap: 6px;
+        width: 100%;
+        margin-top: 8px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .sidebar-footer button {
+        width: 100%;
+        min-height: 40px;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--soft);
+        display: grid;
+        place-items: center;
+        font-family: "Material Symbols Outlined";
+        font-size: 1.1rem;
+        transition: all 150ms ease;
+      }
+
+      .sidebar-footer button:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+      }
+
+      /* =============================================
+         WORKSPACE / MAIN
+         ============================================= */
       .workspace {
         min-width: 0;
-        padding: 22px;
+        overflow-y: auto;
+        height: 100vh;
       }
 
+      /* =============================================
+         TOP BAR
+         ============================================= */
       .topbar {
         position: sticky;
         top: 0;
-        z-index: 4;
+        z-index: 40;
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: 18px;
-        margin: -22px -22px 22px;
-        padding: 16px 22px;
+        padding: 14px 24px;
         border-bottom: 1px solid var(--line);
-        background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.055), transparent 38%),
-          rgba(3, 4, 5, 0.86);
+        background: rgba(0, 0, 0, 0.6);
         backdrop-filter: blur(22px);
       }
 
-      .wordmark {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        min-width: 0;
+      .topbar h1 {
+        font-family: var(--headline);
+        font-size: clamp(1rem, 2vw, 1.45rem);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .topbar h1 .sep {
+        color: var(--soft);
+        font-weight: 400;
+        margin: 0 4px;
       }
 
       .topbar-meta {
         display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
         flex-wrap: wrap;
         justify-content: flex-end;
       }
 
-      .wordmark img {
-        width: 190px;
-        max-width: 42vw;
-        height: auto;
-      }
-
-      .title-block {
-        display: grid;
-        gap: 2px;
-      }
-
-      .title-block .eyebrow {
-        color: var(--soft);
-      }
-
-      h1,
-      h2,
-      h3,
-      p {
-        margin: 0;
-      }
-
-      h1 {
-        font-family: var(--headline);
-        font-size: clamp(1.22rem, 2vw, 1.75rem);
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-      }
-
-      .eyebrow,
-      .panel-kicker,
-      .metric-label {
-        color: var(--muted);
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--bg-soft);
         font-family: var(--mono);
         font-size: 0.72rem;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        letter-spacing: 0.08em;
-      }
-
-      .status {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 9px 14px;
-        color: var(--muted);
-        background: rgba(255, 255, 255, 0.06);
         white-space: nowrap;
-        font-family: var(--mono);
-        font-size: 0.78rem;
-        text-transform: uppercase;
       }
 
-      .sys-time {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        padding: 9px 12px;
-        color: var(--text);
-        background: #0e0e0e;
-        white-space: nowrap;
-        font-family: var(--mono);
-        font-size: 0.8rem;
-      }
-
-      .status::before {
+      .status-dot {
         width: 8px;
         height: 8px;
-        content: "";
         border-radius: 50%;
         background: var(--red);
-        box-shadow: 0 0 14px currentColor;
+        box-shadow: 0 0 10px var(--red);
+        animation: pulse 2s ease-in-out infinite;
+        flex-shrink: 0;
       }
 
-      .status.online::before {
+      .status-dot.online {
         background: var(--green);
+        box-shadow: 0 0 10px var(--green);
       }
 
-      .mono-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        min-height: 38px;
-        padding: 9px 12px;
-        border: 1px solid var(--line);
-        border-radius: 10px;
-        background: #0e0e0e;
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.76rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        white-space: nowrap;
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
       }
 
-      .mono-chip strong {
-        color: #fff;
-        font-weight: 700;
-      }
+      /* =============================================
+         TAB PANEL SYSTEM
+         ============================================= */
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
 
-      .dashboard {
+      /* =============================================
+         DASHBOARD GRID
+         ============================================= */
+      .dashboard-grid {
         display: grid;
-        grid-template-columns: minmax(360px, 1.45fr) minmax(310px, 0.8fr);
+        grid-template-columns: minmax(400px, 1.6fr) minmax(320px, 0.75fr);
         gap: 18px;
+        padding: 20px 24px;
         align-items: start;
       }
 
-      .single-view {
-        display: grid;
-        grid-template-columns: minmax(360px, 1fr) minmax(310px, 0.72fr);
-        gap: 18px;
-        align-items: start;
-      }
-
-      .left-column,
-      .right-column,
-      .map-column,
-      .alerts-column {
+      .left-col,
+      .right-col {
         display: grid;
         gap: 18px;
         min-width: 0;
       }
 
+      .expanded-grid {
+        display: grid;
+        grid-template-columns: minmax(400px, 1fr) minmax(320px, 0.72fr);
+        gap: 18px;
+        padding: 20px 24px;
+        align-items: start;
+      }
+
+      .expanded-col {
+        display: grid;
+        gap: 18px;
+        min-width: 0;
+      }
+
+      /* =============================================
+         PANELS
+         ============================================= */
       .panel {
         min-width: 0;
         border: 1px solid var(--line);
@@ -403,15 +379,12 @@
           var(--panel);
         box-shadow: var(--shadow);
         overflow: hidden;
-        transition:
-          transform 180ms ease,
-          border-color 180ms ease,
-          background 180ms ease;
+        transition: transform 180ms ease, border-color 180ms ease;
       }
 
       .panel:hover {
-        border-color: rgba(255, 255, 255, 0.34);
-        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
       }
 
       .panel-header {
@@ -419,61 +392,72 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 13px 15px;
+        padding: 12px 16px;
         border-bottom: 1px solid var(--line);
         background:
-          linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 42%),
-          rgba(255, 255, 255, 0.035);
+          linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 42%),
+          rgba(255, 255, 255, 0.025);
       }
 
       .panel-title {
         display: flex;
         align-items: center;
-        gap: 10px;
-        font-family: var(--headline);
-        font-size: 1rem;
-        font-weight: 700;
-        letter-spacing: 0.03em;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
       }
 
-      .panel-title::before {
-        width: 9px;
-        height: 9px;
-        content: "";
-        border-radius: 50%;
-        background: var(--cyan);
-        box-shadow: 0 0 14px rgba(139, 214, 255, 0.75);
-      }
-
-      .panel-icon {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 9px;
-        background: rgba(255, 255, 255, 0.04);
-        color: #fff;
-      }
-
-      .panel-icon .material-symbols-outlined {
+      .panel-title .material-symbols-outlined {
         font-size: 1rem;
         line-height: 1;
       }
 
+      .panel-kicker {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 2px;
+      }
+
+      .panel-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .badge-live {
+        border-color: var(--text);
+        background: var(--text);
+        color: #000;
+        font-weight: 700;
+      }
+
+      .badge-rec { color: var(--soft); }
+
+      /* =============================================
+         CAMERA FEED
+         ============================================= */
       .camera-frame {
         position: relative;
-        min-height: 360px;
-        background: #000;
       }
 
       .camera-feed {
         position: relative;
-        height: min(62vh, 630px);
-        min-height: 360px;
+        height: min(58vh, 600px);
+        min-height: 340px;
         overflow: hidden;
         isolation: isolate;
+        background: #020303;
       }
 
       .camera-feed img {
@@ -482,359 +466,236 @@
         height: 100%;
         object-fit: cover;
         background:
-          radial-gradient(circle at 50% 50%, rgba(139, 214, 255, 0.1), transparent 35%),
+          radial-gradient(circle at 50% 50%, rgba(139, 214, 255, 0.08), transparent 35%),
           #020303;
       }
 
-      .camera-feed .material-symbols-outlined {
-        font-size: 1rem;
-        line-height: 1;
-      }
-
-      .camera-feed::before,
-      .camera-feed::after {
+      /* Corner bracket overlay */
+      .camera-feed::before {
         position: absolute;
-        inset: 18px;
+        inset: 16px;
         pointer-events: none;
         content: "";
+        z-index: 2;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        clip-path: polygon(
+          0 0, 12% 0, 12% 2px, 2px 2px, 2px 12%, 0 12%, 0 0,
+          100% 0, 100% 12%, calc(100% - 2px) 12%, calc(100% - 2px) 2px, 88% 2px, 88% 0, 100% 0,
+          100% 100%, 88% 100%, 88% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 88%, 100% 88%, 100% 100%,
+          0 100%, 0 88%, 2px 88%, 2px calc(100% - 2px), 12% calc(100% - 2px), 12% 100%, 0 100%
+        );
       }
 
-      .camera-feed::before {
-        border: 1px solid rgba(255, 255, 255, 0.24);
-        clip-path: polygon(0 0, 14% 0, 14% 2px, 2px 2px, 2px 14%, 0 14%, 0 0, 100% 0, 100% 14%, calc(100% - 2px) 14%, calc(100% - 2px) 2px, 86% 2px, 86% 0, 100% 0, 100% 100%, 86% 100%, 86% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 86%, 100% 86%, 100% 100%, 0 100%, 0 86%, 2px 86%, 2px calc(100% - 2px), 14% calc(100% - 2px), 14% 100%, 0 100%);
-      }
-
+      /* Crosshair overlay */
       .camera-feed::after {
+        position: absolute;
+        inset: 16px;
+        pointer-events: none;
+        content: "";
+        z-index: 2;
         background:
-          linear-gradient(90deg, transparent calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% + 1px), transparent calc(50% + 1px)),
-          linear-gradient(0deg, transparent calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% + 1px), transparent calc(50% + 1px));
-        opacity: 0.34;
+          linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+          linear-gradient(0deg, transparent calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+        opacity: 0.3;
       }
 
-      .hud-readout {
+      /* Scanline overlay */
+      .camera-frame::after {
         position: absolute;
-        left: 18px;
-        right: 18px;
-        bottom: 18px;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        z-index: 3;
+        background: repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 5px);
+        mix-blend-mode: screen;
+        opacity: 0.3;
+        animation: feedPulse 3s ease-in-out infinite;
+      }
+
+      @keyframes feedPulse {
+        0%, 100% { opacity: 0.25; }
+        50% { opacity: 0.45; }
+      }
+
+      .sensor-stack {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 4;
+        display: grid;
+        gap: 5px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(14px);
+        color: rgba(255, 255, 255, 0.8);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .sensor-right {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 4;
+        display: grid;
+        gap: 5px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(14px);
+        color: rgba(255, 255, 255, 0.8);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        text-align: right;
+        letter-spacing: 0.05em;
+      }
+
+      .hud-bottom {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        z-index: 4;
         display: flex;
         justify-content: space-between;
+        align-items: flex-end;
         gap: 12px;
         pointer-events: none;
       }
 
       .hud-chip {
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 10px;
         padding: 8px 10px;
-        background: rgba(0, 0, 0, 0.48);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.5);
         backdrop-filter: blur(12px);
-        color: var(--muted);
+        color: rgba(255, 255, 255, 0.7);
         font-family: var(--mono);
-        font-size: 0.78rem;
-      }
-
-      .sensor-stack {
-        position: absolute;
-        top: 18px;
-        left: 18px;
-        z-index: 2;
-        display: grid;
-        gap: 7px;
-        padding: 10px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 14px;
-        background: rgba(0, 0, 0, 0.44);
-        backdrop-filter: blur(14px);
-        color: rgba(255, 255, 255, 0.82);
-        font-family: var(--mono);
-        font-size: 0.68rem;
+        font-size: 0.62rem;
         text-transform: uppercase;
+        letter-spacing: 0.05em;
       }
 
       .signal-bars {
-        position: absolute;
-        right: 18px;
-        bottom: 18px;
-        z-index: 2;
         display: flex;
-        align-items: end;
-        gap: 4px;
-        height: 38px;
-        padding: 8px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 14px;
-        background: rgba(0, 0, 0, 0.44);
-        backdrop-filter: blur(14px);
+        align-items: flex-end;
+        gap: 3px;
+        height: 32px;
+        padding: 6px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(12px);
       }
 
       .signal-bars i {
-        width: 5px;
+        width: 4px;
         display: block;
         border-radius: 999px;
         background: #fff;
-        opacity: 0.35;
       }
 
-      .signal-bars i:nth-child(1) {
-        height: 28%;
-      }
+      .signal-bars i:nth-child(1) { height: 25%; opacity: 0.35; }
+      .signal-bars i:nth-child(2) { height: 45%; opacity: 0.55; }
+      .signal-bars i:nth-child(3) { height: 70%; opacity: 0.78; }
+      .signal-bars i:nth-child(4) { height: 100%; opacity: 1; }
 
-      .signal-bars i:nth-child(2) {
-        height: 48%;
-        opacity: 0.55;
-      }
-
-      .signal-bars i:nth-child(3) {
-        height: 72%;
-        opacity: 0.78;
-      }
-
-      .signal-bars i:nth-child(4) {
-        height: 100%;
-        opacity: 1;
-      }
-
-      .command-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        padding: 14px;
-      }
-
-      .command-grid .material-symbols-outlined {
-        font-size: 1rem;
-        line-height: 1;
-      }
-
-      .command-grid button,
-      .track-alert,
-      .decision-actions button,
-      .debug-list button {
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: #0e0e0e;
-        color: var(--text);
-        cursor: pointer;
-        padding: 10px 12px;
+      .signal-label {
         font-family: var(--mono);
-        font-size: 0.76rem;
+        font-size: 0.58rem;
+        color: var(--text);
+        margin-left: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        align-self: center;
+      }
+
+      /* Guidance HUD overlay on camera */
+      .tracking-hud {
+        position: absolute;
+        bottom: 56px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+        display: none;
+        align-items: center;
+        gap: 18px;
+        padding: 10px 18px;
+        border: 1px solid rgba(255, 211, 109, 0.3);
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(18px);
+        font-family: var(--mono);
+        font-size: 0.7rem;
         text-transform: uppercase;
         letter-spacing: 0.04em;
-        transition:
-          transform 160ms ease,
-          border-color 160ms ease,
-          background 160ms ease,
-          box-shadow 160ms ease;
-      }
-
-      .command-grid button:hover,
-      .track-alert:hover,
-      .decision-actions button:hover,
-      .debug-list button:hover {
-        transform: translateY(-2px);
-        border-color: rgba(255, 255, 255, 0.34);
-        background: #353434;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
-      }
-
-      #startRobot {
-        color: #000;
-        border-color: transparent;
-        background: #fff;
-      }
-
-      #stopRover {
-        color: #fff5f6;
-        border-color: rgba(255, 100, 109, 0.6);
-        background: rgba(255, 100, 109, 0.22);
-      }
-
-      .status-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 10px;
-        padding: 14px;
-      }
-
-      .metric {
-        min-width: 0;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 12px;
-        background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 48%),
-          rgba(0, 0, 0, 0.22);
-      }
-
-      .metric-value {
-        margin-top: 8px;
-        font-family: var(--headline);
-        font-size: clamp(1rem, 1.8vw, 1.35rem);
-        font-weight: 800;
-        overflow-wrap: anywhere;
-      }
-
-      .guidance {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 10px;
-        padding: 14px;
-      }
-
-      .guidance-box {
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        padding: 12px;
-        background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 48%),
-          rgba(0, 0, 0, 0.22);
-      }
-
-      .guidance-box strong,
-      .guidance-box span {
-        display: block;
-      }
-
-      .guidance-box strong {
-        margin-top: 8px;
-        font-family: var(--headline);
-        font-size: 1.12rem;
-      }
-
-      #guidanceDirection {
-        color: var(--amber);
-      }
-
-      #map {
-        position: relative;
-        width: 100%;
-        min-height: 390px;
-        aspect-ratio: 1;
-        overflow: hidden;
-        border-radius: 0 0 20px 20px;
-        background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.09), transparent 28%),
-          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16), transparent 9%),
-          repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.22) 0 1px, transparent 1px 42px),
-          linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
-          #050505;
-        background-size:
-          auto,
-          auto,
-          36px 36px,
-          36px 36px,
-          auto;
-        cursor: crosshair;
-      }
-
-      .map-label,
-      .map-legend,
-      .map-compass,
-      .map-path {
-        position: absolute;
-        z-index: 1;
+        white-space: nowrap;
         pointer-events: none;
       }
 
-      .map-label {
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 50%;
-        padding: 5px 8px;
-        background: rgba(0, 0, 0, 0.38);
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.68rem;
-        text-transform: uppercase;
+      .tracking-hud.visible { display: flex; }
+
+      .tracking-hud .t-label { color: var(--muted); }
+      .tracking-hud .t-name { color: var(--amber); font-weight: 700; }
+      .tracking-hud .t-dir { color: var(--text); font-weight: 700; font-size: 0.8rem; }
+      .tracking-hud .t-dist { color: var(--cyan); }
+
+      /* =============================================
+         MAP / RADAR
+         ============================================= */
+      #map {
+        position: relative;
+        width: 100%;
+        min-height: 260px;
+        aspect-ratio: 1;
+        overflow: hidden;
+        cursor: crosshair;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1), transparent 9%),
+          repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 42px),
+          linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+          #050505;
+        background-size: auto, auto, 36px 36px, 36px 36px, auto;
       }
 
-      .map-label.home {
+      #map::before {
+        position: absolute;
+        inset: 16px;
+        content: "";
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #map::after {
+        position: absolute;
         left: 50%;
         top: 50%;
-        transform: translate(18px, -34px);
-      }
-
-      .map-label.zone-a {
-        left: 8%;
-        top: 13%;
-      }
-
-      .map-label.zone-b {
-        right: 8%;
-        bottom: 12%;
-      }
-
-      .map-compass {
-        top: 18px;
-        right: 18px;
-        width: 64px;
-        height: 64px;
-        display: grid;
-        place-items: center;
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 50%;
-        color: var(--cyan);
-        font-family: var(--mono);
-        background: rgba(0, 0, 0, 0.32);
-        font-weight: 800;
-      }
-
-      .map-compass::before {
-        position: absolute;
-        top: 7px;
-        width: 2px;
-        height: 20px;
+        width: 76%;
+        height: 1px;
         content: "";
-        border-radius: 99px;
-        background: var(--cyan);
-      }
-
-      .map-path {
-        left: 14%;
-        top: 58%;
-        width: 72%;
-        height: 18%;
-        border-top: 2px dashed rgba(139, 214, 255, 0.28);
-        border-radius: 50%;
-        transform: rotate(-7deg);
-      }
-
-      .map-legend {
-        left: 14px;
-        bottom: 14px;
-        display: grid;
-        gap: 6px;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 12px;
-        padding: 8px;
-        background: rgba(0, 0, 0, 0.42);
-        color: var(--muted);
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        text-transform: uppercase;
-      }
-
-      .map-legend span {
-        display: flex;
-        align-items: center;
-        gap: 7px;
-      }
-
-      .map-legend i {
-        width: 9px;
-        height: 9px;
-        display: inline-block;
-        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 1;
       }
 
       .lidar-sweep {
         position: absolute;
         left: 50%;
         top: 50%;
-        z-index: 1;
+        z-index: 2;
         width: 72%;
         aspect-ratio: 1;
-        border: 1px solid rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.14);
         border-radius: 50%;
         transform: translate(-50%, -50%);
         pointer-events: none;
@@ -848,47 +709,113 @@
         width: 50%;
         height: 1px;
         content: "";
-        background: rgba(255, 255, 255, 0.54);
+        background: linear-gradient(90deg, rgba(255,255,255,0.6), transparent);
         transform-origin: left center;
       }
 
-      #map::before {
-        position: absolute;
-        inset: 18px;
-        content: "";
-        border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 999px;
+      @keyframes spinSweep {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to { transform: translate(-50%, -50%) rotate(360deg); }
       }
 
-      #map::after {
+      .map-compass {
         position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 76%;
-        height: 1px;
-        content: "";
-        background: rgba(255, 255, 255, 0.28);
-        transform: translate(-50%, -50%);
+        top: 12px;
+        right: 12px;
+        z-index: 3;
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 50%;
+        color: var(--cyan);
+        font-family: var(--mono);
+        font-weight: 800;
+        font-size: 0.75rem;
+        background: rgba(0, 0, 0, 0.4);
+        pointer-events: none;
       }
 
-      #rover {
+      .map-compass::before {
+        position: absolute;
+        top: 5px;
+        width: 2px;
+        height: 14px;
+        content: "";
+        border-radius: 99px;
+        background: var(--cyan);
+      }
+
+      .map-label {
         position: absolute;
         z-index: 3;
-        width: 20px;
-        height: 20px;
+        padding: 3px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.4);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        pointer-events: none;
+      }
+
+      .map-label.home { left: 50%; top: 50%; transform: translate(16px, -28px); }
+      .map-label.zone-a { left: 8%; top: 13%; }
+      .map-label.zone-b { right: 8%; bottom: 12%; }
+
+      .map-legend {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        z-index: 3;
+        display: grid;
+        gap: 5px;
+        padding: 7px 9px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        pointer-events: none;
+      }
+
+      .map-legend span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .map-legend i {
+        width: 8px;
+        height: 8px;
+        display: inline-block;
+        border-radius: 50%;
+      }
+
+      /* Rover marker */
+      #rover {
+        position: absolute;
+        z-index: 5;
+        width: 18px;
+        height: 18px;
         border: 3px solid var(--white);
         border-radius: 50%;
         background: #fff;
         transform: translate(-50%, -50%);
-        box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.12), 0 0 28px rgba(255, 255, 255, 0.24);
+        box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.1), 0 0 24px rgba(255, 255, 255, 0.2);
+        transition: left 0.3s ease, top 0.3s ease;
       }
 
       #rover::after {
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 4px;
-        height: 34px;
+        width: 3px;
+        height: 28px;
         content: "";
         background: #fff;
         border-radius: 999px;
@@ -899,53 +826,34 @@
       #rover::before {
         position: absolute;
         left: 50%;
-        top: -24px;
+        top: -20px;
         width: 0;
         height: 0;
         content: "";
-        border-left: 7px solid transparent;
-        border-right: 7px solid transparent;
-        border-bottom: 11px solid #fff;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-bottom: 9px solid #fff;
         transform: translateX(-50%) rotate(var(--yaw, 0deg));
-        transform-origin: 50% 33px;
+        transform-origin: 50% 29px;
       }
 
-      #goal,
-      #trackedTarget {
+      /* Goal marker */
+      #goal, #trackedTarget {
         position: absolute;
-        z-index: 3;
+        z-index: 4;
         display: none;
         border-radius: 50%;
         transform: translate(-50%, -50%);
+        pointer-events: none;
       }
 
       #goal {
-        width: 24px;
-        height: 24px;
+        width: 22px;
+        height: 22px;
         border: 2px solid var(--amber);
       }
 
-      #trackedTarget {
-        width: 30px;
-        height: 30px;
-        border: 3px solid var(--amber);
-        box-shadow: 0 0 0 8px rgba(255, 211, 109, 0.17);
-      }
-
-      #trackedTarget::after {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        width: 8px;
-        height: 8px;
-        content: "";
-        border-radius: 50%;
-        background: var(--amber);
-        transform: translate(-50%, -50%);
-      }
-
-      #goal::before,
-      #goal::after {
+      #goal::before, #goal::after {
         position: absolute;
         content: "";
         background: var(--amber);
@@ -953,86 +861,281 @@
 
       #goal::before {
         left: 50%;
-        top: -7px;
+        top: -6px;
         width: 2px;
-        height: 34px;
+        height: 30px;
       }
 
       #goal::after {
-        left: -7px;
+        left: -6px;
         top: 50%;
-        width: 34px;
+        width: 30px;
         height: 2px;
       }
 
+      #trackedTarget {
+        width: 28px;
+        height: 28px;
+        border: 3px solid var(--amber);
+        box-shadow: 0 0 0 7px rgba(255, 211, 109, 0.15);
+        animation: targetPulse 1.5s ease-in-out infinite;
+      }
+
+      #trackedTarget::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 7px;
+        height: 7px;
+        content: "";
+        border-radius: 50%;
+        background: var(--amber);
+        transform: translate(-50%, -50%);
+      }
+
+      @keyframes targetPulse {
+        0%, 100% { box-shadow: 0 0 0 7px rgba(255, 211, 109, 0.15); }
+        50% { box-shadow: 0 0 0 14px rgba(255, 211, 109, 0.08); }
+      }
+
+      /* Alert dots on map */
       .map-alert-dot {
         position: absolute;
-        z-index: 2;
-        width: 15px;
-        height: 15px;
-        border: 2px solid rgba(255, 255, 255, 0.86);
+        z-index: 4;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.8);
         border-radius: 50%;
         background: var(--cyan);
         cursor: pointer;
         transform: translate(-50%, -50%);
-        box-shadow: 0 0 0 6px rgba(139, 214, 255, 0.16);
-        transition:
-          transform 160ms ease,
-          box-shadow 160ms ease;
+        box-shadow: 0 0 0 5px rgba(139, 214, 255, 0.15);
+        transition: transform 160ms ease, box-shadow 160ms ease;
       }
 
       .map-alert-dot:hover {
-        transform: translate(-50%, -50%) scale(1.18);
-        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.12);
+        transform: translate(-50%, -50%) scale(1.2);
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.1);
       }
 
       .map-alert-dot.human {
-        z-index: 4;
-        width: 30px;
-        height: 30px;
+        z-index: 5;
+        width: 26px;
+        height: 26px;
         border-color: var(--amber);
         background: var(--red);
-        box-shadow: 0 0 0 9px rgba(255, 100, 109, 0.18);
+        box-shadow: 0 0 0 8px rgba(255, 100, 109, 0.15);
       }
 
-      .map-alert-dot.animal {
-        background: var(--green);
-        box-shadow: 0 0 0 6px rgba(119, 247, 170, 0.16);
-      }
+      .map-alert-dot.animal { background: var(--green); box-shadow: 0 0 0 5px rgba(140, 255, 189, 0.15); }
+      .map-alert-dot.marker { background: var(--violet); box-shadow: 0 0 0 5px rgba(184, 161, 255, 0.15); }
+      .map-alert-dot.object { background: var(--cyan); }
 
-      .map-alert-dot.marker {
-        background: var(--violet);
-        box-shadow: 0 0 0 6px rgba(154, 124, 255, 0.17);
-      }
-
-      .map-alert-dot.object {
-        background: var(--cyan);
-      }
-
-      .alerts,
-      .debug-list {
+      /* =============================================
+         GUIDANCE / METRICS
+         ============================================= */
+      .guidance-grid {
         display: grid;
-        gap: 12px;
-        padding: 14px;
-        max-height: 480px;
-        overflow: auto;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 12px;
       }
 
-      .alert,
-      .debug-row {
+      .guidance-box {
         border: 1px solid var(--line);
-        border-radius: 14px;
-        background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 42%),
-          rgba(0, 0, 0, 0.24);
-        overflow: hidden;
+        border-radius: 12px;
+        padding: 10px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 50%), rgba(0,0,0,0.2);
       }
 
-      .alert {
+      .metric-label {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .metric-value {
+        margin-top: 5px;
+        font-family: var(--headline);
+        font-size: 1rem;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      #guidanceDirection { color: var(--amber); }
+
+      .status-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 12px;
+      }
+
+      /* =============================================
+         COMMAND CONTROLS
+         ============================================= */
+      .command-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 12px;
+      }
+
+      .cmd-btn {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--bg-soft);
+        color: var(--text);
+        padding: 10px 8px;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 160ms ease;
+      }
+
+      .cmd-btn .material-symbols-outlined {
+        font-size: 0.9rem;
+        line-height: 1;
+      }
+
+      .cmd-btn:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.3);
+        background: #353434;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+      }
+
+      .cmd-btn.start {
+        color: #000;
+        border-color: transparent;
+        background: #fff;
+        font-weight: 700;
+      }
+
+      .cmd-btn.start:hover {
+        background: #e0e0e0;
+        color: #000;
+      }
+
+      .cmd-btn.stop {
+        color: #fff5f6;
+        border-color: rgba(255, 100, 109, 0.5);
+        background: rgba(255, 100, 109, 0.18);
+      }
+
+      .cmd-btn.stop:hover {
+        background: rgba(255, 100, 109, 0.32);
+      }
+
+      /* =============================================
+         EVENT LOG
+         ============================================= */
+      .event-log {
+        max-height: 320px;
+        overflow-y: auto;
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .log-entry {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        border-left: 2px solid var(--line);
+        padding-left: 10px;
+        opacity: 0.7;
         animation: riseIn 260ms ease both;
       }
 
-      .alert img {
+      .log-entry.alert-entry {
+        border-left-color: var(--text);
+        opacity: 1;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 8px 10px;
+        border-radius: 0 10px 10px 0;
+      }
+
+      .log-entry .log-time {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding-top: 1px;
+      }
+
+      .log-entry .log-msg {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .log-entry.alert-entry .log-msg { font-weight: 700; }
+
+      .log-cursor {
+        display: flex;
+        align-items: center;
+        padding-left: 12px;
+        padding-top: 4px;
+      }
+
+      .log-cursor span {
+        width: 2px;
+        height: 14px;
+        border-radius: 2px;
+        background: var(--text);
+        animation: pulse 1s ease-in-out infinite;
+      }
+
+      .log-hint {
+        margin: 0 12px 12px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      @keyframes riseIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* =============================================
+         ALERTS TAB
+         ============================================= */
+      .alerts-list {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+        max-height: 600px;
+        overflow: auto;
+      }
+
+      .alert-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 42%), rgba(0,0,0,0.24);
+        overflow: hidden;
+        animation: riseIn 260ms ease both;
+      }
+
+      .alert-card img {
         display: block;
         width: 100%;
         aspect-ratio: 16 / 10;
@@ -1040,139 +1143,133 @@
         background: #020303;
       }
 
-      .alert p {
-        padding: 10px 12px;
+      .alert-card .category-tag {
+        display: inline-block;
+        margin: 10px 12px 0;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 3px 9px;
+        color: var(--green);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+      }
+
+      .alert-card p {
+        padding: 8px 12px;
         color: #e7edf4;
         line-height: 1.4;
       }
 
-      .alert .category {
+      .track-alert {
         display: inline-block;
-        margin: 12px 12px 0;
+        margin: 0 12px 12px;
         border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 4px 9px;
-        color: var(--green);
+        border-radius: 10px;
+        padding: 8px 14px;
+        background: var(--bg-soft);
+        color: var(--amber);
         font-family: var(--mono);
-        font-size: 0.72rem;
+        font-size: 0.7rem;
         text-transform: uppercase;
+        letter-spacing: 0.04em;
+        transition: all 160ms ease;
       }
 
-      .track-alert {
-        margin: 0 12px 12px;
-        color: var(--amber);
+      .track-alert:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 211, 109, 0.4);
+        background: #353434;
       }
 
       .decision-actions {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 8px;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
         margin: 0 12px 12px;
       }
 
+      .decision-actions button {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 6px;
+        background: var(--bg-soft);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        transition: all 160ms ease;
+      }
+
+      .decision-actions button:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.3);
+        background: #353434;
+      }
+
+      /* Debug panel */
+      .debug-list {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+        max-height: 400px;
+        overflow: auto;
+      }
+
       .debug-row {
-        padding: 9px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 10px;
         color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 42%), rgba(0,0,0,0.2);
+      }
+
+      .debug-row.accepted {
+        border-color: rgba(140, 255, 189, 0.3);
+        color: var(--text);
+      }
+
+      /* Scan results */
+      .scan-panel table {
+        width: 100%;
+        border-collapse: collapse;
         font-family: var(--mono);
         font-size: 0.82rem;
       }
 
-      .debug-row.accepted {
-        border-color: rgba(119, 247, 170, 0.36);
-        color: var(--text);
-      }
-
-      .log-hint {
-        margin: 0 14px 14px;
-        padding: 10px 12px;
-        border: 1px solid var(--line);
-        border-radius: 12px;
-        background: rgba(255, 255, 255, 0.03);
-        color: var(--soft);
-        font-family: var(--mono);
-        font-size: 0.72rem;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-      }
-
-      .scan table {
-        width: 100%;
-        border-collapse: collapse;
-        font-family: var(--mono);
-        font-size: 0.9rem;
-      }
-
-      .scan th,
-      .scan td {
+      .scan-panel th,
+      .scan-panel td {
         border-bottom: 1px solid var(--line);
-        padding: 10px 12px;
+        padding: 10px 14px;
         text-align: left;
       }
 
-      .scan th {
+      .scan-panel th {
         color: var(--muted);
         font-weight: 700;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
       }
 
-      .scan tbody tr:last-child td {
+      .scan-panel tbody tr:last-child td {
         border-bottom: 0;
       }
 
-      @keyframes riseIn {
-        from {
-          opacity: 0;
-          transform: translateY(8px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @keyframes spinSweep {
-        from {
-          transform: translate(-50%, -50%) rotate(0deg);
-        }
-        to {
-          transform: translate(-50%, -50%) rotate(360deg);
-        }
-      }
-
-      @keyframes feedPulse {
-        0%,
-        100% {
-          opacity: 0.5;
-        }
-        50% {
-          opacity: 0.9;
-        }
-      }
-
-      .camera-feed::marker {
-        display: none;
-      }
-
-      .camera-frame::after {
-        position: absolute;
-        inset: 0;
-        pointer-events: none;
-        content: "";
-        background:
-          linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent),
-          repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 7px);
-        mix-blend-mode: screen;
-        opacity: 0.35;
-        animation: feedPulse 3s ease-in-out infinite;
-      }
-
-      @media (max-width: 1080px) {
-        .dashboard,
-        .single-view {
+      /* =============================================
+         RESPONSIVE
+         ============================================= */
+      @media (max-width: 1100px) {
+        .dashboard-grid,
+        .expanded-grid {
           grid-template-columns: 1fr;
         }
 
         .camera-feed {
-          height: 52vh;
+          height: 50vh;
         }
       }
 
@@ -1186,18 +1283,16 @@
           height: auto;
           flex-direction: row;
           justify-content: space-between;
-          padding: 12px;
+          padding: 10px;
           border-right: 0;
           border-bottom: 1px solid var(--line);
         }
 
         .brand-mark {
-          width: 58px;
-          height: 58px;
-        }
-
-        .brand-mark img {
-          width: 46px;
+          width: 54px;
+          border-bottom: 0;
+          padding-bottom: 0;
+          margin-bottom: 0;
         }
 
         .nav-stack {
@@ -1205,61 +1300,39 @@
           width: auto;
         }
 
-        .nav-pill {
-          width: 56px;
-          min-height: 52px;
-        }
-
-        .sidebar-spacer {
-          display: none;
-        }
-
-        .panic {
-          width: 58px;
-          min-height: 52px;
-        }
-
-        .workspace {
-          padding: 14px;
-        }
+        .nav-pill { width: 52px; min-height: 48px; }
+        .sidebar-spacer { display: none; }
+        .panic { width: 54px; min-height: 48px; }
+        .sidebar-footer { display: none; }
 
         .topbar {
           position: static;
-          margin: -14px -14px 14px;
           flex-direction: column;
           align-items: flex-start;
         }
 
-        .topbar-meta {
-          justify-content: flex-start;
-        }
+        .topbar-meta { justify-content: flex-start; }
 
-        .wordmark {
-          align-items: flex-start;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .wordmark img {
-          width: 170px;
-          max-width: 76vw;
+        .camera-feed {
+          height: 42vh;
+          min-height: 260px;
         }
 
         .command-grid,
-        .guidance,
-        .status-grid {
+        .guidance-grid,
+        .status-row {
           grid-template-columns: 1fr;
         }
 
-        .camera-feed {
-          height: 45vh;
-          min-height: 280px;
-        }
+        .dashboard-grid { padding: 12px; }
       }
     </style>
   </head>
   <body>
     <div class="shell">
+      <!-- ==========================================
+           SIDEBAR NAVIGATION
+           ========================================== -->
       <aside class="sidebar" aria-label="Mission navigation">
         <div class="brand-mark">
           <img src="/static/stasis-logo.svg" alt="STASIS" />
@@ -1268,247 +1341,401 @@
             <span>V-0.9.4</span>
           </div>
         </div>
-        <div class="nav-stack" aria-hidden="true">
-          <button class="nav-pill active" type="button" data-tab="live"><strong>explore</strong>LIVE</button>
-          <button class="nav-pill" type="button" data-tab="map"><strong>radar</strong>MAP</button>
-          <button class="nav-pill" type="button" data-tab="alerts"><strong>analytics</strong>LOG</button>
+
+        <div class="nav-stack">
+          <button class="nav-pill active" type="button" data-tab="live">
+            <span class="icon">explore</span>LIVE
+          </button>
+          <button class="nav-pill" type="button" data-tab="map">
+            <span class="icon">radar</span>MAP
+          </button>
+          <button class="nav-pill" type="button" data-tab="alerts">
+            <span class="icon">analytics</span>LOG
+          </button>
         </div>
+
         <div class="sidebar-spacer"></div>
-        <button id="stopRoverSide" class="panic" type="button" title="Emergency stop">STOP</button>
+
+        <button id="stopRoverSide" class="panic" type="button" title="Emergency Stop">
+          <span class="material-symbols-outlined" style="font-size:1.2rem;margin-bottom:2px;">warning</span>
+          STOP
+        </button>
+
+        <div class="sidebar-footer">
+          <button type="button" title="Settings"><span>settings</span></button>
+          <button type="button" title="Logout"><span>logout</span></button>
+        </div>
       </aside>
 
-      <main class="workspace">
+      <!-- ==========================================
+           MAIN WORKSPACE
+           ========================================== -->
+      <main class="workspace bg-grid">
+        <!-- Top Status Bar -->
         <header class="topbar">
-          <div class="wordmark">
-            <img src="/static/stasis-logo.svg" alt="STASIS wordmark" />
-            <div class="title-block">
-              <p class="eyebrow">Rover Alpha-7 / Forest Demo</p>
-              <h1>STASIS /// Mission Control</h1>
-            </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <img src="/static/stasis-logo.svg" alt="STASIS wordmark" style="width:160px;max-width:36vw;height:auto;" />
+            <h1>STASIS <span class="sep">///</span> MISSION CONTROL</h1>
           </div>
           <div class="topbar-meta">
-            <div class="mono-chip"><strong>ROVER</strong> ALPHA-7 [ NOMINAL ]</div>
-            <div id="status" class="status">offline</div>
-            <div class="sys-time">SYS TIME: <span id="sys-time">00:00:00</span></div>
+            <div class="chip">
+              <div id="statusDot" class="status-dot"></div>
+              <span id="status">offline</span>
+            </div>
+            <div class="chip">
+              <strong style="color:#fff;font-weight:700;">ROVER</strong>&nbsp;ALPHA-7&nbsp;[&nbsp;<span id="roverStatusTop">NOMINAL</span>&nbsp;]
+            </div>
+            <div class="chip">
+              SYS TIME: <span id="sys-time" style="color:#fff;font-weight:600;">00:00:00</span>
+            </div>
           </div>
         </header>
 
-        <div id="liveTab" class="dashboard tab-panel active">
-          <section class="left-column">
-            <section class="panel camera-frame" aria-label="Live rover camera">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Primary Sensor</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">videocam</span></span>Pi Webcam Feed</h2>
+        <!-- ========================================
+             TAB: LIVE DASHBOARD
+             ======================================== -->
+        <div id="liveTab" class="tab-panel active">
+          <div class="dashboard-grid">
+            <!-- LEFT COLUMN -->
+            <section class="left-col">
+              <!-- Camera Feed Panel -->
+              <section class="panel camera-frame" aria-label="Live rover camera">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Primary Sensor</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">videocam</span>
+                      CAM_FRONT_MAIN
+                    </h2>
+                  </div>
+                  <div style="display:flex;gap:6px;">
+                    <span class="panel-badge badge-rec">REC</span>
+                    <span class="panel-badge badge-live">LIVE</span>
+                  </div>
                 </div>
-                <span class="status online">LIVE</span>
-              </div>
-              <div class="camera-feed">
-                <img src="/camera.mjpg" alt="Raspberry Pi webcam feed" />
-                <div class="sensor-stack">
-                  <span>CAM_FRONT_MAIN</span>
-                  <span>DETECT: PI AUTHORITY</span>
-                  <span>TRACK: BBOX GUIDANCE</span>
+                <div class="camera-feed">
+                  <img id="cameraFeed" src="" alt="Raspberry Pi webcam feed" />
+                  <!-- HUD: Top Left -->
+                  <div class="sensor-stack">
+                    <span>CAM_FRONT_MAIN</span>
+                    <span>DETECT: PI AUTHORITY</span>
+                    <span>TRACK: BBOX GUIDANCE</span>
+                  </div>
+                  <!-- HUD: Top Right -->
+                  <div class="sensor-right">
+                    <span>TEMP: -42°C</span>
+                    <span>RAD: 0.14 µSv/h</span>
+                  </div>
+                  <!-- HUD: Bottom -->
+                  <div class="hud-bottom">
+                    <div class="hud-chip">
+                      <div>LINK: WebSocket</div>
+                      <div style="margin-top:2px;">STREAM: MJPEG</div>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;gap:8px;">
+                      <div class="signal-bars" aria-hidden="true">
+                        <i></i><i></i><i></i><i></i>
+                        <span class="signal-label">SIG</span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Tracking HUD (appears when target is tracked) -->
+                  <div id="trackingHud" class="tracking-hud">
+                    <span class="t-label">TRK:</span>
+                    <span id="hudTrackName" class="t-name">--</span>
+                    <span class="t-label">|</span>
+                    <span id="hudTrackDir" class="t-dir">--</span>
+                    <span class="t-label">|</span>
+                    <span id="hudTrackDist" class="t-dist">-- cm</span>
+                  </div>
                 </div>
-                <div class="hud-readout">
-                  <div class="hud-chip">LINK: WebSocket</div>
-                  <div class="hud-chip">STREAM: MJPEG</div>
+              </section>
+
+              <!-- Tracking Guidance Panel -->
+              <section id="guidancePanel" class="panel" aria-label="Tracking guidance" aria-live="polite">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Navigation</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">explore</span>
+                      Tracking Guidance
+                    </h2>
+                  </div>
                 </div>
-                <div class="signal-bars" aria-hidden="true">
-                  <i></i><i></i><i></i><i></i>
+                <div class="guidance-grid">
+                  <div class="guidance-box">
+                    <span class="metric-label">Target</span>
+                    <div id="trackingName" class="metric-value">none</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Direction</span>
+                    <div id="guidanceDirection" class="metric-value">select a human alert</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Distance</span>
+                    <div class="metric-value"><span id="guidanceDistance">--</span> cm</div>
+                  </div>
                 </div>
-              </div>
+              </section>
             </section>
 
-            <section class="panel" aria-label="Tracking guidance" aria-live="polite">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Navigation</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">explore</span></span>Tracking Guidance</h2>
+            <!-- RIGHT COLUMN -->
+            <section class="right-col">
+              <!-- Rover State Panel -->
+              <section class="panel" aria-label="Rover status">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Health</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">memory</span>
+                      Rover State
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <div class="guidance">
-                <div class="guidance-box">
-                  <span class="metric-label">Target</span>
-                  <strong id="trackingName">none</strong>
+                <div class="status-row">
+                  <div class="guidance-box">
+                    <span class="metric-label">Mode</span>
+                    <div id="roverStatus" class="metric-value">waiting</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Home Range</span>
+                    <div class="metric-value"><span id="homeDistance">0</span> cm</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Marker</span>
+                    <div class="metric-value">green strip</div>
+                  </div>
                 </div>
-                <div class="guidance-box">
-                  <span class="metric-label">Direction</span>
-                  <strong id="guidanceDirection">select a human alert</strong>
-                </div>
-                <div class="guidance-box">
-                  <span class="metric-label">Distance</span>
-                  <strong><span id="guidanceDistance">--</span> cm</strong>
-                </div>
-              </div>
-            </section>
-          </section>
+              </section>
 
-          <section class="right-column">
-            <section class="panel" aria-label="Rover status">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Health</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">memory</span></span>Rover State</h2>
+              <!-- LIDAR / Target Board Map -->
+              <section class="panel" aria-label="Rover map">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Local Map</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">radar</span>
+                      Target Board
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <div class="status-grid">
-                <div class="metric">
-                  <span class="metric-label">Mode</span>
-                  <div id="roverStatus" class="metric-value">waiting</div>
+                <div id="map" aria-label="Rover map">
+                  <div class="map-compass">N</div>
+                  <div class="lidar-sweep"></div>
+                  <div class="map-label home">home</div>
+                  <div class="map-label zone-a">scan zone</div>
+                  <div class="map-label zone-b">strip zone</div>
+                  <div class="map-legend">
+                    <span><i style="background:var(--red)"></i>human</span>
+                    <span><i style="background:var(--green)"></i>animal</span>
+                    <span><i style="background:var(--cyan)"></i>object</span>
+                    <span><i style="background:var(--violet)"></i>marker</span>
+                  </div>
+                  <div id="goal"></div>
+                  <div id="trackedTarget"></div>
+                  <div id="rover"></div>
                 </div>
-                <div class="metric">
-                  <span class="metric-label">Home Range</span>
-                  <div class="metric-value"><span id="homeDistance">0</span> cm</div>
-                </div>
-                <div class="metric">
-                  <span class="metric-label">Marker</span>
-                  <div class="metric-value">green strip</div>
-                </div>
-              </div>
-            </section>
+              </section>
 
-            <section class="panel" aria-label="Rover map">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Local Map</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">radar</span></span>Target Board</h2>
+              <!-- Command Override Panel -->
+              <section class="panel" aria-label="Rover commands">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Override</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">tune</span>
+                      Command Override
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <div id="map" aria-label="Rover map">
-                <div class="map-compass">N</div>
-                <div class="lidar-sweep"></div>
-                <div class="map-path"></div>
-                <div class="map-label home">home</div>
-                <div class="map-label zone-a">scan zone</div>
-                <div class="map-label zone-b">strip zone</div>
-                <div class="map-legend">
-                  <span><i style="background: var(--red)"></i> human</span>
-                  <span><i style="background: var(--green)"></i> animal</span>
-                  <span><i style="background: var(--cyan)"></i> object</span>
-                  <span><i style="background: var(--violet)"></i> marker</span>
+                <div class="command-grid">
+                  <button id="startRobot" class="cmd-btn start" type="button">
+                    <span class="material-symbols-outlined">play_arrow</span> Start
+                  </button>
+                  <button id="stopRover" class="cmd-btn stop" type="button">
+                    <span class="material-symbols-outlined">stop</span> Stop
+                  </button>
+                  <button id="returnHome" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">home</span> Return
+                  </button>
+                  <button id="scanArea" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">travel_explore</span> Scan
+                  </button>
+                  <button id="searchGreenStrip" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">texture</span> Find Strip
+                  </button>
+                  <button id="goToGreenStrip" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">near_me</span> Go Strip
+                  </button>
                 </div>
-                <div id="goal"></div>
-                <div id="trackedTarget"></div>
-                <div id="rover"></div>
-              </div>
-            </section>
+              </section>
 
-            <section class="panel" aria-label="Rover commands">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Override</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">tune</span></span>Command Override</h2>
+              <!-- Event Log Panel -->
+              <section class="panel" aria-label="Event log">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Events</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">notifications</span>
+                      Event Log
+                    </h2>
+                  </div>
+                  <span class="panel-badge">AUTO-SCROLL</span>
                 </div>
-              </div>
-              <div class="command-grid">
-                <button id="startRobot" type="button"><span class="material-symbols-outlined">play_arrow</span> Start</button>
-                <button id="stopRover" type="button"><span class="material-symbols-outlined">stop</span> Stop</button>
-                <button id="returnHome" type="button"><span class="material-symbols-outlined">home</span> Return Base</button>
-                <button id="scanArea" type="button"><span class="material-symbols-outlined">travel_explore</span> Scan Area</button>
-                <button id="searchGreenStrip" type="button"><span class="material-symbols-outlined">texture</span> Find Strip</button>
-                <button id="goToGreenStrip" type="button"><span class="material-symbols-outlined">near_me</span> Go To Strip</button>
-              </div>
+                <div id="eventLog" class="event-log">
+                  <div class="log-entry">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-msg">SYSTEM INITIALIZED. AWAITING CONNECTION.</span>
+                  </div>
+                  <div class="log-cursor"><span></span></div>
+                </div>
+                <div class="log-hint">TARGET EVENTS STREAM HERE</div>
+              </section>
             </section>
-          </section>
+          </div>
         </div>
 
-        <div id="mapTab" class="single-view tab-panel">
-          <section class="map-column">
-            <section class="panel" aria-label="Expanded rover map">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Navigation</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">map</span></span>Map Focus</h2>
+        <!-- ========================================
+             TAB: MAP FOCUS
+             ======================================== -->
+        <div id="mapTab" class="tab-panel">
+          <div class="expanded-grid">
+            <section class="expanded-col">
+              <section class="panel" aria-label="Expanded rover map">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Navigation</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">map</span>
+                      Map Focus
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <div id="mapDock"></div>
+                <div id="mapDock"></div>
+              </section>
             </section>
-          </section>
-          <section class="map-column">
-            <section class="panel" aria-label="Expanded tracking guidance">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Target</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">pin_drop</span></span>Guidance Focus</h2>
+            <section class="expanded-col">
+              <section class="panel" aria-label="Expanded tracking guidance">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Target</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">pin_drop</span>
+                      Guidance Focus
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <div id="guidanceDock"></div>
-            </section>
-            <section class="panel scan" aria-label="Ultrasonic scan results">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Rangefinder</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">sensors</span></span>Scan Results</h2>
+                <div id="guidanceDock"></div>
+              </section>
+              <section class="panel scan-panel" aria-label="Ultrasonic scan results">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Rangefinder</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">sensors</span>
+                      Scan Results
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Scan point</th>
-                    <th>Distance</th>
-                  </tr>
-                </thead>
-                <tbody id="scanResults">
-                  <tr>
-                    <td colspan="2">No scan yet</td>
-                  </tr>
-                </tbody>
-              </table>
+                <table>
+                  <thead>
+                    <tr><th>Scan point</th><th>Distance</th></tr>
+                  </thead>
+                  <tbody id="scanResults">
+                    <tr><td colspan="2">No scan yet</td></tr>
+                  </tbody>
+                </table>
+              </section>
             </section>
-          </section>
+          </div>
         </div>
 
-        <div id="alertsTab" class="single-view tab-panel">
-          <section class="alerts-column">
-            <section class="panel">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Events</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">notifications</span></span>Alert History</h2>
+        <!-- ========================================
+             TAB: ALERT LOG
+             ======================================== -->
+        <div id="alertsTab" class="tab-panel">
+          <div class="expanded-grid">
+            <section class="expanded-col">
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Events</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">notifications</span>
+                      Alert History
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <div id="alerts" class="alerts"></div>
-              <div class="log-hint">AUTO-SCROLL ACTIVE / TARGET EVENTS STREAM HERE</div>
+                <div id="alerts" class="alerts-list"></div>
+                <div class="log-hint">AUTO-SCROLL ACTIVE / TARGET EVENTS STREAM HERE</div>
+              </section>
             </section>
-          </section>
-          <section class="alerts-column">
-            <section class="panel">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Perception</p>
-                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">analytics</span></span>Detection Debug</h2>
+            <section class="expanded-col">
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Perception</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">analytics</span>
+                      Detection Debug
+                    </h2>
+                  </div>
                 </div>
-              </div>
-              <div id="detectionDebug" class="debug-list"></div>
+                <div id="detectionDebug" class="debug-list"></div>
+              </section>
             </section>
-          </section>
+          </div>
         </div>
       </main>
     </div>
 
+    <!-- ==========================================
+         JAVASCRIPT — FULL FUNCTIONAL INTEGRATION
+         ========================================== -->
     <script>
-      const socket = io();
+      /* =============================================
+         CONFIGURATION — Auto-detect standalone vs. Flask-served
+         ============================================= */
+      const WINDOWS_LAPTOP_IP = "<WINDOWS_LAPTOP_IP>";
+      const isStandalone = window.location.protocol === "file:";
+      const serverBase = isStandalone ? `http://${WINDOWS_LAPTOP_IP}:5000` : "";
+      const socket = isStandalone && !WINDOWS_LAPTOP_IP.includes("<")
+        ? io(`${serverBase}`)
+        : io();
+
+      /* =============================================
+         DOM REFERENCES
+         ============================================= */
       const navTabs = Array.from(document.querySelectorAll("[data-tab]"));
       const panels = {
         live: document.getElementById("liveTab"),
         map: document.getElementById("mapTab"),
         alerts: document.getElementById("alertsTab"),
       };
+
       const mapHome = document.querySelector('[aria-label="Rover map"]');
-      const guidanceHome = document.querySelector('[aria-label="Tracking guidance"]');
+      const guidanceHome = document.getElementById("guidancePanel");
       const mapDock = document.getElementById("mapDock");
       const guidanceDock = document.getElementById("guidanceDock");
+
       const statusEl = document.getElementById("status");
+      const statusDot = document.getElementById("statusDot");
       const mapEl = document.getElementById("map");
       const roverEl = document.getElementById("rover");
       const goalEl = document.getElementById("goal");
-      const alertsEl = document.getElementById("alerts");
       const trackedTargetEl = document.getElementById("trackedTarget");
+      const alertsEl = document.getElementById("alerts");
+      const eventLogEl = document.getElementById("eventLog");
       const trackingNameEl = document.getElementById("trackingName");
       const guidanceDirectionEl = document.getElementById("guidanceDirection");
       const guidanceDistanceEl = document.getElementById("guidanceDistance");
       const homeDistanceEl = document.getElementById("homeDistance");
+      const roverStatusEl = document.getElementById("roverStatus");
+      const roverStatusTopEl = document.getElementById("roverStatusTop");
+      const scanResultsEl = document.getElementById("scanResults");
+      const detectionDebugEl = document.getElementById("detectionDebug");
+      const cameraFeed = document.getElementById("cameraFeed");
+
       const startRobotBtn = document.getElementById("startRobot");
       const stopRoverBtn = document.getElementById("stopRover");
       const stopRoverSideBtn = document.getElementById("stopRoverSide");
@@ -1516,16 +1743,34 @@
       const scanAreaBtn = document.getElementById("scanArea");
       const searchGreenStripBtn = document.getElementById("searchGreenStrip");
       const goToGreenStripBtn = document.getElementById("goToGreenStrip");
-      const scanResultsEl = document.getElementById("scanResults");
-      const roverStatusEl = document.getElementById("roverStatus");
-      const detectionDebugEl = document.getElementById("detectionDebug");
 
+      const trackingHud = document.getElementById("trackingHud");
+      const hudTrackName = document.getElementById("hudTrackName");
+      const hudTrackDir = document.getElementById("hudTrackDir");
+      const hudTrackDist = document.getElementById("hudTrackDist");
+
+      /* =============================================
+         STATE
+         ============================================= */
       const mapSize = 800;
       let roverPose = { x: 400, y: 400, yaw: 0 };
       let trackedAlert = null;
       let lastSpokenGuidance = "";
       const mapAlertDots = [];
 
+      /* =============================================
+         CAMERA FEED
+         ============================================= */
+      const cameraUrl = isStandalone
+        ? `${serverBase}/camera.mjpg`
+        : "/camera.mjpg";
+      if (!WINDOWS_LAPTOP_IP.includes("<") || !isStandalone) {
+        cameraFeed.src = cameraUrl;
+      }
+
+      /* =============================================
+         TAB NAVIGATION
+         ============================================= */
       function setTab(tab) {
         for (const button of navTabs) {
           button.classList.toggle("active", button.dataset.tab === tab);
@@ -1538,11 +1783,18 @@
           guidanceDock.append(guidanceHome);
         } else {
           mapHome.append(mapEl);
-          document.querySelector(".left-column").append(guidanceHome);
+          document.querySelector(".left-col").append(guidanceHome);
         }
         renderPose();
       }
 
+      for (const button of navTabs) {
+        button.addEventListener("click", () => setTab(button.dataset.tab));
+      }
+
+      /* =============================================
+         MAP: POSITION MARKERS
+         ============================================= */
       function positionMarker(marker, x, y) {
         marker.style.left = `${(x / mapSize) * 100}%`;
         marker.style.top = `${(y / mapSize) * 100}%`;
@@ -1558,6 +1810,9 @@
         updateGuidance(false);
       }
 
+      /* =============================================
+         MAP: ALERT DOTS
+         ============================================= */
       function addMapAlertDot(alert, x, y) {
         const dot = document.createElement("button");
         dot.type = "button";
@@ -1576,10 +1831,27 @@
         }
       }
 
+      /* =============================================
+         MAP: CLICK TO SET GOAL
+         ============================================= */
+      mapEl.addEventListener("click", (event) => {
+        const rect = mapEl.getBoundingClientRect();
+        const x = Math.round(((event.clientX - rect.left) / rect.width) * mapSize);
+        const y = Math.round(((event.clientY - rect.top) / rect.height) * mapSize);
+        positionMarker(goalEl, x, y);
+        goalEl.style.display = "block";
+        socket.emit("set_goal", { x, y });
+        addLogEntry("GOAL SET: [" + x + ", " + y + "]");
+      });
+
+      /* =============================================
+         TRACKING & GUIDANCE
+         ============================================= */
       function setTrackedAlert(alert, focusMap) {
         trackedAlert = alert;
         roverStatusEl.textContent =
           alert.category === "human" ? "human target selected" : `${alert.category || "event"} target selected`;
+        updateStatusTop();
         updateGuidance(false);
         socket.emit("track_target", {
           id: alert.id || "",
@@ -1636,6 +1908,7 @@
           trackingNameEl.textContent = "none";
           guidanceDirectionEl.textContent = "select a human alert";
           guidanceDistanceEl.textContent = "--";
+          trackingHud.classList.remove("visible");
           return;
         }
 
@@ -1647,11 +1920,20 @@
         guidanceDirectionEl.textContent = guidance.direction;
         guidanceDistanceEl.textContent = guidance.distance;
 
+        // HUD overlay on camera
+        hudTrackName.textContent = trackedAlert.label || trackedAlert.category || "event";
+        hudTrackDir.textContent = guidance.direction;
+        hudTrackDist.textContent = guidance.distance + " cm";
+        trackingHud.classList.add("visible");
+
         if (shouldSpeak) {
           speakGuidance(`${guidance.direction}. ${guidance.distance} centimeters.`);
         }
       }
 
+      /* =============================================
+         SCAN RESULTS
+         ============================================= */
       function scanPointLabel(angle) {
         const value = Number(angle);
         if (!Number.isFinite(value)) return "scan point";
@@ -1685,10 +1967,9 @@
         }
       }
 
-      function sendHumanDecision(action) {
-        socket.emit("human_decision", { action });
-      }
-
+      /* =============================================
+         DETECTION DEBUG
+         ============================================= */
       function renderDetectionDebug(payload) {
         const detections = Array.isArray(payload.detections) ? payload.detections.slice(-8).reverse() : [];
         detectionDebugEl.textContent = "";
@@ -1709,14 +1990,70 @@
         }
       }
 
+      /* =============================================
+         HUMAN DECISION
+         ============================================= */
+      function sendHumanDecision(action) {
+        socket.emit("human_decision", { action });
+        addLogEntry(`HUMAN DECISION: ${action.toUpperCase()}`);
+      }
+
+      /* =============================================
+         EVENT LOG (inline mini-log on live tab)
+         ============================================= */
+      function addLogEntry(message, isAlert) {
+        const cursor = eventLogEl.querySelector(".log-cursor");
+        const entry = document.createElement("div");
+        entry.className = "log-entry" + (isAlert ? " alert-entry" : "");
+
+        const time = document.createElement("span");
+        time.className = "log-time";
+        time.textContent = new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+
+        const msg = document.createElement("span");
+        msg.className = "log-msg";
+        msg.textContent = message;
+
+        entry.append(time, msg);
+
+        if (cursor) {
+          eventLogEl.insertBefore(entry, cursor);
+        } else {
+          eventLogEl.append(entry);
+        }
+
+        // Keep log limited
+        const entries = eventLogEl.querySelectorAll(".log-entry");
+        if (entries.length > 50) {
+          entries[0].remove();
+        }
+
+        eventLogEl.scrollTop = eventLogEl.scrollHeight;
+      }
+
+      function updateStatusTop() {
+        const text = roverStatusEl.textContent;
+        roverStatusTopEl.textContent = text.length > 20 ? text.substring(0, 20) + "…" : text;
+      }
+
+      /* =============================================
+         SOCKET.IO EVENT HANDLERS
+         ============================================= */
       socket.on("connect", () => {
         statusEl.textContent = "online";
-        statusEl.classList.add("online");
+        statusDot.classList.add("online");
+        addLogEntry("CONNECTION ESTABLISHED.");
       });
 
       socket.on("disconnect", () => {
         statusEl.textContent = "offline";
-        statusEl.classList.remove("online");
+        statusDot.classList.remove("online");
+        addLogEntry("CONNECTION LOST.", true);
       });
 
       socket.on("rover_position", (pose) => {
@@ -1731,26 +2068,35 @@
         roverStatusEl.textContent = payload.message
           ? `${payload.status}: ${payload.message}`
           : payload.status || "waiting";
+        updateStatusTop();
+        addLogEntry(`STATUS: ${roverStatusEl.textContent.toUpperCase()}`);
       });
 
       socket.on("marker_seen", (marker) => {
         roverStatusEl.textContent = `marker seen: ${marker.name}`;
+        updateStatusTop();
+        addLogEntry(`MARKER SEEN: ${marker.name}`, true);
       });
 
       socket.on("marker_error", (payload) => {
         roverStatusEl.textContent = payload.message || `Marker not found: ${payload.marker}`;
+        updateStatusTop();
+        addLogEntry(`MARKER ERROR: ${roverStatusEl.textContent.toUpperCase()}`);
       });
 
       socket.on("new_alert", (alert) => {
+        // === Full Alert Card (Alerts Tab) ===
         const item = document.createElement("article");
-        item.className = "alert";
+        item.className = "alert-card";
 
         const img = document.createElement("img");
-        img.src = `/${alert.image_path}`;
+        img.src = isStandalone
+          ? (alert.image_path.startsWith("http") ? alert.image_path : `${serverBase}/${alert.image_path}`)
+          : `/${alert.image_path}`;
         img.alt = "Alert snapshot";
 
         const category = document.createElement("span");
-        category.className = "category";
+        category.className = "category-tag";
         category.textContent = alert.category || "event";
 
         const message = document.createElement("p");
@@ -1774,6 +2120,7 @@
 
         if (alert.category === "human") {
           roverStatusEl.textContent = "human detected - choose action";
+          updateStatusTop();
           const decisions = document.createElement("div");
           decisions.className = "decision-actions";
           const follow = document.createElement("button");
@@ -1789,27 +2136,30 @@
           decisions.append(follow, stay, resume);
           item.append(decisions);
         }
+
         alertsEl.prepend(item);
+
+        // === Inline Event Log Entry (Live Tab) ===
+        const logMsg = alert.category === "human"
+          ? `HUMAN DETECTED: ${alert.message || "Activity detected"}`
+          : `ALERT: ${(alert.category || "event").toUpperCase()} - ${alert.message || "Activity detected"}`;
+        addLogEntry(logMsg, true);
       });
 
-      mapEl.addEventListener("click", (event) => {
-        const rect = mapEl.getBoundingClientRect();
-        const x = Math.round(((event.clientX - rect.left) / rect.width) * mapSize);
-        const y = Math.round(((event.clientY - rect.top) / rect.height) * mapSize);
-
-        positionMarker(goalEl, x, y);
-        goalEl.style.display = "block";
-        socket.emit("set_goal", { x, y });
-      });
-
+      /* =============================================
+         BUTTON HANDLERS
+         ============================================= */
       startRobotBtn.addEventListener("click", () => {
         roverStatusEl.textContent = "robot started - scanning";
+        updateStatusTop();
         socket.emit("human_decision", { action: "resume_patrol" });
         socket.emit("request_scan");
+        addLogEntry("COMMAND: START ROBOT");
       });
 
       function stopRover() {
         socket.emit("stop_rover");
+        addLogEntry("COMMAND: EMERGENCY STOP", true);
       }
 
       stopRoverBtn.addEventListener("click", stopRover);
@@ -1817,24 +2167,27 @@
 
       returnHomeBtn.addEventListener("click", () => {
         socket.emit("return_home");
+        addLogEntry("COMMAND: RETURN TO BASE");
       });
 
       scanAreaBtn.addEventListener("click", () => {
         socket.emit("request_scan");
+        addLogEntry("COMMAND: SCAN AREA");
       });
 
       searchGreenStripBtn.addEventListener("click", () => {
         socket.emit("search_marker", { marker: "green_strip" });
+        addLogEntry("COMMAND: SEARCH GREEN STRIP");
       });
 
       goToGreenStripBtn.addEventListener("click", () => {
         socket.emit("go_to_marker", { marker: "green_strip" });
+        addLogEntry("COMMAND: GO TO GREEN STRIP");
       });
 
-      for (const button of navTabs) {
-        button.addEventListener("click", () => setTab(button.dataset.tab));
-      }
-
+      /* =============================================
+         SYSTEM CLOCK
+         ============================================= */
       function updateClock() {
         const node = document.getElementById("sys-time");
         if (!node) return;
