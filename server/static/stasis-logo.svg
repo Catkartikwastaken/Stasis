@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 120" role="img" aria-labelledby="title">
+  <title id="title">STASIS logo</title>
+  <rect width="420" height="120" fill="#030405"/>
+  <g fill="#f8fafc">
+    <path d="M20 78h72c7 0 12-4 12-10s-5-10-12-10H49c-19 0-31-10-31-27C18 13 32 4 52 4h73l-18 20H53c-8 0-12 3-12 8s4 7 12 7h42c20 0 33 11 33 28 0 19-14 31-34 31H2z"/>
+    <path d="M127 4h112l-18 20h-35v74h-26V24h-51z"/>
+    <path d="M236 98 286 4h27l52 94h-29l-36-68-20 38h26v20h-37l-5 10z"/>
+    <path d="M378 78h25V4h-25z"/>
+  </g>
+  <g fill="#f8fafc" transform="translate(252 67)">
+    <rect x="16" y="8" width="42" height="32" rx="5"/>
+    <rect x="2" y="18" width="13" height="28" rx="4"/>
+    <rect x="59" y="18" width="13" height="28" rx="4"/>
+    <rect x="1" y="31" width="14" height="5"/>
+    <rect x="59" y="31" width="14" height="5"/>
+    <circle cx="37" cy="23" r="8" fill="#030405"/>
+  </g>
+  <g fill="#f8fafc">
+    <path d="M292 78h72c7 0 12-4 12-10s-5-10-12-10h-43c-19 0-31-10-31-27 0-18 14-27 34-27h73l-18 20h-54c-8 0-12 3-12 8s4 7 12 7h42c20 0 33 11 33 28 0 19-14 31-34 31h-92z"/>
+  </g>
+  <path d="M20 58h86M296 58h82" stroke="#030405" stroke-width="8" stroke-linecap="round"/>
+</svg>

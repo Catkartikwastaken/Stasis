@@ -3,15 +3,32 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>STASIS Forest Rover</title>
+    <title>STASIS Mission Control</title>
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
       :root {
         color-scheme: dark;
+        --bg: #030405;
+        --bg-soft: #0b0d10;
+        --panel: rgba(15, 17, 22, 0.84);
+        --panel-strong: rgba(20, 23, 30, 0.96);
+        --line: rgba(255, 255, 255, 0.13);
+        --line-strong: rgba(255, 255, 255, 0.28);
+        --text: #f6f8fb;
+        --muted: #a3abb8;
+        --soft: #68717f;
+        --white: #ffffff;
+        --green: #77f7aa;
+        --cyan: #8bd6ff;
+        --amber: #ffd36d;
+        --red: #ff646d;
+        --violet: #9a7cff;
+        --shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
         font-family:
-          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        background: #101513;
-        color: #edf4ef;
+          "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, -apple-system,
+          BlinkMacSystemFont, sans-serif;
+        background: var(--bg);
+        color: var(--text);
       }
 
       * {
@@ -21,152 +38,516 @@
       body {
         margin: 0;
         min-height: 100vh;
+        overflow-x: hidden;
         background:
-          linear-gradient(135deg, rgba(39, 83, 70, 0.28), transparent 38%),
-          linear-gradient(225deg, rgba(141, 125, 77, 0.18), transparent 42%),
-          #101513;
+          radial-gradient(circle at 22% 8%, rgba(154, 124, 255, 0.24), transparent 30%),
+          radial-gradient(circle at 82% 16%, rgba(139, 214, 255, 0.18), transparent 34%),
+          linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 35%),
+          var(--bg);
       }
 
-      main {
+      body::before {
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        content: "";
+        background-image:
+          linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+        background-size: 42px 42px;
+        mask-image: radial-gradient(circle at center, black, transparent 78%);
+      }
+
+      body::after {
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        content: "";
+        background:
+          linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.03), transparent),
+          repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.018) 1px, transparent 1px, transparent 5px);
+        opacity: 0.75;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .shell {
         display: grid;
-        grid-template-columns: minmax(320px, 800px) minmax(280px, 1fr);
-        gap: 24px;
-        width: min(1180px, calc(100vw - 32px));
-        margin: 0 auto;
-        padding: 24px 0;
+        grid-template-columns: 104px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 22px;
+        padding: 22px 14px;
+        border-right: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.72);
+        backdrop-filter: blur(20px);
+        z-index: 5;
+      }
+
+      .brand-mark {
+        width: 72px;
+        height: 72px;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background:
+          linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02)),
+          #030405;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      }
+
+      .brand-mark img {
+        width: 58px;
+        height: auto;
+      }
+
+      .nav-stack {
+        display: grid;
+        gap: 10px;
+        width: 100%;
+      }
+
+      .nav-pill,
+      .panic {
+        width: 100%;
+        min-height: 58px;
+        border: 1px solid transparent;
+        border-radius: 14px;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        transition:
+          transform 180ms ease,
+          border-color 180ms ease,
+          background 180ms ease,
+          color 180ms ease;
+      }
+
+      .nav-pill {
+        display: grid;
+        place-items: center;
+        gap: 4px;
+        font-size: 0.68rem;
+      }
+
+      .nav-pill strong {
+        display: block;
+        font-size: 1.18rem;
+        line-height: 1;
+      }
+
+      .nav-pill.active,
+      .nav-pill:hover {
+        color: var(--white);
+        border-color: var(--line-strong);
+        background: rgba(255, 255, 255, 0.09);
+        transform: translateY(-2px);
+      }
+
+      .tab-panel {
+        display: none;
+      }
+
+      .tab-panel.active {
+        display: grid;
+      }
+
+      .sidebar-spacer {
+        flex: 1;
+      }
+
+      .panic {
+        color: var(--red);
+        border-color: rgba(255, 100, 109, 0.35);
+        background: rgba(255, 100, 109, 0.08);
+        font-weight: 800;
+      }
+
+      .panic:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 100, 109, 0.18);
+      }
+
+      .workspace {
+        min-width: 0;
+        padding: 22px;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 4;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        margin: -22px -22px 22px;
+        padding: 16px 22px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(3, 4, 5, 0.78);
+        backdrop-filter: blur(22px);
+      }
+
+      .wordmark {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .wordmark img {
+        width: 190px;
+        max-width: 42vw;
+        height: auto;
+      }
+
+      .title-block {
+        display: grid;
+        gap: 2px;
       }
 
       h1,
-      h2 {
+      h2,
+      h3,
+      p {
         margin: 0;
-        font-size: 1rem;
+      }
+
+      h1 {
+        font-size: clamp(1.1rem, 2vw, 1.7rem);
+        font-weight: 800;
+      }
+
+      .eyebrow,
+      .panel-kicker,
+      .metric-label {
+        color: var(--muted);
+        font-size: 0.72rem;
+        text-transform: uppercase;
         letter-spacing: 0;
+      }
+
+      .status {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 9px 14px;
+        color: var(--muted);
+        background: rgba(255, 255, 255, 0.06);
+        white-space: nowrap;
+      }
+
+      .status::before {
+        width: 8px;
+        height: 8px;
+        content: "";
+        border-radius: 50%;
+        background: var(--red);
+        box-shadow: 0 0 14px currentColor;
+      }
+
+      .status.online::before {
+        background: var(--green);
+      }
+
+      .dashboard {
+        display: grid;
+        grid-template-columns: minmax(360px, 1.45fr) minmax(310px, 0.8fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .single-view {
+        display: grid;
+        grid-template-columns: minmax(360px, 1fr) minmax(310px, 0.72fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .left-column,
+      .right-column,
+      .map-column,
+      .alerts-column {
+        display: grid;
+        gap: 18px;
+        min-width: 0;
       }
 
       .panel {
         min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background:
+          linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
+          var(--panel);
+        box-shadow: var(--shadow);
+        overflow: hidden;
       }
 
-      .topbar {
+      .panel-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        margin-bottom: 12px;
         gap: 12px;
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.04);
       }
 
-      .status {
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 999px;
-        padding: 6px 10px;
-        font-size: 0.82rem;
-        color: #c5d6cc;
-      }
-
-      .controls {
+      .panel-title {
         display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-        margin-bottom: 12px;
-      }
-
-      .controls button {
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 8px;
-        background: rgba(237, 244, 239, 0.08);
-        color: #edf4ef;
-        cursor: pointer;
-        font: inherit;
-        font-size: 0.88rem;
-        padding: 8px 10px;
-      }
-
-      .guidance {
-        display: grid;
-        gap: 6px;
-        margin-bottom: 14px;
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 8px;
-        padding: 12px;
-        background: rgba(237, 244, 239, 0.06);
-      }
-
-      .guidance strong {
-        color: #f5f0c9;
-        font-size: 1.15rem;
-      }
-
-      .guidance span {
-        color: #c5d6cc;
-      }
-
-      .telemetry {
-        margin-top: 10px;
-        color: #c5d6cc;
+        align-items: center;
+        gap: 10px;
         font-size: 0.92rem;
+        font-weight: 800;
       }
 
-      .event-status {
-        margin-bottom: 12px;
-        color: #c5d6cc;
-        font-size: 0.92rem;
+      .panel-title::before {
+        width: 9px;
+        height: 9px;
+        content: "";
+        border-radius: 50%;
+        background: var(--cyan);
+        box-shadow: 0 0 14px rgba(139, 214, 255, 0.75);
+      }
+
+      .camera-frame {
+        position: relative;
+        min-height: 360px;
+        background: #000;
       }
 
       .camera-feed {
-        margin-bottom: 16px;
+        position: relative;
+        height: min(62vh, 630px);
+        min-height: 360px;
+        overflow: hidden;
       }
 
       .camera-feed img {
         display: block;
         width: 100%;
-        aspect-ratio: 16 / 9;
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 8px;
-        background: #0a0f0d;
+        height: 100%;
         object-fit: cover;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(139, 214, 255, 0.1), transparent 35%),
+          #020303;
+      }
+
+      .camera-feed::before,
+      .camera-feed::after {
+        position: absolute;
+        inset: 18px;
+        pointer-events: none;
+        content: "";
+      }
+
+      .camera-feed::before {
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        clip-path: polygon(0 0, 14% 0, 14% 2px, 2px 2px, 2px 14%, 0 14%, 0 0, 100% 0, 100% 14%, calc(100% - 2px) 14%, calc(100% - 2px) 2px, 86% 2px, 86% 0, 100% 0, 100% 100%, 86% 100%, 86% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 86%, 100% 86%, 100% 100%, 0 100%, 0 86%, 2px 86%, 2px calc(100% - 2px), 14% calc(100% - 2px), 14% 100%, 0 100%);
+      }
+
+      .camera-feed::after {
+        background:
+          linear-gradient(90deg, transparent calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% + 1px), transparent calc(50% + 1px)),
+          linear-gradient(0deg, transparent calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% - 1px), rgba(255, 255, 255, 0.42) calc(50% + 1px), transparent calc(50% + 1px));
+        opacity: 0.34;
+      }
+
+      .hud-readout {
+        position: absolute;
+        left: 18px;
+        right: 18px;
+        bottom: 18px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        pointer-events: none;
+      }
+
+      .hud-chip {
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 12px;
+        padding: 8px 10px;
+        background: rgba(0, 0, 0, 0.48);
+        backdrop-filter: blur(12px);
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .command-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .command-grid button,
+      .track-alert,
+      .decision-actions button,
+      .debug-list button {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
+          rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        cursor: pointer;
+        padding: 10px 12px;
+        transition:
+          transform 160ms ease,
+          border-color 160ms ease,
+          background 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .command-grid button:hover,
+      .track-alert:hover,
+      .decision-actions button:hover,
+      .debug-list button:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.34);
+        background: rgba(255, 255, 255, 0.11);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
+      }
+
+      #startRobot {
+        color: #05100b;
+        border-color: transparent;
+        background: linear-gradient(180deg, #effff6, #77f7aa);
+      }
+
+      #stopRover {
+        color: #fff5f6;
+        border-color: rgba(255, 100, 109, 0.6);
+        background: rgba(255, 100, 109, 0.22);
+      }
+
+      .status-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .metric {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.22);
+      }
+
+      .metric-value {
+        margin-top: 8px;
+        font-size: clamp(1rem, 1.8vw, 1.35rem);
+        font-weight: 800;
+        overflow-wrap: anywhere;
+      }
+
+      .guidance {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 10px;
+        padding: 14px;
+      }
+
+      .guidance-box {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 12px;
+        background: rgba(0, 0, 0, 0.22);
+      }
+
+      .guidance-box strong,
+      .guidance-box span {
+        display: block;
+      }
+
+      .guidance-box strong {
+        margin-top: 8px;
+        font-size: 1.12rem;
+      }
+
+      #guidanceDirection {
+        color: var(--amber);
       }
 
       #map {
         position: relative;
         width: 100%;
+        min-height: 390px;
         aspect-ratio: 1;
         overflow: hidden;
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 8px;
+        border-radius: 0 0 18px 18px;
         background:
-          linear-gradient(rgba(237, 244, 239, 0.08) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(237, 244, 239, 0.08) 1px, transparent 1px),
-          radial-gradient(circle at 26% 30%, rgba(107, 145, 99, 0.3), transparent 22%),
-          radial-gradient(circle at 70% 66%, rgba(154, 125, 64, 0.24), transparent 24%),
-          #17201b;
+          radial-gradient(circle at 28% 28%, rgba(119, 247, 170, 0.12), transparent 18%),
+          radial-gradient(circle at 70% 66%, rgba(154, 124, 255, 0.18), transparent 24%),
+          linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+          #07090b;
         background-size:
-          40px 40px,
-          40px 40px,
           auto,
           auto,
+          36px 36px,
+          36px 36px,
           auto;
         cursor: crosshair;
       }
 
+      #map::before {
+        position: absolute;
+        inset: 18px;
+        content: "";
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+      }
+
+      #map::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 76%;
+        height: 1px;
+        content: "";
+        background: rgba(255, 255, 255, 0.16);
+        transform: translate(-50%, -50%);
+      }
+
       #rover {
         position: absolute;
-        width: 18px;
-        height: 18px;
+        z-index: 3;
+        width: 20px;
+        height: 20px;
+        border: 3px solid var(--white);
         border-radius: 50%;
-        border: 3px solid #f5f0c9;
-        background: #2ca58d;
+        background: var(--green);
         transform: translate(-50%, -50%);
-        box-shadow: 0 0 0 6px rgba(44, 165, 141, 0.18);
+        box-shadow: 0 0 0 8px rgba(119, 247, 170, 0.15), 0 0 32px rgba(119, 247, 170, 0.5);
       }
 
       #rover::after {
         position: absolute;
         left: 50%;
         top: 50%;
-        width: 3px;
-        height: 30px;
+        width: 4px;
+        height: 34px;
         content: "";
-        background: #58c4ff;
+        background: var(--cyan);
         border-radius: 999px;
         transform: translate(-50%, -100%) rotate(var(--yaw, 0deg));
         transform-origin: 50% 100%;
@@ -175,68 +556,37 @@
       #rover::before {
         position: absolute;
         left: 50%;
-        top: -22px;
+        top: -24px;
         width: 0;
         height: 0;
         content: "";
-        border-left: 6px solid transparent;
-        border-right: 6px solid transparent;
-        border-bottom: 10px solid #58c4ff;
+        border-left: 7px solid transparent;
+        border-right: 7px solid transparent;
+        border-bottom: 11px solid var(--cyan);
         transform: translateX(-50%) rotate(var(--yaw, 0deg));
-        transform-origin: 50% 31px;
+        transform-origin: 50% 33px;
+      }
+
+      #goal,
+      #trackedTarget {
+        position: absolute;
+        z-index: 3;
+        display: none;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
       }
 
       #goal {
-        position: absolute;
-        display: none;
-        width: 22px;
-        height: 22px;
-        border: 2px solid #f19a3e;
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-      }
-
-      .map-alert-dot {
-        position: absolute;
-        width: 15px;
-        height: 15px;
-        border: 2px solid rgba(237, 244, 239, 0.86);
-        border-radius: 50%;
-        background: #79d17c;
-        transform: translate(-50%, -50%);
-        box-shadow: 0 0 0 5px rgba(121, 209, 124, 0.18);
-      }
-
-      .map-alert-dot.human {
-        width: 28px;
-        height: 28px;
-        border-color: #ffcf5a;
-        background: #f05d5e;
-        box-shadow: 0 0 0 8px rgba(240, 93, 94, 0.2);
-        z-index: 4;
-      }
-
-      .map-alert-dot.animal {
-        background: #8bd17c;
-      }
-
-      .map-alert-dot.object {
-        background: #58c4ff;
-      }
-
-      .map-alert-dot.marker {
-        background: #ff6464;
+        width: 24px;
+        height: 24px;
+        border: 2px solid var(--amber);
       }
 
       #trackedTarget {
-        position: absolute;
-        display: none;
-        width: 26px;
-        height: 26px;
-        border: 3px solid #ffcf5a;
-        border-radius: 50%;
-        transform: translate(-50%, -50%);
-        box-shadow: 0 0 0 6px rgba(255, 207, 90, 0.2);
+        width: 30px;
+        height: 30px;
+        border: 3px solid var(--amber);
+        box-shadow: 0 0 0 8px rgba(255, 211, 109, 0.17);
       }
 
       #trackedTarget::after {
@@ -247,7 +597,7 @@
         height: 8px;
         content: "";
         border-radius: 50%;
-        background: #ffcf5a;
+        background: var(--amber);
         transform: translate(-50%, -50%);
       }
 
@@ -255,33 +605,126 @@
       #goal::after {
         position: absolute;
         content: "";
-        background: #f19a3e;
+        background: var(--amber);
       }
 
       #goal::before {
         left: 50%;
         top: -7px;
         width: 2px;
-        height: 32px;
+        height: 34px;
       }
 
       #goal::after {
         left: -7px;
         top: 50%;
-        width: 32px;
+        width: 34px;
         height: 2px;
       }
 
-      .alerts {
-        display: grid;
-        gap: 12px;
+      .map-alert-dot {
+        position: absolute;
+        z-index: 2;
+        width: 15px;
+        height: 15px;
+        border: 2px solid rgba(255, 255, 255, 0.86);
+        border-radius: 50%;
+        background: var(--cyan);
+        cursor: pointer;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 6px rgba(139, 214, 255, 0.16);
       }
 
-      .scan {
-        margin-top: 18px;
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 8px;
+      .map-alert-dot.human {
+        z-index: 4;
+        width: 30px;
+        height: 30px;
+        border-color: var(--amber);
+        background: var(--red);
+        box-shadow: 0 0 0 9px rgba(255, 100, 109, 0.18);
+      }
+
+      .map-alert-dot.animal {
+        background: var(--green);
+        box-shadow: 0 0 0 6px rgba(119, 247, 170, 0.16);
+      }
+
+      .map-alert-dot.marker {
+        background: var(--violet);
+        box-shadow: 0 0 0 6px rgba(154, 124, 255, 0.17);
+      }
+
+      .map-alert-dot.object {
+        background: var(--cyan);
+      }
+
+      .alerts,
+      .debug-list {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+        max-height: 480px;
+        overflow: auto;
+      }
+
+      .alert,
+      .debug-row {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.24);
         overflow: hidden;
+      }
+
+      .alert {
+        animation: riseIn 260ms ease both;
+      }
+
+      .alert img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+        background: #020303;
+      }
+
+      .alert p {
+        padding: 10px 12px;
+        color: #e7edf4;
+        line-height: 1.4;
+      }
+
+      .alert .category {
+        display: inline-block;
+        margin: 12px 12px 0;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 4px 9px;
+        color: var(--green);
+        font-size: 0.72rem;
+        text-transform: uppercase;
+      }
+
+      .track-alert {
+        margin: 0 12px 12px;
+        color: var(--amber);
+      }
+
+      .decision-actions {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        margin: 0 12px 12px;
+      }
+
+      .debug-row {
+        padding: 9px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .debug-row.accepted {
+        border-color: rgba(119, 247, 170, 0.36);
+        color: var(--text);
       }
 
       .scan table {
@@ -292,164 +735,332 @@
 
       .scan th,
       .scan td {
-        border-bottom: 1px solid rgba(237, 244, 239, 0.12);
-        padding: 8px 10px;
+        border-bottom: 1px solid var(--line);
+        padding: 10px 12px;
         text-align: left;
       }
 
       .scan th {
-        color: #c5d6cc;
-        font-weight: 600;
+        color: var(--muted);
+        font-weight: 700;
       }
 
-      .alert {
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 8px;
-        overflow: hidden;
-        background: rgba(255, 255, 255, 0.04);
+      .scan tbody tr:last-child td {
+        border-bottom: 0;
       }
 
-      .alert img {
-        display: block;
-        width: 100%;
-        aspect-ratio: 16 / 10;
-        object-fit: cover;
+      @keyframes riseIn {
+        from {
+          opacity: 0;
+          transform: translateY(8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
 
-      .alert p {
-        margin: 0;
-        padding: 10px 12px;
-        color: #e6eee9;
-        line-height: 1.35;
-      }
-
-      .alert .category {
-        display: inline-block;
-        margin: 10px 12px 0;
-        border: 1px solid rgba(237, 244, 239, 0.16);
-        border-radius: 999px;
-        padding: 3px 8px;
-        color: #d9e8dd;
-        font-size: 0.76rem;
-        text-transform: uppercase;
-      }
-
-      .track-alert {
-        margin: 0 12px 12px;
-        border: 1px solid rgba(245, 240, 201, 0.35);
-        border-radius: 8px;
-        background: rgba(245, 240, 201, 0.1);
-        color: #f5f0c9;
-        cursor: pointer;
-        font: inherit;
-        padding: 8px 10px;
-      }
-
-      .decision-actions {
-        display: grid;
-        gap: 8px;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-        margin: 0 12px 12px;
-      }
-
-      .decision-actions button,
-      .debug-list button {
-        border: 1px solid rgba(112, 255, 176, 0.24);
-        border-radius: 8px;
-        background: rgba(112, 255, 176, 0.08);
-        color: #d9e8dd;
-        cursor: pointer;
-        font: inherit;
-        padding: 8px;
-      }
-
-      .debug-list {
-        display: grid;
-        gap: 8px;
-        max-height: 220px;
-        overflow: auto;
-      }
-
-      .debug-row {
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 8px;
-        padding: 8px;
-        color: #b8c8bf;
-        font-size: 0.82rem;
-      }
-
-      .debug-row.accepted {
-        border-color: rgba(112, 255, 176, 0.28);
-      }
-
-      @media (max-width: 860px) {
-        main {
+      @media (max-width: 1080px) {
+        .dashboard,
+        .single-view {
           grid-template-columns: 1fr;
+        }
+
+        .camera-feed {
+          height: 52vh;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          flex-direction: row;
+          justify-content: space-between;
+          padding: 12px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .brand-mark {
+          width: 58px;
+          height: 58px;
+        }
+
+        .brand-mark img {
+          width: 46px;
+        }
+
+        .nav-stack {
+          display: flex;
+          width: auto;
+        }
+
+        .nav-pill {
+          width: 56px;
+          min-height: 52px;
+        }
+
+        .sidebar-spacer {
+          display: none;
+        }
+
+        .panic {
+          width: 58px;
+          min-height: 52px;
+        }
+
+        .workspace {
+          padding: 14px;
+        }
+
+        .topbar {
+          position: static;
+          margin: -14px -14px 14px;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .wordmark {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .wordmark img {
+          width: 170px;
+          max-width: 76vw;
+        }
+
+        .command-grid,
+        .guidance,
+        .status-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .camera-feed {
+          height: 45vh;
+          min-height: 280px;
         }
       }
     </style>
   </head>
   <body>
-    <main>
-      <section class="panel">
-        <div class="topbar">
-          <h1>STASIS Forest Rover</h1>
-          <div id="status" class="status">offline</div>
+    <div class="shell">
+      <aside class="sidebar" aria-label="Mission navigation">
+        <div class="brand-mark">
+          <img src="/static/stasis-logo.svg" alt="STASIS" />
         </div>
-        <div class="controls">
-          <button id="startRobot" type="button">Start Robot</button>
-          <button id="stopRover" type="button">Stop</button>
-          <button id="returnHome" type="button">Return to Home</button>
-          <button id="scanArea" type="button">Scan Area</button>
-          <button id="searchGreenStrip" type="button">Search Green Strip</button>
-          <button id="goToGreenStrip" type="button">Go to Green Strip</button>
+        <div class="nav-stack" aria-hidden="true">
+          <button class="nav-pill active" type="button" data-tab="live"><strong>+</strong>LIVE</button>
+          <button class="nav-pill" type="button" data-tab="map"><strong>◎</strong>MAP</button>
+          <button class="nav-pill" type="button" data-tab="alerts"><strong>≋</strong>ALERTS</button>
         </div>
-        <div class="event-status">Rover status: <span id="roverStatus">waiting</span></div>
-        <section class="guidance" aria-label="Tracking guidance" aria-live="polite">
-          <span>Tracking: <span id="trackingName">none</span></span>
-          <strong id="guidanceDirection">select a human alert</strong>
-          <span>Distance: <span id="guidanceDistance">--</span> cm</span>
-        </section>
-        <section class="camera-feed" aria-label="Webcam feed">
-          <img src="/camera.mjpg" alt="Raspberry Pi webcam feed" />
-        </section>
-        <div id="map" aria-label="Rover map">
-          <div id="goal"></div>
-          <div id="trackedTarget"></div>
-          <div id="rover"></div>
-        </div>
-        <div class="telemetry">Distance from home: <span id="homeDistance">0</span> cm</div>
-        <section class="scan" aria-label="Ultrasonic scan results">
-          <table>
-            <thead>
-              <tr>
-                <th>Scan point</th>
-                <th>Distance</th>
-              </tr>
-            </thead>
-            <tbody id="scanResults">
-              <tr>
-                <td colspan="2">No scan yet</td>
-              </tr>
-            </tbody>
-          </table>
-        </section>
-      </section>
+        <div class="sidebar-spacer"></div>
+        <button id="stopRoverSide" class="panic" type="button" title="Emergency stop">STOP</button>
+      </aside>
 
-      <section class="panel">
-        <div class="topbar">
-          <h2>Alerts</h2>
+      <main class="workspace">
+        <header class="topbar">
+          <div class="wordmark">
+            <img src="/static/stasis-logo.svg" alt="STASIS wordmark" />
+            <div class="title-block">
+              <p class="eyebrow">Forest Rover Command Center</p>
+              <h1>Mission Control Dashboard</h1>
+            </div>
+          </div>
+          <div id="status" class="status">offline</div>
+        </header>
+
+        <div id="liveTab" class="dashboard tab-panel active">
+          <section class="left-column">
+            <section class="panel camera-frame" aria-label="Live rover camera">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Primary Sensor</p>
+                  <h2 class="panel-title">Pi Webcam Feed</h2>
+                </div>
+                <span class="status online">LIVE</span>
+              </div>
+              <div class="camera-feed">
+                <img src="/camera.mjpg" alt="Raspberry Pi webcam feed" />
+                <div class="hud-readout">
+                  <div class="hud-chip">LINK: WebSocket</div>
+                  <div class="hud-chip">STREAM: MJPEG</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" aria-label="Rover commands">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Controls</p>
+                  <h2 class="panel-title">Command Deck</h2>
+                </div>
+              </div>
+              <div class="command-grid">
+                <button id="startRobot" type="button">Start Robot</button>
+                <button id="stopRover" type="button">Stop</button>
+                <button id="returnHome" type="button">Return Home</button>
+                <button id="scanArea" type="button">Scan Area</button>
+                <button id="searchGreenStrip" type="button">Find Green Strip</button>
+                <button id="goToGreenStrip" type="button">Go To Strip</button>
+              </div>
+            </section>
+
+            <section class="panel" aria-label="Tracking guidance" aria-live="polite">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Navigation</p>
+                  <h2 class="panel-title">Tracking Guidance</h2>
+                </div>
+              </div>
+              <div class="guidance">
+                <div class="guidance-box">
+                  <span class="metric-label">Target</span>
+                  <strong id="trackingName">none</strong>
+                </div>
+                <div class="guidance-box">
+                  <span class="metric-label">Direction</span>
+                  <strong id="guidanceDirection">select a human alert</strong>
+                </div>
+                <div class="guidance-box">
+                  <span class="metric-label">Distance</span>
+                  <strong><span id="guidanceDistance">--</span> cm</strong>
+                </div>
+              </div>
+            </section>
+          </section>
+
+          <section class="right-column">
+            <section class="panel" aria-label="Rover status">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Health</p>
+                  <h2 class="panel-title">Rover State</h2>
+                </div>
+              </div>
+              <div class="status-grid">
+                <div class="metric">
+                  <span class="metric-label">Mode</span>
+                  <div id="roverStatus" class="metric-value">waiting</div>
+                </div>
+                <div class="metric">
+                  <span class="metric-label">Home Range</span>
+                  <div class="metric-value"><span id="homeDistance">0</span> cm</div>
+                </div>
+                <div class="metric">
+                  <span class="metric-label">Marker</span>
+                  <div class="metric-value">green strip</div>
+                </div>
+              </div>
+            </section>
+
+            <section class="panel" aria-label="Rover map">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Local Map</p>
+                  <h2 class="panel-title">Target Board</h2>
+                </div>
+              </div>
+              <div id="map" aria-label="Rover map">
+                <div id="goal"></div>
+                <div id="trackedTarget"></div>
+                <div id="rover"></div>
+              </div>
+            </section>
+          </section>
         </div>
-        <div id="alerts" class="alerts"></div>
-        <div class="topbar">
-          <h2>Detections</h2>
+
+        <div id="mapTab" class="single-view tab-panel">
+          <section class="map-column">
+            <section class="panel" aria-label="Expanded rover map">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Navigation</p>
+                  <h2 class="panel-title">Map Focus</h2>
+                </div>
+              </div>
+              <div id="mapDock"></div>
+            </section>
+          </section>
+          <section class="map-column">
+            <section class="panel" aria-label="Expanded tracking guidance">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Target</p>
+                  <h2 class="panel-title">Guidance Focus</h2>
+                </div>
+              </div>
+              <div id="guidanceDock"></div>
+            </section>
+            <section class="panel scan" aria-label="Ultrasonic scan results">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Rangefinder</p>
+                  <h2 class="panel-title">Scan Results</h2>
+                </div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Scan point</th>
+                    <th>Distance</th>
+                  </tr>
+                </thead>
+                <tbody id="scanResults">
+                  <tr>
+                    <td colspan="2">No scan yet</td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+          </section>
         </div>
-        <div id="detectionDebug" class="debug-list"></div>
-      </section>
-    </main>
+
+        <div id="alertsTab" class="single-view tab-panel">
+          <section class="alerts-column">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Events</p>
+                  <h2 class="panel-title">Alert History</h2>
+                </div>
+              </div>
+              <div id="alerts" class="alerts"></div>
+            </section>
+          </section>
+          <section class="alerts-column">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Perception</p>
+                  <h2 class="panel-title">Detection Debug</h2>
+                </div>
+              </div>
+              <div id="detectionDebug" class="debug-list"></div>
+            </section>
+          </section>
+        </div>
+      </main>
+    </div>
 
     <script>
       const socket = io();
+      const navTabs = Array.from(document.querySelectorAll("[data-tab]"));
+      const panels = {
+        live: document.getElementById("liveTab"),
+        map: document.getElementById("mapTab"),
+        alerts: document.getElementById("alertsTab"),
+      };
+      const mapHome = document.querySelector('[aria-label="Rover map"]');
+      const guidanceHome = document.querySelector('[aria-label="Tracking guidance"]');
+      const mapDock = document.getElementById("mapDock");
+      const guidanceDock = document.getElementById("guidanceDock");
       const statusEl = document.getElementById("status");
       const mapEl = document.getElementById("map");
       const roverEl = document.getElementById("rover");
@@ -462,6 +1073,7 @@
       const homeDistanceEl = document.getElementById("homeDistance");
       const startRobotBtn = document.getElementById("startRobot");
       const stopRoverBtn = document.getElementById("stopRover");
+      const stopRoverSideBtn = document.getElementById("stopRoverSide");
       const returnHomeBtn = document.getElementById("returnHome");
       const scanAreaBtn = document.getElementById("scanArea");
       const searchGreenStripBtn = document.getElementById("searchGreenStrip");
@@ -475,6 +1087,23 @@
       let trackedAlert = null;
       let lastSpokenGuidance = "";
       const mapAlertDots = [];
+
+      function setTab(tab) {
+        for (const button of navTabs) {
+          button.classList.toggle("active", button.dataset.tab === tab);
+        }
+        for (const [name, panel] of Object.entries(panels)) {
+          panel.classList.toggle("active", name === tab);
+        }
+        if (tab === "map") {
+          mapDock.append(mapEl);
+          guidanceDock.append(guidanceHome);
+        } else {
+          mapHome.append(mapEl);
+          document.querySelector(".left-column").append(guidanceHome);
+        }
+        renderPose();
+      }
 
       function positionMarker(marker, x, y) {
         marker.style.left = `${(x / mapSize) * 100}%`;
@@ -626,10 +1255,12 @@
 
       socket.on("connect", () => {
         statusEl.textContent = "online";
+        statusEl.classList.add("online");
       });
 
       socket.on("disconnect", () => {
         statusEl.textContent = "offline";
+        statusEl.classList.remove("online");
       });
 
       socket.on("rover_position", (pose) => {
@@ -724,9 +1355,12 @@
         socket.emit("request_scan");
       });
 
-      stopRoverBtn.addEventListener("click", () => {
+      function stopRover() {
         socket.emit("stop_rover");
-      });
+      }
+
+      stopRoverBtn.addEventListener("click", stopRover);
+      stopRoverSideBtn.addEventListener("click", stopRover);
 
       returnHomeBtn.addEventListener("click", () => {
         socket.emit("return_home");
@@ -743,6 +1377,10 @@
       goToGreenStripBtn.addEventListener("click", () => {
         socket.emit("go_to_marker", { marker: "green_strip" });
       });
+
+      for (const button of navTabs) {
+        button.addEventListener("click", () => setTab(button.dataset.tab));
+      }
 
       renderPose();
     </script>
