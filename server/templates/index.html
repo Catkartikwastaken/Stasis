@@ -8,21 +8,21 @@
     <style>
       :root {
         color-scheme: dark;
-        --bg: #030405;
-        --bg-soft: #0b0d10;
-        --panel: rgba(15, 17, 22, 0.84);
-        --panel-strong: rgba(20, 23, 30, 0.96);
-        --line: rgba(255, 255, 255, 0.13);
-        --line-strong: rgba(255, 255, 255, 0.28);
-        --text: #f6f8fb;
-        --muted: #a3abb8;
-        --soft: #68717f;
+        --bg: #000000;
+        --bg-soft: #0e0e0e;
+        --panel: #0e0e0e;
+        --panel-strong: #141313;
+        --line: #444748;
+        --line-strong: #8e9192;
+        --text: #ffffff;
+        --muted: #c4c7c8;
+        --soft: #8e9192;
         --white: #ffffff;
-        --green: #77f7aa;
-        --cyan: #8bd6ff;
-        --amber: #ffd36d;
-        --red: #ff646d;
-        --violet: #9a7cff;
+        --green: #ffffff;
+        --cyan: #ffffff;
+        --amber: #ffffff;
+        --red: #ffb4ab;
+        --violet: #ffffff;
         --shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
         font-family:
           "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, -apple-system,
@@ -39,11 +39,7 @@
         margin: 0;
         min-height: 100vh;
         overflow-x: hidden;
-        background:
-          radial-gradient(circle at 22% 8%, rgba(154, 124, 255, 0.24), transparent 30%),
-          radial-gradient(circle at 82% 16%, rgba(139, 214, 255, 0.18), transparent 34%),
-          linear-gradient(135deg, rgba(255, 255, 255, 0.04), transparent 35%),
-          var(--bg);
+        background: var(--bg);
       }
 
       body::before {
@@ -52,9 +48,10 @@
         z-index: -2;
         content: "";
         background-image:
-          linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-        background-size: 42px 42px;
+          radial-gradient(circle at center, rgba(42, 42, 42, 0.4) 0%, rgba(0, 0, 0, 1) 100%),
+          linear-gradient(to right, rgba(28, 27, 27, 0.6) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(28, 27, 27, 0.6) 1px, transparent 1px);
+        background-size: 100% 100%, 32px 32px, 32px 32px;
         mask-image: radial-gradient(circle at center, black, transparent 78%);
       }
 
@@ -64,10 +61,8 @@
         z-index: -1;
         pointer-events: none;
         content: "";
-        background:
-          linear-gradient(120deg, transparent, rgba(255, 255, 255, 0.03), transparent),
-          repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.018) 1px, transparent 1px, transparent 5px);
-        opacity: 0.75;
+        background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.018), rgba(255, 255, 255, 0.018) 1px, transparent 1px, transparent 5px);
+        opacity: 0.55;
       }
 
       button {
@@ -76,7 +71,7 @@
 
       .shell {
         display: grid;
-        grid-template-columns: 104px minmax(0, 1fr);
+        grid-template-columns: 96px minmax(0, 1fr);
         min-height: 100vh;
       }
 
@@ -87,30 +82,47 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 22px;
-        padding: 22px 14px;
+        gap: 42px;
+        padding: 28px 10px;
         border-right: 1px solid var(--line);
-        background: rgba(0, 0, 0, 0.72);
-        backdrop-filter: blur(20px);
+        background: #0e0e0e;
+        backdrop-filter: none;
         z-index: 5;
       }
 
       .brand-mark {
-        width: 72px;
-        height: 72px;
+        width: 76px;
+        min-height: 92px;
         display: grid;
         place-items: center;
-        border: 1px solid var(--line);
-        border-radius: 16px;
-        background:
-          linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.02)),
-          #030405;
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+        gap: 6px;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        text-align: center;
       }
 
       .brand-mark img {
-        width: 58px;
+        width: 68px;
         height: auto;
+      }
+
+      .brand-caption {
+        display: grid;
+        gap: 2px;
+      }
+
+      .brand-caption strong {
+        color: #fff;
+        font-size: 0.72rem;
+        letter-spacing: 0;
+      }
+
+      .brand-caption span {
+        color: var(--soft);
+        font-size: 0.62rem;
+        letter-spacing: 0;
       }
 
       .nav-stack {
@@ -124,7 +136,7 @@
         width: 100%;
         min-height: 58px;
         border: 1px solid transparent;
-        border-radius: 14px;
+        border-radius: 16px;
         background: transparent;
         color: var(--muted);
         cursor: pointer;
@@ -150,10 +162,10 @@
 
       .nav-pill.active,
       .nav-pill:hover {
-        color: var(--white);
-        border-color: var(--line-strong);
-        background: rgba(255, 255, 255, 0.09);
-        transform: translateY(-2px);
+        color: #000;
+        border-color: #fff;
+        background: #fff;
+        transform: scale(0.96);
       }
 
       .tab-panel {
@@ -251,6 +263,19 @@
         white-space: nowrap;
       }
 
+      .sys-time {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 9px 12px;
+        color: var(--text);
+        background: #0e0e0e;
+        white-space: nowrap;
+        font-size: 0.8rem;
+      }
+
       .status::before {
         width: 8px;
         height: 8px;
@@ -290,10 +315,8 @@
       .panel {
         min-width: 0;
         border: 1px solid var(--line);
-        border-radius: 18px;
-        background:
-          linear-gradient(145deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.025)),
-          var(--panel);
+        border-radius: 16px;
+        background: var(--panel);
         box-shadow: var(--shadow);
         overflow: hidden;
       }
@@ -402,9 +425,7 @@
       .debug-list button {
         border: 1px solid var(--line);
         border-radius: 12px;
-        background:
-          linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.035)),
-          rgba(255, 255, 255, 0.04);
+        background: #0e0e0e;
         color: var(--text);
         cursor: pointer;
         padding: 10px 12px;
@@ -421,14 +442,14 @@
       .debug-list button:hover {
         transform: translateY(-2px);
         border-color: rgba(255, 255, 255, 0.34);
-        background: rgba(255, 255, 255, 0.11);
+        background: #353434;
         box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28);
       }
 
       #startRobot {
-        color: #05100b;
+        color: #000;
         border-color: transparent;
-        background: linear-gradient(180deg, #effff6, #77f7aa);
+        background: #fff;
       }
 
       #stopRover {
@@ -495,11 +516,11 @@
         overflow: hidden;
         border-radius: 0 0 18px 18px;
         background:
-          radial-gradient(circle at 28% 28%, rgba(119, 247, 170, 0.12), transparent 18%),
-          radial-gradient(circle at 70% 66%, rgba(154, 124, 255, 0.18), transparent 24%),
-          linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-          #07090b;
+          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16), transparent 9%),
+          repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.22) 0 1px, transparent 1px 42px),
+          linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+          #050505;
         background-size:
           auto,
           auto,
@@ -520,7 +541,7 @@
 
       .map-label {
         border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 999px;
+        border-radius: 50%;
         padding: 5px 8px;
         background: rgba(0, 0, 0, 0.38);
         color: var(--muted);
@@ -604,6 +625,31 @@
         border-radius: 50%;
       }
 
+      .lidar-sweep {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 1;
+        width: 72%;
+        aspect-ratio: 1;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        animation: spinSweep 4s linear infinite;
+      }
+
+      .lidar-sweep::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 50%;
+        height: 1px;
+        content: "";
+        background: rgba(255, 255, 255, 0.54);
+        transform-origin: left center;
+      }
+
       #map::before {
         position: absolute;
         inset: 18px;
@@ -619,7 +665,7 @@
         width: 76%;
         height: 1px;
         content: "";
-        background: rgba(255, 255, 255, 0.16);
+        background: rgba(255, 255, 255, 0.28);
         transform: translate(-50%, -50%);
       }
 
@@ -630,9 +676,9 @@
         height: 20px;
         border: 3px solid var(--white);
         border-radius: 50%;
-        background: var(--green);
+        background: #fff;
         transform: translate(-50%, -50%);
-        box-shadow: 0 0 0 8px rgba(119, 247, 170, 0.15), 0 0 32px rgba(119, 247, 170, 0.5);
+        box-shadow: 0 0 0 7px rgba(255, 255, 255, 0.12), 0 0 28px rgba(255, 255, 255, 0.24);
       }
 
       #rover::after {
@@ -642,7 +688,7 @@
         width: 4px;
         height: 34px;
         content: "";
-        background: var(--cyan);
+        background: #fff;
         border-radius: 999px;
         transform: translate(-50%, -100%) rotate(var(--yaw, 0deg));
         transform-origin: 50% 100%;
@@ -657,7 +703,7 @@
         content: "";
         border-left: 7px solid transparent;
         border-right: 7px solid transparent;
-        border-bottom: 11px solid var(--cyan);
+        border-bottom: 11px solid #fff;
         transform: translateX(-50%) rotate(var(--yaw, 0deg));
         transform-origin: 50% 33px;
       }
@@ -855,6 +901,15 @@
         }
       }
 
+      @keyframes spinSweep {
+        from {
+          transform: translate(-50%, -50%) rotate(0deg);
+        }
+        to {
+          transform: translate(-50%, -50%) rotate(360deg);
+        }
+      }
+
       @media (max-width: 1080px) {
         .dashboard,
         .single-view {
@@ -949,11 +1004,15 @@
       <aside class="sidebar" aria-label="Mission navigation">
         <div class="brand-mark">
           <img src="/static/stasis-logo.svg" alt="STASIS" />
+          <div class="brand-caption">
+            <strong>CONTROL</strong>
+            <span>V-0.9.4</span>
+          </div>
         </div>
         <div class="nav-stack" aria-hidden="true">
           <button class="nav-pill active" type="button" data-tab="live"><strong>+</strong>LIVE</button>
-          <button class="nav-pill" type="button" data-tab="map"><strong>◎</strong>MAP</button>
-          <button class="nav-pill" type="button" data-tab="alerts"><strong>≋</strong>ALERTS</button>
+          <button class="nav-pill" type="button" data-tab="map"><strong>O</strong>MAP</button>
+          <button class="nav-pill" type="button" data-tab="alerts"><strong>=</strong>LOG</button>
         </div>
         <div class="sidebar-spacer"></div>
         <button id="stopRoverSide" class="panic" type="button" title="Emergency stop">STOP</button>
@@ -969,6 +1028,7 @@
             </div>
           </div>
           <div id="status" class="status">offline</div>
+          <div class="sys-time">SYS TIME: <span id="sys-time">00:00:00</span></div>
         </header>
 
         <div id="liveTab" class="dashboard tab-panel active">
@@ -987,23 +1047,6 @@
                   <div class="hud-chip">LINK: WebSocket</div>
                   <div class="hud-chip">STREAM: MJPEG</div>
                 </div>
-              </div>
-            </section>
-
-            <section class="panel" aria-label="Rover commands">
-              <div class="panel-header">
-                <div>
-                  <p class="panel-kicker">Controls</p>
-                  <h2 class="panel-title">Command Deck</h2>
-                </div>
-              </div>
-              <div class="command-grid">
-                <button id="startRobot" type="button">Start Robot</button>
-                <button id="stopRover" type="button">Stop</button>
-                <button id="returnHome" type="button">Return Home</button>
-                <button id="scanArea" type="button">Scan Area</button>
-                <button id="searchGreenStrip" type="button">Find Green Strip</button>
-                <button id="goToGreenStrip" type="button">Go To Strip</button>
               </div>
             </section>
 
@@ -1064,6 +1107,7 @@
               </div>
               <div id="map" aria-label="Rover map">
                 <div class="map-compass">N</div>
+                <div class="lidar-sweep"></div>
                 <div class="map-path"></div>
                 <div class="map-label home">home</div>
                 <div class="map-label zone-a">scan zone</div>
@@ -1077,6 +1121,23 @@
                 <div id="goal"></div>
                 <div id="trackedTarget"></div>
                 <div id="rover"></div>
+              </div>
+            </section>
+
+            <section class="panel" aria-label="Rover commands">
+              <div class="panel-header">
+                <div>
+                  <p class="panel-kicker">Override</p>
+                  <h2 class="panel-title">Command Override</h2>
+                </div>
+              </div>
+              <div class="command-grid">
+                <button id="startRobot" type="button">Start</button>
+                <button id="stopRover" type="button">Stop</button>
+                <button id="returnHome" type="button">Return Base</button>
+                <button id="scanArea" type="button">Scan Area</button>
+                <button id="searchGreenStrip" type="button">Find Strip</button>
+                <button id="goToGreenStrip" type="button">Go To Strip</button>
               </div>
             </section>
           </section>
@@ -1503,6 +1564,19 @@
         button.addEventListener("click", () => setTab(button.dataset.tab));
       }
 
+      function updateClock() {
+        const node = document.getElementById("sys-time");
+        if (!node) return;
+        node.textContent = new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+
+      setInterval(updateClock, 1000);
+      updateClock();
       renderPose();
     </script>
   </body>
