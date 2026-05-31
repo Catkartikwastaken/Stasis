@@ -4,6 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>STASIS Mission Control</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
     <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <style>
       :root {
@@ -18,15 +24,15 @@
         --muted: #c4c7c8;
         --soft: #8e9192;
         --white: #ffffff;
-        --green: #ffffff;
-        --cyan: #ffffff;
-        --amber: #ffffff;
+        --green: #8cffbd;
+        --cyan: #8bd6ff;
+        --amber: #ffd36d;
         --red: #ffb4ab;
-        --violet: #ffffff;
+        --violet: #b8a1ff;
         --shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
-        font-family:
-          "Segoe UI Variable", "Segoe UI", ui-sans-serif, system-ui, -apple-system,
-          BlinkMacSystemFont, sans-serif;
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+        --headline: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+        font-family: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
         background: var(--bg);
         color: var(--text);
       }
@@ -40,6 +46,7 @@
         min-height: 100vh;
         overflow-x: hidden;
         background: var(--bg);
+        cursor: crosshair;
       }
 
       body::before {
@@ -69,6 +76,28 @@
         font: inherit;
       }
 
+      ::selection {
+        background: #fff;
+        color: #000;
+      }
+
+      ::-webkit-scrollbar {
+        width: 5px;
+        height: 5px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #0e0e0e;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #444748;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: #fff;
+      }
+
       .shell {
         display: grid;
         grid-template-columns: 96px minmax(0, 1fr);
@@ -82,17 +111,19 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 42px;
+        gap: 36px;
         padding: 28px 10px;
         border-right: 1px solid var(--line);
-        background: #0e0e0e;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 24%),
+          #0e0e0e;
         backdrop-filter: none;
         z-index: 5;
       }
 
       .brand-mark {
         width: 76px;
-        min-height: 92px;
+        min-height: 104px;
         display: grid;
         place-items: center;
         gap: 6px;
@@ -104,8 +135,9 @@
       }
 
       .brand-mark img {
-        width: 68px;
+        width: 72px;
         height: auto;
+        filter: drop-shadow(0 0 18px rgba(255, 255, 255, 0.18));
       }
 
       .brand-caption {
@@ -115,14 +147,16 @@
 
       .brand-caption strong {
         color: #fff;
-        font-size: 0.72rem;
-        letter-spacing: 0;
+        font-family: var(--headline);
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
       }
 
       .brand-caption span {
         color: var(--soft);
+        font-family: var(--mono);
         font-size: 0.62rem;
-        letter-spacing: 0;
+        letter-spacing: 0.08em;
       }
 
       .nav-stack {
@@ -156,7 +190,9 @@
 
       .nav-pill strong {
         display: block;
-        font-size: 1.18rem;
+        font-family: "Material Symbols Outlined";
+        font-size: 1.42rem;
+        font-weight: 300;
         line-height: 1;
       }
 
@@ -165,7 +201,7 @@
         color: #000;
         border-color: #fff;
         background: #fff;
-        transform: scale(0.96);
+        transform: scale(0.95);
       }
 
       .tab-panel {
@@ -181,6 +217,8 @@
       }
 
       .panic {
+        font-family: var(--mono);
+        letter-spacing: 0.08em;
         color: var(--red);
         border-color: rgba(255, 100, 109, 0.35);
         background: rgba(255, 100, 109, 0.08);
@@ -208,7 +246,9 @@
         margin: -22px -22px 22px;
         padding: 16px 22px;
         border-bottom: 1px solid var(--line);
-        background: rgba(3, 4, 5, 0.78);
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.055), transparent 38%),
+          rgba(3, 4, 5, 0.86);
         backdrop-filter: blur(22px);
       }
 
@@ -238,17 +278,21 @@
       }
 
       h1 {
-        font-size: clamp(1.1rem, 2vw, 1.7rem);
-        font-weight: 800;
+        font-family: var(--headline);
+        font-size: clamp(1.22rem, 2vw, 1.75rem);
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
       }
 
       .eyebrow,
       .panel-kicker,
       .metric-label {
         color: var(--muted);
+        font-family: var(--mono);
         font-size: 0.72rem;
         text-transform: uppercase;
-        letter-spacing: 0;
+        letter-spacing: 0.08em;
       }
 
       .status {
@@ -256,11 +300,14 @@
         align-items: center;
         gap: 8px;
         border: 1px solid var(--line);
-        border-radius: 999px;
+        border-radius: 10px;
         padding: 9px 14px;
         color: var(--muted);
         background: rgba(255, 255, 255, 0.06);
         white-space: nowrap;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+        text-transform: uppercase;
       }
 
       .sys-time {
@@ -268,11 +315,12 @@
         align-items: center;
         gap: 8px;
         border: 1px solid var(--line);
-        border-radius: 8px;
+        border-radius: 10px;
         padding: 9px 12px;
         color: var(--text);
         background: #0e0e0e;
         white-space: nowrap;
+        font-family: var(--mono);
         font-size: 0.8rem;
       }
 
@@ -315,10 +363,21 @@
       .panel {
         min-width: 0;
         border: 1px solid var(--line);
-        border-radius: 16px;
-        background: var(--panel);
+        border-radius: 20px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%),
+          var(--panel);
         box-shadow: var(--shadow);
         overflow: hidden;
+        transition:
+          transform 180ms ease,
+          border-color 180ms ease,
+          background 180ms ease;
+      }
+
+      .panel:hover {
+        border-color: rgba(255, 255, 255, 0.34);
+        transform: translateY(-2px);
       }
 
       .panel-header {
@@ -326,17 +385,21 @@
         align-items: center;
         justify-content: space-between;
         gap: 12px;
-        padding: 12px 14px;
+        padding: 13px 15px;
         border-bottom: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.04);
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.08), transparent 42%),
+          rgba(255, 255, 255, 0.035);
       }
 
       .panel-title {
         display: flex;
         align-items: center;
         gap: 10px;
-        font-size: 0.92rem;
-        font-weight: 800;
+        font-family: var(--headline);
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
       }
 
       .panel-title::before {
@@ -359,6 +422,7 @@
         height: min(62vh, 630px);
         min-height: 360px;
         overflow: hidden;
+        isolation: isolate;
       }
 
       .camera-feed img {
@@ -369,6 +433,11 @@
         background:
           radial-gradient(circle at 50% 50%, rgba(139, 214, 255, 0.1), transparent 35%),
           #020303;
+      }
+
+      .camera-feed .material-symbols-outlined {
+        font-size: 1rem;
+        line-height: 1;
       }
 
       .camera-feed::before,
@@ -404,12 +473,74 @@
 
       .hud-chip {
         border: 1px solid rgba(255, 255, 255, 0.16);
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 8px 10px;
         background: rgba(0, 0, 0, 0.48);
         backdrop-filter: blur(12px);
         color: var(--muted);
+        font-family: var(--mono);
         font-size: 0.78rem;
+      }
+
+      .sensor-stack {
+        position: absolute;
+        top: 18px;
+        left: 18px;
+        z-index: 2;
+        display: grid;
+        gap: 7px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.44);
+        backdrop-filter: blur(14px);
+        color: rgba(255, 255, 255, 0.82);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+      }
+
+      .signal-bars {
+        position: absolute;
+        right: 18px;
+        bottom: 18px;
+        z-index: 2;
+        display: flex;
+        align-items: end;
+        gap: 4px;
+        height: 38px;
+        padding: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.44);
+        backdrop-filter: blur(14px);
+      }
+
+      .signal-bars i {
+        width: 5px;
+        display: block;
+        border-radius: 999px;
+        background: #fff;
+        opacity: 0.35;
+      }
+
+      .signal-bars i:nth-child(1) {
+        height: 28%;
+      }
+
+      .signal-bars i:nth-child(2) {
+        height: 48%;
+        opacity: 0.55;
+      }
+
+      .signal-bars i:nth-child(3) {
+        height: 72%;
+        opacity: 0.78;
+      }
+
+      .signal-bars i:nth-child(4) {
+        height: 100%;
+        opacity: 1;
       }
 
       .command-grid {
@@ -429,6 +560,10 @@
         color: var(--text);
         cursor: pointer;
         padding: 10px 12px;
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
         transition:
           transform 160ms ease,
           border-color 160ms ease,
@@ -470,11 +605,14 @@
         border: 1px solid var(--line);
         border-radius: 14px;
         padding: 12px;
-        background: rgba(0, 0, 0, 0.22);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 48%),
+          rgba(0, 0, 0, 0.22);
       }
 
       .metric-value {
         margin-top: 8px;
+        font-family: var(--headline);
         font-size: clamp(1rem, 1.8vw, 1.35rem);
         font-weight: 800;
         overflow-wrap: anywhere;
@@ -491,7 +629,9 @@
         border: 1px solid var(--line);
         border-radius: 14px;
         padding: 12px;
-        background: rgba(0, 0, 0, 0.22);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 48%),
+          rgba(0, 0, 0, 0.22);
       }
 
       .guidance-box strong,
@@ -501,6 +641,7 @@
 
       .guidance-box strong {
         margin-top: 8px;
+        font-family: var(--headline);
         font-size: 1.12rem;
       }
 
@@ -514,8 +655,9 @@
         min-height: 390px;
         aspect-ratio: 1;
         overflow: hidden;
-        border-radius: 0 0 18px 18px;
+        border-radius: 0 0 20px 20px;
         background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.09), transparent 28%),
           radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.16), transparent 9%),
           repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.22) 0 1px, transparent 1px 42px),
           linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
@@ -545,6 +687,7 @@
         padding: 5px 8px;
         background: rgba(0, 0, 0, 0.38);
         color: var(--muted);
+        font-family: var(--mono);
         font-size: 0.68rem;
         text-transform: uppercase;
       }
@@ -575,6 +718,7 @@
         border: 1px solid rgba(255, 255, 255, 0.16);
         border-radius: 50%;
         color: var(--cyan);
+        font-family: var(--mono);
         background: rgba(0, 0, 0, 0.32);
         font-weight: 800;
       }
@@ -609,7 +753,9 @@
         padding: 8px;
         background: rgba(0, 0, 0, 0.42);
         color: var(--muted);
+        font-family: var(--mono);
         font-size: 0.72rem;
+        text-transform: uppercase;
       }
 
       .map-legend span {
@@ -774,6 +920,14 @@
         cursor: pointer;
         transform: translate(-50%, -50%);
         box-shadow: 0 0 0 6px rgba(139, 214, 255, 0.16);
+        transition:
+          transform 160ms ease,
+          box-shadow 160ms ease;
+      }
+
+      .map-alert-dot:hover {
+        transform: translate(-50%, -50%) scale(1.18);
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.12);
       }
 
       .map-alert-dot.human {
@@ -812,7 +966,9 @@
       .debug-row {
         border: 1px solid var(--line);
         border-radius: 14px;
-        background: rgba(0, 0, 0, 0.24);
+        background:
+          linear-gradient(135deg, rgba(255, 255, 255, 0.055), transparent 42%),
+          rgba(0, 0, 0, 0.24);
         overflow: hidden;
       }
 
@@ -841,6 +997,7 @@
         border-radius: 999px;
         padding: 4px 9px;
         color: var(--green);
+        font-family: var(--mono);
         font-size: 0.72rem;
         text-transform: uppercase;
       }
@@ -860,6 +1017,7 @@
       .debug-row {
         padding: 9px;
         color: var(--muted);
+        font-family: var(--mono);
         font-size: 0.82rem;
       }
 
@@ -871,6 +1029,7 @@
       .scan table {
         width: 100%;
         border-collapse: collapse;
+        font-family: var(--mono);
         font-size: 0.9rem;
       }
 
@@ -908,6 +1067,33 @@
         to {
           transform: translate(-50%, -50%) rotate(360deg);
         }
+      }
+
+      @keyframes feedPulse {
+        0%,
+        100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 0.9;
+        }
+      }
+
+      .camera-feed::marker {
+        display: none;
+      }
+
+      .camera-frame::after {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        background:
+          linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent),
+          repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 7px);
+        mix-blend-mode: screen;
+        opacity: 0.35;
+        animation: feedPulse 3s ease-in-out infinite;
       }
 
       @media (max-width: 1080px) {
@@ -1010,9 +1196,9 @@
           </div>
         </div>
         <div class="nav-stack" aria-hidden="true">
-          <button class="nav-pill active" type="button" data-tab="live"><strong>+</strong>LIVE</button>
-          <button class="nav-pill" type="button" data-tab="map"><strong>O</strong>MAP</button>
-          <button class="nav-pill" type="button" data-tab="alerts"><strong>=</strong>LOG</button>
+          <button class="nav-pill active" type="button" data-tab="live"><strong>explore</strong>LIVE</button>
+          <button class="nav-pill" type="button" data-tab="map"><strong>radar</strong>MAP</button>
+          <button class="nav-pill" type="button" data-tab="alerts"><strong>analytics</strong>LOG</button>
         </div>
         <div class="sidebar-spacer"></div>
         <button id="stopRoverSide" class="panic" type="button" title="Emergency stop">STOP</button>
@@ -1023,8 +1209,8 @@
           <div class="wordmark">
             <img src="/static/stasis-logo.svg" alt="STASIS wordmark" />
             <div class="title-block">
-              <p class="eyebrow">Forest Rover Command Center</p>
-              <h1>Mission Control Dashboard</h1>
+              <p class="eyebrow">Rover Alpha-7 / Forest Demo</p>
+              <h1>STASIS /// Mission Control</h1>
             </div>
           </div>
           <div id="status" class="status">offline</div>
@@ -1043,9 +1229,17 @@
               </div>
               <div class="camera-feed">
                 <img src="/camera.mjpg" alt="Raspberry Pi webcam feed" />
+                <div class="sensor-stack">
+                  <span>CAM_FRONT_MAIN</span>
+                  <span>DETECT: PI AUTHORITY</span>
+                  <span>TRACK: BBOX GUIDANCE</span>
+                </div>
                 <div class="hud-readout">
                   <div class="hud-chip">LINK: WebSocket</div>
                   <div class="hud-chip">STREAM: MJPEG</div>
+                </div>
+                <div class="signal-bars" aria-hidden="true">
+                  <i></i><i></i><i></i><i></i>
                 </div>
               </div>
             </section>
