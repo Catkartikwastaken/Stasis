@@ -204,6 +204,7 @@ rover_pose: Dict[str, float] = {
 }
 pending_goal: Optional[Dict[str, float]] = None
 known_markers: Dict[str, Dict[str, Any]] = {}
+tracked_target: Optional[Dict[str, Any]] = None
 
 
 def record_detection_event(item: Dict[str, Any], accepted: bool, reason: str) -> None:
@@ -1107,6 +1108,70 @@ def build_goto_command(target_x: float, target_y: float) -> Dict[str, Any]:
     return {"cmd": "goto", "angle": angle_to_goal, "distance": distance_cm}
 
 
+def clamp(value: float, low: float, high: float) -> float:
+    return max(low, min(high, value))
+
+
+def estimate_detection_target(
+    detection: Dict[str, Any],
+    frame_width: float,
+    frame_height: float,
+) -> Dict[str, Any]:
+    """
+    Projects a camera detection onto the simple local dashboard map.
+
+    This is not SLAM. It is a stable demo estimate so dashboard tracking does
+    not place every object directly underneath the rover marker.
+    """
+    box = detection.get("box") if isinstance(detection.get("box"), dict) else {}
+    box_width = float(box.get("width", 0) or 0)
+    box_height = float(box.get("height", 0) or 0)
+    box_x = float(box.get("x", frame_width / 2.0 - box_width / 2.0) or 0)
+    center_x = box_x + box_width / 2.0
+    horizontal = clamp((center_x - frame_width / 2.0) / max(1.0, frame_width / 2.0), -1.0, 1.0)
+    area_ratio = clamp((box_width * box_height) / max(1.0, frame_width * frame_height), 0.0, 1.0)
+
+    forward_cm = clamp(320.0 - area_ratio * 900.0, 45.0, 320.0)
+    side_cm = horizontal * 190.0
+    yaw_rad = math.radians(float(rover_pose.get("yaw", 0.0) or 0.0))
+    forward_px = forward_cm / PIXEL_TO_CM
+    side_px = side_cm / PIXEL_TO_CM
+    target_x = clamp(
+        rover_pose["x"] + math.cos(yaw_rad) * forward_px + math.cos(yaw_rad + math.pi / 2.0) * side_px,
+        0.0,
+        800.0,
+    )
+    target_y = clamp(
+        rover_pose["y"] + math.sin(yaw_rad) * forward_px + math.sin(yaw_rad + math.pi / 2.0) * side_px,
+        0.0,
+        800.0,
+    )
+
+    if abs(side_cm) < 18.0:
+        direction = f"forward {round(forward_cm)} cm"
+        side = "center"
+    elif side_cm < 0:
+        direction = f"forward {round(forward_cm)} cm, left {round(abs(side_cm))} cm"
+        side = "left"
+    else:
+        direction = f"forward {round(forward_cm)} cm, right {round(abs(side_cm))} cm"
+        side = "right"
+
+    return {
+        "x": target_x,
+        "y": target_y,
+        "guidance": {
+            "direction": direction,
+            "forward_cm": round(forward_cm),
+            "side": side,
+            "side_cm": round(abs(side_cm)),
+            "image_x": round(center_x, 1),
+            "image_y": round(float(box.get("y", 0) or 0) + box_height / 2.0, 1),
+            "image_vertical_ratio": round((float(box.get("y", 0) or 0) + box_height / 2.0) / max(1.0, frame_height), 3),
+        },
+    }
+
+
 def remember_marker(marker_name: str, image_path: str) -> None:
     """
     Records a detected navigational marker's coordinates.
@@ -1205,6 +1270,7 @@ def handle_vision_decision(payload: Dict[str, Any]) -> None:
         "box": payload.get("box", {}),
         "frame_width": payload.get("frame_width", 0),
         "frame_height": payload.get("frame_height", 0),
+        "guidance": payload.get("guidance", {}),
         "mode": payload.get("mode", ""),
     }
 
@@ -1357,6 +1423,10 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
         }
         if marker:
             command["marker"] = marker
+        target = estimate_detection_target(detection, frame_width, frame_height)
+        command["x"] = target["x"]
+        command["y"] = target["y"]
+        command["guidance"] = target["guidance"]
 
         logging.info("Pi object detection converted to rover vision_result: %s", command["message"])
         sent = send_rover_command(command)
@@ -1641,6 +1711,31 @@ def on_human_decision(payload: Optional[Dict[str, Any]] = None) -> None:
         return
     sent = send_rover_command(command)
     emit("human_decision_sent", {"sent": sent, "action": action})
+
+
+@socketio.on("track_target")
+def on_track_target(payload: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Stores the dashboard-selected tracking target so UI state is explicit.
+
+    Motor follow is still controlled by the separate Follow button. This keeps
+    clicking a map/alert target from unexpectedly moving the rover.
+    """
+    global tracked_target
+
+    if not isinstance(payload, dict):
+        emit("track_target_error", {"message": "Track target payload must be an object."})
+        return
+    tracked_target = {
+        "id": str(payload.get("id") or ""),
+        "category": str(payload.get("category") or "event"),
+        "label": str(payload.get("label") or ""),
+        "x": payload.get("x"),
+        "y": payload.get("y"),
+        "guidance": payload.get("guidance", {}),
+        "selected_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    emit("track_target_selected", tracked_target)
 
 
 @socketio.on("rover_status")

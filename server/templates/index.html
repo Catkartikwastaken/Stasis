@@ -509,6 +509,101 @@
         cursor: crosshair;
       }
 
+      .map-label,
+      .map-legend,
+      .map-compass,
+      .map-path {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+      }
+
+      .map-label {
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        padding: 5px 8px;
+        background: rgba(0, 0, 0, 0.38);
+        color: var(--muted);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+      }
+
+      .map-label.home {
+        left: 50%;
+        top: 50%;
+        transform: translate(18px, -34px);
+      }
+
+      .map-label.zone-a {
+        left: 8%;
+        top: 13%;
+      }
+
+      .map-label.zone-b {
+        right: 8%;
+        bottom: 12%;
+      }
+
+      .map-compass {
+        top: 18px;
+        right: 18px;
+        width: 64px;
+        height: 64px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 50%;
+        color: var(--cyan);
+        background: rgba(0, 0, 0, 0.32);
+        font-weight: 800;
+      }
+
+      .map-compass::before {
+        position: absolute;
+        top: 7px;
+        width: 2px;
+        height: 20px;
+        content: "";
+        border-radius: 99px;
+        background: var(--cyan);
+      }
+
+      .map-path {
+        left: 14%;
+        top: 58%;
+        width: 72%;
+        height: 18%;
+        border-top: 2px dashed rgba(139, 214, 255, 0.28);
+        border-radius: 50%;
+        transform: rotate(-7deg);
+      }
+
+      .map-legend {
+        left: 14px;
+        bottom: 14px;
+        display: grid;
+        gap: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 12px;
+        padding: 8px;
+        background: rgba(0, 0, 0, 0.42);
+        color: var(--muted);
+        font-size: 0.72rem;
+      }
+
+      .map-legend span {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+      }
+
+      .map-legend i {
+        width: 9px;
+        height: 9px;
+        display: inline-block;
+        border-radius: 50%;
+      }
+
       #map::before {
         position: absolute;
         inset: 18px;
@@ -968,6 +1063,17 @@
                 </div>
               </div>
               <div id="map" aria-label="Rover map">
+                <div class="map-compass">N</div>
+                <div class="map-path"></div>
+                <div class="map-label home">home</div>
+                <div class="map-label zone-a">scan zone</div>
+                <div class="map-label zone-b">strip zone</div>
+                <div class="map-legend">
+                  <span><i style="background: var(--red)"></i> human</span>
+                  <span><i style="background: var(--green)"></i> animal</span>
+                  <span><i style="background: var(--cyan)"></i> object</span>
+                  <span><i style="background: var(--violet)"></i> marker</span>
+                </div>
                 <div id="goal"></div>
                 <div id="trackedTarget"></div>
                 <div id="rover"></div>
@@ -1127,14 +1233,32 @@
         dot.title = `${alert.label || alert.category || "event"}: ${alert.message || "detected"}`;
         dot.setAttribute("aria-label", dot.title);
         positionMarker(dot, x, y);
-        dot.addEventListener("click", () => {
-          trackedAlert = { ...alert, x, y };
-          updateGuidance(false);
+        dot.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setTrackedAlert({ ...alert, x, y }, true);
         });
         mapEl.append(dot);
         mapAlertDots.push(dot);
         if (mapAlertDots.length > 18) {
           mapAlertDots.shift().remove();
+        }
+      }
+
+      function setTrackedAlert(alert, focusMap) {
+        trackedAlert = alert;
+        roverStatusEl.textContent =
+          alert.category === "human" ? "human target selected" : `${alert.category || "event"} target selected`;
+        updateGuidance(false);
+        socket.emit("track_target", {
+          id: alert.id || "",
+          category: alert.category || "event",
+          label: alert.label || "",
+          x: alert.x,
+          y: alert.y,
+          guidance: alert.guidance || {},
+        });
+        if (focusMap) {
+          setTab("map");
         }
       }
 
@@ -1311,10 +1435,7 @@
           trackButton.type = "button";
           trackButton.textContent = "Track";
           trackButton.addEventListener("click", () => {
-            trackedAlert = { ...alert, x, y };
-            roverStatusEl.textContent =
-              alert.category === "human" ? "human detected - tracking" : `${alert.category || "event"} selected - tracking`;
-            updateGuidance(false);
+            setTrackedAlert({ ...alert, x, y }, true);
           });
           item.append(trackButton);
         }
