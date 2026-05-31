@@ -259,6 +259,14 @@
         min-width: 0;
       }
 
+      .topbar-meta {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
       .wordmark img {
         width: 190px;
         max-width: 42vw;
@@ -268,6 +276,10 @@
       .title-block {
         display: grid;
         gap: 2px;
+      }
+
+      .title-block .eyebrow {
+        color: var(--soft);
       }
 
       h1,
@@ -335,6 +347,28 @@
 
       .status.online::before {
         background: var(--green);
+      }
+
+      .mono-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 38px;
+        padding: 9px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #0e0e0e;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .mono-chip strong {
+        color: #fff;
+        font-weight: 700;
       }
 
       .dashboard {
@@ -409,6 +443,23 @@
         border-radius: 50%;
         background: var(--cyan);
         box-shadow: 0 0 14px rgba(139, 214, 255, 0.75);
+      }
+
+      .panel-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 9px;
+        background: rgba(255, 255, 255, 0.04);
+        color: #fff;
+      }
+
+      .panel-icon .material-symbols-outlined {
+        font-size: 1rem;
+        line-height: 1;
       }
 
       .camera-frame {
@@ -548,6 +599,11 @@
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 10px;
         padding: 14px;
+      }
+
+      .command-grid .material-symbols-outlined {
+        font-size: 1rem;
+        line-height: 1;
       }
 
       .command-grid button,
@@ -1026,6 +1082,19 @@
         color: var(--text);
       }
 
+      .log-hint {
+        margin: 0 14px 14px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.03);
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
       .scan table {
         width: 100%;
         border-collapse: collapse;
@@ -1161,6 +1230,10 @@
           align-items: flex-start;
         }
 
+        .topbar-meta {
+          justify-content: flex-start;
+        }
+
         .wordmark {
           align-items: flex-start;
           flex-direction: column;
@@ -1213,8 +1286,11 @@
               <h1>STASIS /// Mission Control</h1>
             </div>
           </div>
-          <div id="status" class="status">offline</div>
-          <div class="sys-time">SYS TIME: <span id="sys-time">00:00:00</span></div>
+          <div class="topbar-meta">
+            <div class="mono-chip"><strong>ROVER</strong> ALPHA-7 [ NOMINAL ]</div>
+            <div id="status" class="status">offline</div>
+            <div class="sys-time">SYS TIME: <span id="sys-time">00:00:00</span></div>
+          </div>
         </header>
 
         <div id="liveTab" class="dashboard tab-panel active">
@@ -1223,7 +1299,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Primary Sensor</p>
-                  <h2 class="panel-title">Pi Webcam Feed</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">videocam</span></span>Pi Webcam Feed</h2>
                 </div>
                 <span class="status online">LIVE</span>
               </div>
@@ -1248,7 +1324,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Navigation</p>
-                  <h2 class="panel-title">Tracking Guidance</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">explore</span></span>Tracking Guidance</h2>
                 </div>
               </div>
               <div class="guidance">
@@ -1273,7 +1349,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Health</p>
-                  <h2 class="panel-title">Rover State</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">memory</span></span>Rover State</h2>
                 </div>
               </div>
               <div class="status-grid">
@@ -1296,7 +1372,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Local Map</p>
-                  <h2 class="panel-title">Target Board</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">radar</span></span>Target Board</h2>
                 </div>
               </div>
               <div id="map" aria-label="Rover map">
@@ -1322,16 +1398,16 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Override</p>
-                  <h2 class="panel-title">Command Override</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">tune</span></span>Command Override</h2>
                 </div>
               </div>
               <div class="command-grid">
-                <button id="startRobot" type="button">Start</button>
-                <button id="stopRover" type="button">Stop</button>
-                <button id="returnHome" type="button">Return Base</button>
-                <button id="scanArea" type="button">Scan Area</button>
-                <button id="searchGreenStrip" type="button">Find Strip</button>
-                <button id="goToGreenStrip" type="button">Go To Strip</button>
+                <button id="startRobot" type="button"><span class="material-symbols-outlined">play_arrow</span> Start</button>
+                <button id="stopRover" type="button"><span class="material-symbols-outlined">stop</span> Stop</button>
+                <button id="returnHome" type="button"><span class="material-symbols-outlined">home</span> Return Base</button>
+                <button id="scanArea" type="button"><span class="material-symbols-outlined">travel_explore</span> Scan Area</button>
+                <button id="searchGreenStrip" type="button"><span class="material-symbols-outlined">texture</span> Find Strip</button>
+                <button id="goToGreenStrip" type="button"><span class="material-symbols-outlined">near_me</span> Go To Strip</button>
               </div>
             </section>
           </section>
@@ -1343,7 +1419,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Navigation</p>
-                  <h2 class="panel-title">Map Focus</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">map</span></span>Map Focus</h2>
                 </div>
               </div>
               <div id="mapDock"></div>
@@ -1354,7 +1430,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Target</p>
-                  <h2 class="panel-title">Guidance Focus</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">pin_drop</span></span>Guidance Focus</h2>
                 </div>
               </div>
               <div id="guidanceDock"></div>
@@ -1363,7 +1439,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Rangefinder</p>
-                  <h2 class="panel-title">Scan Results</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">sensors</span></span>Scan Results</h2>
                 </div>
               </div>
               <table>
@@ -1389,10 +1465,11 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Events</p>
-                  <h2 class="panel-title">Alert History</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">notifications</span></span>Alert History</h2>
                 </div>
               </div>
               <div id="alerts" class="alerts"></div>
+              <div class="log-hint">AUTO-SCROLL ACTIVE / TARGET EVENTS STREAM HERE</div>
             </section>
           </section>
           <section class="alerts-column">
@@ -1400,7 +1477,7 @@
               <div class="panel-header">
                 <div>
                   <p class="panel-kicker">Perception</p>
-                  <h2 class="panel-title">Detection Debug</h2>
+                  <h2 class="panel-title"><span class="panel-icon"><span class="material-symbols-outlined">analytics</span></span>Detection Debug</h2>
                 </div>
               </div>
               <div id="detectionDebug" class="debug-list"></div>
