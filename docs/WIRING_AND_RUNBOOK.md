@@ -13,7 +13,7 @@ Required:
 - Raspberry Pi 2B
 - USB webcam
 - L911S / L9110S dual motor driver
-- 2 DC motors
+- 4 DC motors, wired as two left-side motors and two right-side motors
 - Separate motor battery pack
 - Windows laptop running the STASIS dashboard server
 
@@ -59,6 +59,8 @@ The code uses BCM GPIO numbering, not physical board pin numbers.
 
 Use this for the current `direct_motor_control` mode. This is the mode currently used by the demo config.
 
+The code controls two motor channels: left side and right side. Your rover has four physical motors, so both left motors share the left-side channel and both right motors share the right-side channel. Before wiring two motors to one channel, confirm your L911S/L9110S board and motor battery can safely handle the combined stall current.
+
 | L911S Pin | Connect To |
 | --- | --- |
 | A-IA | Raspberry Pi GPIO5, physical pin 29 |
@@ -67,10 +69,10 @@ Use this for the current `direct_motor_control` mode. This is the mode currently
 | B-IB | Raspberry Pi GPIO19, physical pin 35 |
 | VCC / VM | Motor battery positive |
 | GND | Motor battery negative and Raspberry Pi GND |
-| Motor A output | Left DC motor |
-| Motor B output | Right DC motor |
+| Motor A output | Both left-side DC motors |
+| Motor B output | Both right-side DC motors |
 
-If left/right movement is reversed, swap the two wires of that motor or swap the matching forward/reverse GPIO values in the config.
+If left/right movement is reversed, swap the two wires for the affected side or swap the matching forward/reverse GPIO values in the config.
 
 ## ESP32-S3 Motor Bridge Wiring
 
@@ -130,8 +132,8 @@ L911S power and motor wiring stays the same:
 | --- | --- |
 | VCC / VM | Motor battery positive |
 | GND | Motor battery negative, ESP32-S3 GND, and Raspberry Pi GND |
-| Motor A output | Left DC motor |
-| Motor B output | Right DC motor |
+| Motor A output | Both left-side DC motors |
+| Motor B output | Both right-side DC motors |
 
 ### ESP32-S3 Firmware
 
@@ -293,10 +295,13 @@ GPIO19 -> L911S B-IB
 Pi GND -> L911S GND
 Motor battery + -> L911S motor VCC/VM
 Motor battery - -> L911S GND
-L911S motor outputs -> two DC motors
+L911S Motor A outputs -> two left-side DC motors
+L911S Motor B outputs -> two right-side DC motors
 ```
 
 Leave ultrasonic, servo, MPU6050, and compass disabled unless they are physically connected.
+
+The Pi client initializes each hardware group separately. If one optional part is disabled or unavailable, the rest of the rover can still run: missing ultrasonic/servo hardware does not stop motor control, missing I2C sensors do not stop camera/object detection, and missing motors do not stop the camera or sensor checks.
 
 Do not add ESP32-S3 wiring in this minimal mode. Add ESP32-S3 only if you switch to serial motor mode.
 

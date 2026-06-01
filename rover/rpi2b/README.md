@@ -68,6 +68,8 @@ Enable optional hardware and ESP32 serial motor control only when they are physi
 }
 ```
 
+Hardware is initialized per subsystem. A missing ultrasonic sensor, scanner servo, MPU6050, compass, or motor driver is logged and disabled without stopping the rest of the Pi client, so camera streaming and object detection can keep running.
+
 Run the rover:
 
 ```bash
@@ -92,6 +94,8 @@ sudo systemctl status stasis-rover
 
 The rover supports two motor driving methods: direct GPIO control and mediated ESP32-S3 control.
 
+The physical rover uses four DC motors. The software still drives it as a differential rover with two side channels: the two left motors receive the same left-side signal, and the two right motors receive the same right-side signal. Wire both left motors to the left motor channel and both right motors to the right motor channel only if your motor driver and battery can safely supply the total current.
+
 ### Option A: Direct Raspberry Pi GPIO L911S Control
 Uses Raspberry Pi BCM GPIO pin allocations:
 
@@ -102,6 +106,8 @@ BCM 13  -> B-IA, right motor forward input
 BCM 19  -> B-IB, right motor reverse input
 GND     -> L911S/L9110S GND and motor battery negative
 VM/VCC  -> Motor battery positive, matched to your motors/driver board
+Motor A output -> both left-side DC motors
+Motor B output -> both right-side DC motors
 ```
 
 ### Option B: ESP32-S3 Mediated L911S Control (Recommended)
@@ -118,6 +124,8 @@ ESP32 Pin 6 (GPIO6) -> B-IA, right motor forward input
 ESP32 Pin 7 (GPIO7) -> B-IB, right motor reverse input
 GND                 -> L911S GND and motor battery negative
 VM/VCC              -> Motor battery positive
+Motor A output      -> both left-side DC motors
+Motor B output      -> both right-side DC motors
 ```
 
 ---

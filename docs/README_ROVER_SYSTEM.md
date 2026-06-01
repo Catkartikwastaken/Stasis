@@ -138,6 +138,8 @@ Enable optional sensors and configure the active motor driving mode in `rover/rp
 
 The default pin numbers use BCM numbering. You can change these allocations in `rover/rpi2b/config.json`. The rover supports two motor driving topologies: direct Pi control and delegated ESP32-S3 control.
 
+The physical rover uses four DC motors. The software drives two differential side channels: left side and right side. Wire both left motors to the left channel and both right motors to the right channel only if the motor driver board and motor battery can handle the combined current.
+
 ### Option A: Direct Raspberry Pi GPIO Motor Control
 Direct connection to the L911S/L9110S motor driver from Raspberry Pi BCM GPIO pins:
 
@@ -148,8 +150,8 @@ BCM 13  -> B-IA, right motor forward input
 BCM 19  -> B-IB, right motor reverse input
 GND     -> L911S/L9110S GND and motor battery negative
 VM/VCC  -> Motor battery positive, matched to your motors/driver board
-Motor A -> Left motor terminals
-Motor B -> Right motor terminals
+Motor A -> both left-side motor terminals
+Motor B -> both right-side motor terminals
 ```
 
 Some L911S boards label the two channels as `A-IA`, `A-IB`, `B-IA`, and `B-IB`. Smaller boards may label a single channel as only `IA` and `IB`; use that pair for the left motor channel and the second pair for the right motor channel.
@@ -168,8 +170,8 @@ ESP32 Pin 6 (GPIO6) -> B-IA, right motor forward input
 ESP32 Pin 7 (GPIO7) -> B-IB, right motor reverse input
 GND                 -> L911S GND and motor battery negative
 VM/VCC              -> Motor battery positive
-Motor A             -> Left motor terminals
-Motor B             -> Right motor terminals
+Motor A             -> both left-side motor terminals
+Motor B             -> both right-side motor terminals
 ```
 
 ---
