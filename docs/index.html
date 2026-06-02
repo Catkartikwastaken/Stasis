@@ -510,6 +510,113 @@
       text-transform: uppercase;
     }
 
+
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(34px) scale(0.985);
+      transition: opacity 720ms cubic-bezier(.2, .8, .2, 1), transform 720ms cubic-bezier(.2, .8, .2, 1), border-color 220ms ease, background 220ms ease;
+      transition-delay: var(--reveal-delay, 0ms);
+      will-change: opacity, transform;
+    }
+
+    .reveal.is-visible { opacity: 1; transform: translateY(0) scale(1); }
+
+    .scroll-story { position: relative; padding: 92px 0; }
+
+    .story-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .story-copy {
+      position: sticky;
+      top: 112px;
+      min-height: 520px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: clamp(22px, 4vw, 36px);
+      background: linear-gradient(145deg, rgba(126, 145, 143, 0.13), transparent 46%), rgba(7, 9, 7, 0.78);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+    }
+
+    .story-copy::after {
+      position: absolute;
+      inset: auto 24px 24px 24px;
+      height: 1px;
+      content: "";
+      background: linear-gradient(90deg, transparent, rgba(215, 163, 79, 0.7), transparent);
+      transform: scaleX(var(--story-progress, 0));
+      transform-origin: left;
+    }
+
+    .story-copy h2 { margin-bottom: 18px; font-size: clamp(2.1rem, 4vw, 4.6rem); line-height: 0.94; }
+    .story-copy p { color: var(--muted); font-size: 1.05rem; }
+
+    .story-progress { display: grid; gap: 10px; margin-top: 30px; }
+
+    .story-dot {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      align-items: center;
+      color: var(--quiet);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .story-dot::before {
+      width: 10px;
+      height: 10px;
+      margin-left: 10px;
+      border: 1px solid rgba(215, 163, 79, 0.45);
+      border-radius: 50%;
+      content: "";
+      background: rgba(245, 240, 230, 0.1);
+      transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+    }
+
+    .story-dot.is-active { color: var(--ink); }
+    .story-dot.is-active::before { background: var(--amber); box-shadow: 0 0 28px rgba(215, 163, 79, 0.48); transform: scale(1.18); }
+
+    .story-track { display: grid; gap: 26px; }
+
+    .story-panel {
+      min-height: 540px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: rgba(9, 11, 8, 0.74);
+      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.44);
+      overflow: hidden;
+      transform-style: preserve-3d;
+    }
+
+    .story-panel:hover { border-color: rgba(215, 163, 79, 0.36); }
+
+    .video-frame {
+      position: relative;
+      min-height: 390px;
+      border: 1px solid rgba(245, 240, 230, 0.12);
+      border-radius: 8px;
+      overflow: hidden;
+      background: radial-gradient(circle at calc(22% + var(--tilt-x, 0px)) calc(18% + var(--tilt-y, 0px)), rgba(126, 145, 143, 0.34), transparent 20rem), linear-gradient(135deg, rgba(12, 18, 25, 0.94), rgba(32, 23, 52, 0.72) 52%, rgba(8, 13, 12, 0.96));
+    }
+
+    .video-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 260ms ease; }
+    .video-frame.has-video video { opacity: 1; }
+
+    .video-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 28px; text-align: center; }
+    .video-fallback span { display: inline-flex; border: 1px solid rgba(245, 240, 230, 0.18); border-radius: 999px; padding: 9px 13px; background: rgba(5, 6, 4, 0.5); color: #f7dfb3; font-family: "JetBrains Mono", monospace; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+
+    .story-panel h3 { margin: 18px 6px 8px; font-size: clamp(1.35rem, 3vw, 2.1rem); line-height: 1; }
+    .story-panel p { margin: 0 6px 8px; color: var(--muted); }
+
     .footer {
       padding: 42px 0 56px;
       color: var(--quiet);
@@ -521,6 +628,19 @@
       gap: 18px;
       border-top: 1px solid rgba(245, 240, 230, 0.12);
       padding-top: 22px;
+    }
+
+
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal,
+      .reveal.is-visible,
+      .story-panel {
+        opacity: 1;
+        transform: none !important;
+        transition: none;
+      }
     }
 
     @media (max-width: 920px) {
@@ -547,8 +667,15 @@
       .docs-grid,
       .work-grid,
       .terminal-layout,
+      .story-shell,
       .section-head {
         grid-template-columns: 1fr;
+      }
+
+      .story-copy {
+        position: relative;
+        top: auto;
+        min-height: auto;
       }
 
       .work-card,
@@ -612,6 +739,7 @@
     <div class="nav-links" aria-label="Documentation">
       <a href="#system">System</a>
       <a href="#pipeline">Pipeline</a>
+      <a href="#motion">Motion</a>
       <a href="#setup">Setup</a>
       <a href="#docs">Docs</a>
     </div>
@@ -654,19 +782,19 @@
 
     <section id="system">
       <div class="wrap">
-        <div class="section-head">
+        <div class="section-head reveal">
           <h2><span class="serif">Selected</span> system work.</h2>
           <p>The site keeps the original docs and project purpose, but presents it like a real field platform: grounded, inspectable, and ready for the next build stage.</p>
         </div>
 
         <div class="work-grid">
-          <article class="work-card">
+          <article class="work-card reveal">
             <span class="caption">Field operation</span>
             <h3>Rover vision for real terrain</h3>
             <p>The rover side captures camera frames and status data, then sends them to the Windows server for display, detection, and alert routing.</p>
           </article>
 
-          <article class="work-card compact">
+          <article class="work-card compact reveal" style="--reveal-delay: 120ms">
             <span class="caption">Local decision loop</span>
             <h3>Detection, context, response</h3>
             <p>STASIS can combine object detection with a local model through Ollama or LM Studio so the system can summarize what it sees and decide what deserves attention.</p>
@@ -691,28 +819,28 @@
 
     <section id="pipeline">
       <div class="wrap">
-        <div class="section-head">
+        <div class="section-head reveal">
           <h2>How the <span class="serif">pipeline</span> moves.</h2>
           <p>A simple split: the Pi handles capture and rover-side telemetry; the laptop handles heavier inference, the dashboard, and local model workflows.</p>
         </div>
 
         <div class="flow-grid">
-          <article class="flow-card">
+          <article class="flow-card reveal">
             <span class="flow-number">01</span>
             <h3>Capture</h3>
             <p>Pi camera frames and rover state are collected close to the sensor.</p>
           </article>
-          <article class="flow-card">
+          <article class="flow-card reveal" style="--reveal-delay: 100ms">
             <span class="flow-number">02</span>
             <h3>Transmit</h3>
             <p>WebSocket channels carry frames, status, and detection payloads.</p>
           </article>
-          <article class="flow-card">
+          <article class="flow-card reveal" style="--reveal-delay: 200ms">
             <span class="flow-number">03</span>
             <h3>Infer</h3>
             <p>Windows-side providers run object detection and prepare alert context.</p>
           </article>
-          <article class="flow-card">
+          <article class="flow-card reveal" style="--reveal-delay: 300ms">
             <span class="flow-number">04</span>
             <h3>Act</h3>
             <p>The dashboard surfaces events and can hand observations to a local LLM.</p>
@@ -721,9 +849,60 @@
       </div>
     </section>
 
+    <section id="motion" class="scroll-story">
+      <div class="wrap story-shell">
+        <aside class="story-copy reveal">
+          <span class="caption">Scroll mission reel</span>
+          <h2>Watch the <span class="serif">rover loop</span> unfold.</h2>
+          <p>Drop generated MP4 files into <code>docs/assets/</code> with the names below and this section will play them as users scroll. Until then, the panels show placeholders with the exact clip names.</p>
+          <div class="story-progress" aria-label="Scroll story progress">
+            <span class="story-dot is-active" data-story-dot="0">Patrol</span>
+            <span class="story-dot" data-story-dot="1">Detect</span>
+            <span class="story-dot" data-story-dot="2">Respond</span>
+          </div>
+        </aside>
+
+        <div class="story-track">
+          <article class="story-panel reveal" data-story-step="0">
+            <div class="video-frame" data-video-frame>
+              <video muted playsinline preload="metadata" data-scroll-video>
+                <source src="assets/stasis-patrol-scroll.mp4" type="video/mp4">
+              </video>
+              <div class="video-fallback"><span>assets/stasis-patrol-scroll.mp4</span></div>
+            </div>
+            <h3>Patrol through the demo forest.</h3>
+            <p>The rover moves through a marked indoor route while the page scrubs the clip forward with scroll.</p>
+          </article>
+
+          <article class="story-panel reveal" data-story-step="1">
+            <div class="video-frame" data-video-frame>
+              <video muted playsinline preload="metadata" data-scroll-video>
+                <source src="assets/stasis-detect-scroll.mp4" type="video/mp4">
+              </video>
+              <div class="video-fallback"><span>assets/stasis-detect-scroll.mp4</span></div>
+            </div>
+            <h3>Detection locks onto the scene.</h3>
+            <p>Cards, labels, and tracking markers reveal one by one instead of appearing as a static wall.</p>
+          </article>
+
+          <article class="story-panel reveal" data-story-step="2">
+            <div class="video-frame" data-video-frame>
+              <video muted playsinline preload="metadata" data-scroll-video>
+                <source src="assets/stasis-response-scroll.mp4" type="video/mp4">
+              </video>
+              <div class="video-fallback"><span>assets/stasis-response-scroll.mp4</span></div>
+            </div>
+            <h3>Dashboard turns sight into action.</h3>
+            <p>The final clip can show the alert state, map marker, and command decision moving together.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+
     <section id="setup">
       <div class="wrap">
-        <div class="terminal-layout">
+        <div class="terminal-layout reveal">
           <article class="terminal-card">
             <span class="caption">Bring-up path</span>
             <h3>Start from the real repository commands.</h3>
@@ -752,48 +931,48 @@ ollama run qwen2.5
 
     <section id="docs">
       <div class="wrap">
-        <div class="section-head">
+        <div class="section-head reveal">
           <h2>Project <span class="serif">docs</span>.</h2>
           <p>Everything useful from the original Pages index is still here, now organized as a clean field manual for the rover and detection stack.</p>
         </div>
 
         <div class="docs-grid">
-          <a class="doc-card" href="README_ROVER_SYSTEM.html">
+          <a class="doc-card reveal" href="README_ROVER_SYSTEM.html">
             <span>Rover</span>
             <div>
               <h3>Rover System</h3>
               <p>Architecture, message flow, and operator notes for STASIS.</p>
             </div>
           </a>
-          <a class="doc-card" href="VISION_PROVIDERS.html">
+          <a class="doc-card reveal" style="--reveal-delay: 80ms" href="VISION_PROVIDERS.html">
             <span>Vision</span>
             <div>
               <h3>Vision Providers</h3>
               <p>How the detection provider layer is organized and swapped.</p>
             </div>
           </a>
-          <a class="doc-card" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">
+          <a class="doc-card reveal" style="--reveal-delay: 160ms" href="PI_OBJECT_DETECTION_LOCAL_MODEL.html">
             <span>Pi</span>
             <div>
               <h3>Pi Object Detection</h3>
               <p>Local model options for Raspberry Pi object identification.</p>
             </div>
           </a>
-          <a class="doc-card" href="WINDOWS_YOLO_ONNX_DETECTION.html">
+          <a class="doc-card reveal" style="--reveal-delay: 240ms" href="WINDOWS_YOLO_ONNX_DETECTION.html">
             <span>Windows</span>
             <div>
               <h3>YOLO ONNX Detection</h3>
               <p>Run heavier object detection from the Windows laptop server.</p>
             </div>
           </a>
-          <a class="doc-card" href="DATASET_CAPTURE_ASSISTANT.html">
+          <a class="doc-card reveal" style="--reveal-delay: 320ms" href="DATASET_CAPTURE_ASSISTANT.html">
             <span>Dataset</span>
             <div>
               <h3>Capture Assistant</h3>
               <p>Collect and organize field samples for later training runs.</p>
             </div>
           </a>
-          <a class="doc-card" href="PROJECT_BRIEF.html">
+          <a class="doc-card reveal" style="--reveal-delay: 400ms" href="PROJECT_BRIEF.html">
             <span>Brief</span>
             <div>
               <h3>Project Brief</h3>
@@ -811,5 +990,53 @@ ollama run qwen2.5
       <a href="https://github.com/Catkartikwastaken/Stasis">Catkartikwastaken/Stasis</a>
     </div>
   </footer>
+
+  <script>
+    const revealObserver = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add('is-visible');
+      });
+    }, { threshold: 0.16, rootMargin: '0px 0px -8% 0px' });
+
+    document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
+
+    const story = document.querySelector('#motion');
+    const dots = [...document.querySelectorAll('[data-story-dot]')];
+    const panels = [...document.querySelectorAll('[data-story-step]')];
+    const videos = [...document.querySelectorAll('[data-scroll-video]')];
+
+    videos.forEach((video) => {
+      video.addEventListener('loadedmetadata', () => video.closest('[data-video-frame]')?.classList.add('has-video'));
+      video.addEventListener('error', () => video.closest('[data-video-frame]')?.classList.remove('has-video'));
+    });
+
+    function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+
+    function updateStory() {
+      if (!story) return;
+      const rect = story.getBoundingClientRect();
+      const progress = clamp((-rect.top + window.innerHeight * 0.25) / Math.max(1, rect.height - window.innerHeight * 0.5), 0, 1);
+      story.style.setProperty('--story-progress', progress.toFixed(3));
+
+      let active = 0;
+      panels.forEach((panel, index) => {
+        const panelRect = panel.getBoundingClientRect();
+        const panelProgress = clamp((window.innerHeight * 0.74 - panelRect.top) / (panelRect.height + window.innerHeight * 0.32), 0, 1);
+        panel.style.transform = `rotateX(${(1 - panelProgress) * 4}deg) translateY(${(1 - panelProgress) * 18}px)`;
+        const video = panel.querySelector('[data-scroll-video]');
+        if (video && Number.isFinite(video.duration) && video.duration > 0) {
+          video.currentTime = clamp(panelProgress * video.duration, 0, Math.max(0, video.duration - 0.05));
+        }
+        if (panelRect.top < window.innerHeight * 0.55) active = index;
+      });
+
+      dots.forEach((dot, index) => dot.classList.toggle('is-active', index === active));
+    }
+
+    window.addEventListener('scroll', updateStory, { passive: true });
+    window.addEventListener('resize', updateStory);
+    updateStory();
+  </script>
+
 </body>
 </html>
