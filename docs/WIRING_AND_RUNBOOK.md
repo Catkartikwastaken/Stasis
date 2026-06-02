@@ -74,6 +74,45 @@ The code controls two motor channels: left side and right side. Your rover has f
 
 If left/right movement is reversed, swap the two wires for the affected side or swap the matching forward/reverse GPIO values in the config.
 
+## L298N Motor Driver Wiring
+
+Use this now that the L911S B channel is damaged. One L298N board is enough for two-side differential drive: OUT1/OUT2 drives the left side and OUT3/OUT4 drives the right side. Since you have four L298N boards, keep the extras as spares unless you later decide to control each wheel independently.
+
+Remove the ENA/ENB jumpers if you want Raspberry Pi speed control. If you leave the jumpers installed, the motors may only run full speed.
+
+| L298N Pin | Connect To |
+| --- | --- |
+| IN1 | Raspberry Pi GPIO5, physical pin 29 |
+| IN2 | Raspberry Pi GPIO6, physical pin 31 |
+| IN3 | Raspberry Pi GPIO13, physical pin 33 |
+| IN4 | Raspberry Pi GPIO19, physical pin 35 |
+| ENA | Raspberry Pi GPIO12, physical pin 32 |
+| ENB | Raspberry Pi GPIO20, physical pin 38 |
+| 12V / +V motor input | Motor battery positive, matched to your motors |
+| GND | Motor battery negative and Raspberry Pi GND |
+| 5V logic | Leave alone if the board has onboard 5V regulator enabled; otherwise use the board's documented 5V logic input |
+| OUT1 / OUT2 | Left-side motor or left-side motor pair |
+| OUT3 / OUT4 | Right-side motor or right-side motor pair |
+
+Pi config for L298N:
+
+```json
+"hardware": {
+  "direct_motor_control": true,
+  "motor_driver": "l298n"
+},
+"pins": {
+  "left_motor_forward": 5,
+  "left_motor_reverse": 6,
+  "right_motor_forward": 13,
+  "right_motor_reverse": 19,
+  "left_motor_enable": 12,
+  "right_motor_enable": 20
+}
+```
+
+If you keep ENA/ENB jumpers installed, set both enable pins to `null`.
+
 ## ESP32-S3 Motor Bridge Wiring
 
 The repo still supports the ESP32-S3, but it is optional. It is not used for the current direct-Pi demo unless you enable `esp32_serial_control`.

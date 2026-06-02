@@ -15,6 +15,7 @@
   },
   "hardware": {
     "direct_motor_control": true,
+    "motor_driver": "l911s",
     "esp32_serial_control": false,
     "esp32_serial_port": "/dev/ttyUSB0",
     "esp32_baudrate": 115200,
@@ -33,6 +34,8 @@
     "left_motor_reverse": 6,
     "right_motor_forward": 13,
     "right_motor_reverse": 19,
+    "left_motor_enable": null,
+    "right_motor_enable": null,
     "ultrasonic_trig": 23,
     "ultrasonic_echo": 24,
     "scanner_servo": 18

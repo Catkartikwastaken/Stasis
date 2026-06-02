@@ -92,7 +92,7 @@ sudo systemctl status stasis-rover
 
 ## Wiring Diagrams
 
-The rover supports two motor driving methods: direct GPIO control and mediated ESP32-S3 control.
+The rover supports direct GPIO motor control and optional mediated ESP32-S3 control. Direct GPIO can use either `l911s` or `l298n` mode.
 
 The physical rover uses four DC motors. The software still drives it as a differential rover with two side channels: the two left motors receive the same left-side signal, and the two right motors receive the same right-side signal. Wire both left motors to the left motor channel and both right motors to the right motor channel only if your motor driver and battery can safely supply the total current.
 
@@ -110,7 +110,42 @@ Motor A output -> both left-side DC motors
 Motor B output -> both right-side DC motors
 ```
 
-### Option B: ESP32-S3 Mediated L911S Control (Recommended)
+### Option B: Direct Raspberry Pi GPIO L298N Control
+Use this if the L911S channel is damaged or if you want a stronger dual H-bridge module:
+
+```text
+BCM 5   -> IN1, left motor forward input
+BCM 6   -> IN2, left motor reverse input
+BCM 13  -> IN3, right motor forward input
+BCM 19  -> IN4, right motor reverse input
+BCM 12  -> ENA, left speed enable
+BCM 20  -> ENB, right speed enable
+GND     -> L298N GND and motor battery negative
++V      -> Motor battery positive, matched to your motors
+OUT1/2  -> left-side DC motor or motor pair
+OUT3/4  -> right-side DC motor or motor pair
+```
+
+Config:
+
+```json
+"hardware": {
+  "direct_motor_control": true,
+  "motor_driver": "l298n"
+},
+"pins": {
+  "left_motor_forward": 5,
+  "left_motor_reverse": 6,
+  "right_motor_forward": 13,
+  "right_motor_reverse": 19,
+  "left_motor_enable": 12,
+  "right_motor_enable": 20
+}
+```
+
+Remove the ENA/ENB jumpers for Raspberry Pi speed control. If the jumpers stay installed, set `left_motor_enable` and `right_motor_enable` to `null`.
+
+### Option C: ESP32-S3 Mediated L911S Control
 Raspberry Pi communicates with the ESP32-S3 via USB-Serial. The ESP32-S3 drives the H-bridge directly:
 
 **1. USB Link:**

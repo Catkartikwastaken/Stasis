@@ -54,6 +54,8 @@ class PinConfig:
     left_motor_reverse: int = 6
     right_motor_forward: int = 13
     right_motor_reverse: int = 19
+    left_motor_enable: int | None = None
+    right_motor_enable: int | None = None
     ultrasonic_trig: int = 23
     ultrasonic_echo: int = 24
     scanner_servo: int = 18
@@ -101,7 +103,8 @@ class HardwareConfig:
     """
     Switches to toggle physical hardware subsystems on/off, or enable serial communication delegation.
     """
-    direct_motor_control: bool = True                     # Directly drive L911S from Raspberry Pi GPIO pins
+    direct_motor_control: bool = True                     # Directly drive motor controller from Raspberry Pi GPIO pins
+    motor_driver: str = "l911s"                           # Direct GPIO driver type: l911s or l298n
     esp32_serial_control: bool = False                    # Delegate L911S motor driving to ESP32-S3 over Serial
     esp32_serial_port: str = "/dev/ttyUSB0"               # Serial port device node (e.g. COM3 on Win, /dev/ttyUSB0 on Linux)
     esp32_baudrate: int = 115200                          # Baud rate matching ESP32 controller firmware
@@ -292,30 +295,54 @@ class SimulatedHardware(HardwareBase):
 
 class MotorDriver:
     """
-    Drives dual DC motors directly connected to Raspberry Pi BCM GPIO pins
-    utilizing hardware-simulated software PWM via RPi.GPIO.
+    Drives two differential motor channels from Raspberry Pi BCM GPIO pins.
+
+    L911S mode PWM-drives the two direction inputs per side.
+    L298N mode drives IN1/IN2/IN3/IN4 digitally and PWM-drives ENA/ENB when
+    enable pins are configured. If ENA/ENB are left jumpered high, L298N falls
+    back to direction-pin PWM for compatibility.
     """
-    def __init__(self, gpio: Any, pins: PinConfig) -> None:
+    def __init__(self, gpio: Any, pins: PinConfig, driver_type: str = "l911s") -> None:
         self.gpio = gpio
         self.pins = pins
+        self.driver_type = driver_type.lower().strip()
         self.pwm_by_pin: dict[int, Any] = {}
 
     def setup(self) -> None:
         """
         Configures specified GPIO pins to output and starts PWM.
         """
-        logging.info("Configuring direct Raspberry Pi GPIO motor pins...")
+        if self.driver_type not in {"l911s", "l298n"}:
+            raise RuntimeError(f"Unsupported direct motor driver type: {self.driver_type}")
+
+        logging.info("Configuring direct Raspberry Pi GPIO motor pins for %s...", self.driver_type.upper())
         try:
-            for pin in (
+            direction_pins = (
                 self.pins.left_motor_forward,
                 self.pins.left_motor_reverse,
                 self.pins.right_motor_forward,
                 self.pins.right_motor_reverse,
-            ):
+            )
+            enable_pins = tuple(
+                pin for pin in (self.pins.left_motor_enable, self.pins.right_motor_enable)
+                if pin is not None
+            )
+
+            for pin in direction_pins:
                 self.gpio.setup(pin, self.gpio.OUT)
-                pwm = self.gpio.PWM(pin, 1000)  # 1 kHz frequency limit
-                pwm.start(0)
-                self.pwm_by_pin[pin] = pwm
+                self.gpio.output(pin, self.gpio.LOW)
+
+            if self.driver_type == "l911s" or not enable_pins:
+                for pin in direction_pins:
+                    pwm = self.gpio.PWM(pin, 1000)
+                    pwm.start(0)
+                    self.pwm_by_pin[pin] = pwm
+            else:
+                for pin in enable_pins:
+                    self.gpio.setup(pin, self.gpio.OUT)
+                    pwm = self.gpio.PWM(pin, 1000)
+                    pwm.start(0)
+                    self.pwm_by_pin[pin] = pwm
             self.stop()
             logging.info("Direct GPIO motor driver setup complete.")
         except Exception as exc:
@@ -340,12 +367,53 @@ class MotorDriver:
             forward.ChangeDutyCycle(0)
             reverse.ChangeDutyCycle(0)
 
+    def _set_l298n_pair(
+        self,
+        forward_pin: int,
+        reverse_pin: int,
+        enable_pin: int | None,
+        speed: float,
+    ) -> None:
+        speed = max(-100.0, min(100.0, speed))
+
+        if enable_pin is None:
+            self._set_pair(forward_pin, reverse_pin, speed)
+            return
+
+        enable = self.pwm_by_pin[enable_pin]
+        if speed > 0:
+            self.gpio.output(forward_pin, self.gpio.HIGH)
+            self.gpio.output(reverse_pin, self.gpio.LOW)
+            enable.ChangeDutyCycle(speed)
+        elif speed < 0:
+            self.gpio.output(forward_pin, self.gpio.LOW)
+            self.gpio.output(reverse_pin, self.gpio.HIGH)
+            enable.ChangeDutyCycle(abs(speed))
+        else:
+            enable.ChangeDutyCycle(0)
+            self.gpio.output(forward_pin, self.gpio.LOW)
+            self.gpio.output(reverse_pin, self.gpio.LOW)
+
     def set_speeds(self, left_speed: float, right_speed: float) -> None:
         """
         Updates PWM duty cycles on both channels.
         """
-        self._set_pair(self.pins.left_motor_forward, self.pins.left_motor_reverse, left_speed)
-        self._set_pair(self.pins.right_motor_forward, self.pins.right_motor_reverse, right_speed)
+        if self.driver_type == "l298n":
+            self._set_l298n_pair(
+                self.pins.left_motor_forward,
+                self.pins.left_motor_reverse,
+                self.pins.left_motor_enable,
+                left_speed,
+            )
+            self._set_l298n_pair(
+                self.pins.right_motor_forward,
+                self.pins.right_motor_reverse,
+                self.pins.right_motor_enable,
+                right_speed,
+            )
+        else:
+            self._set_pair(self.pins.left_motor_forward, self.pins.left_motor_reverse, left_speed)
+            self._set_pair(self.pins.right_motor_forward, self.pins.right_motor_reverse, right_speed)
 
     def stop(self) -> None:
         self.set_speeds(0.0, 0.0)
@@ -353,6 +421,16 @@ class MotorDriver:
     def cleanup(self) -> None:
         logging.info("Cleaning up MotorDriver...")
         self.stop()
+        for pin in (
+            self.pins.left_motor_forward,
+            self.pins.left_motor_reverse,
+            self.pins.right_motor_forward,
+            self.pins.right_motor_reverse,
+        ):
+            try:
+                self.gpio.output(pin, self.gpio.LOW)
+            except Exception:
+                pass
         for pwm in self.pwm_by_pin.values():
             try:
                 pwm.stop()
@@ -759,7 +837,7 @@ class RealRoverHardware(HardwareBase):
             if GPIO is None:
                 logging.warning("Direct motor control requested, but GPIO is unavailable; continuing without motor output.")
             else:
-                self.motors = MotorDriver(GPIO, self.config.pins)
+                self.motors = MotorDriver(GPIO, self.config.pins, self.config.hardware.motor_driver)
                 try:
                     self.motors.setup()
                 except Exception:
