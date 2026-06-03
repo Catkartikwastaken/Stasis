@@ -765,6 +765,9 @@ def windows_object_detection_loop() -> None:
             )
             if DRAW_OVERLAY and detections:
                 base.latest_frame = draw_detections(working_frame, detections)
+                ok_enc, encoded = cv2.imencode(".jpg", base.latest_frame)
+                if ok_enc:
+                    base.latest_frame_jpeg = encoded.tobytes()
             process_detections(working_frame, detections)
         except Exception as exc:
             logging.exception("Windows YOLO detection failed: %s", exc)

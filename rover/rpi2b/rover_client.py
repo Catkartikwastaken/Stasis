@@ -307,6 +307,8 @@ class MotorDriver:
         self.pins = pins
         self.driver_type = driver_type.lower().strip()
         self.pwm_by_pin: dict[int, Any] = {}
+        self.last_left_speed = None
+        self.last_right_speed = None
 
     def setup(self) -> None:
         """
@@ -398,6 +400,11 @@ class MotorDriver:
         """
         Updates PWM duty cycles on both channels.
         """
+        if left_speed == self.last_left_speed and right_speed == self.last_right_speed:
+            return
+        self.last_left_speed = left_speed
+        self.last_right_speed = right_speed
+
         if self.driver_type == "l298n":
             self._set_l298n_pair(
                 self.pins.left_motor_forward,
@@ -451,6 +458,9 @@ class SerialMotorDriver:
         self.baudrate = baudrate
         self.serial: Any = None
         self.lock = threading.Lock()
+        self.last_left_speed = None
+        self.last_right_speed = None
+        self.last_write_time = 0.0
 
     def setup(self) -> None:
         """
@@ -491,6 +501,19 @@ class SerialMotorDriver:
             logging.error("Serial port is disconnected. Cannot set motor speeds.")
             return
 
+        # Rate-limiting: Only write if speed changes or 0.5s has passed (failsafe keepalive)
+        now = time.monotonic()
+        if (
+            left_speed == self.last_left_speed
+            and right_speed == self.last_right_speed
+            and now - self.last_write_time < 0.5
+        ):
+            return
+
+        self.last_left_speed = left_speed
+        self.last_right_speed = right_speed
+        self.last_write_time = now
+
         # Clamp and cast to integer speed percentages
         left_int = int(max(-100.0, min(100.0, left_speed)))
         right_int = int(max(-100.0, min(100.0, right_speed)))
@@ -502,13 +525,15 @@ class SerialMotorDriver:
                 self.serial.flush()
                 logging.debug("Sent serial motor command: %s", command.strip())
 
-                # Empty the incoming buffer to receive diagnostic logging/ACK from ESP32
-                while self.serial.in_waiting > 0:
-                    line = self.serial.readline().decode("utf-8", errors="ignore").strip()
-                    if line:
-                        logging.debug("ESP32: %s", line)
-                        if "WARNING" in line or "ERR" in line:
-                            logging.warning("ESP32 Warning/Error reported: %s", line)
+                # Non-blocking buffer read to receive diagnostics/ACK from ESP32
+                if self.serial.in_waiting > 0:
+                    raw_data = self.serial.read(self.serial.in_waiting).decode("utf-8", errors="ignore")
+                    for line in raw_data.splitlines():
+                        line = line.strip()
+                        if line:
+                            logging.debug("ESP32: %s", line)
+                            if "WARNING" in line or "ERR" in line:
+                                logging.warning("ESP32 Warning/Error reported: %s", line)
             except Exception as exc:
                 logging.error("Failed to transmit serial speed commands: %s", exc)
                 self._handle_disconnection()
@@ -1023,6 +1048,7 @@ class RoverClient:
         self.latest_follow_target: dict[str, Any] | None = None
         self.last_follow_target_at = 0.0
         self.follow_thread: threading.Thread | None = None
+        self.patrol_thread: threading.Thread | None = None
 
     @property
     def websocket_url(self) -> str:
@@ -1264,8 +1290,10 @@ class RoverClient:
             self.set_mode(MODE_WAITING_DECISION, "Staying stopped")
         elif cmd == "resume_patrol":
             self.movement_cancel.clear()
-            self.hardware.stop_motors()
             self.set_mode(MODE_PATROL, "Patrol resumed")
+            if self.patrol_thread is None or not self.patrol_thread.is_alive():
+                self.patrol_thread = threading.Thread(target=self.patrol_loop, name="patrol-loop", daemon=True)
+                self.patrol_thread.start()
         else:
             logging.warning("Unrecognized routing target requested: %s", command)
 
@@ -1312,6 +1340,21 @@ class RoverClient:
             right_speed = max(-motion.turn_max_pwm, min(motion.turn_max_pwm, forward - turn))
             self.hardware.set_motors(left_speed, right_speed)
             time.sleep(motion.follow_update_interval_seconds)
+        self.hardware.stop_motors()
+
+    def patrol_loop(self) -> None:
+        motion = self.config.motion
+        logging.info("Autonomous patrol loop started.")
+        while not self.stop_requested.is_set() and self.get_mode() == MODE_PATROL:
+            front_distance = self.hardware.front_distance_cm()
+            if front_distance is not None and front_distance <= self.config.hardware.obstacle_stop_distance_cm:
+                logging.warning("Patrol obstacle detected at %.1f cm! Executing stop.", front_distance)
+                self.hardware.stop_motors()
+                self.set_mode(MODE_WAITING_DECISION, f"Obstacle at {front_distance:.0f} cm")
+                break
+
+            self.hardware.set_motors(motion.drive_pwm, motion.drive_pwm)
+            time.sleep(0.1)
         self.hardware.stop_motors()
 
     def handle_goto(self, angle: float, distance_cm: float) -> None:

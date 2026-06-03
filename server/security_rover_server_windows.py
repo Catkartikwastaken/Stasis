@@ -183,6 +183,7 @@ socketio: SocketIO = SocketIO(app, cors_allowed_origins="*", async_mode="threadi
 
 # Shared state variables accessed across threads
 latest_frame: Optional[Any] = None
+latest_frame_jpeg: Optional[bytes] = None
 latest_frame_metadata: Dict[str, Any] = {}
 vision_pipe: Optional[Any] = None
 
@@ -381,7 +382,7 @@ def webcam_capture_loop() -> None:
     """
     Background worker loop continuously capturing frames from the configured video camera.
     """
-    global latest_frame
+    global latest_frame, latest_frame_jpeg
 
     while True:
         try:
@@ -407,6 +408,9 @@ def webcam_capture_loop() -> None:
                         logging.warning("Webcam capture read cycle returned empty frame.")
                         break
                     latest_frame = frame.copy()
+                    ok_enc, encoded = cv2.imencode(".jpg", latest_frame)
+                    if ok_enc:
+                        latest_frame_jpeg = encoded.tobytes()
                 except Exception as read_err:
                     logging.error("Exception during live camera buffer read: %s", read_err)
                     break
@@ -942,20 +946,15 @@ def camera_mjpeg_stream() -> Generator[bytes, None, None]:
     Generates Motion-JPEG multipart camera feeds for web client streaming.
     """
     while True:
-        frame = latest_frame
-        if frame is None:
-            time.sleep(0.1)
-            continue
-
-        ok, encoded = cv2.imencode(".jpg", frame)
-        if not ok:
-            time.sleep(0.1)
+        jpeg_bytes = latest_frame_jpeg
+        if jpeg_bytes is None:
+            time.sleep(0.05)
             continue
 
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n"
-            + encoded.tobytes()
+            + jpeg_bytes
             + b"\r\n"
         )
         time.sleep(1.0 / max(1, CAMERA_FPS))
@@ -965,14 +964,14 @@ def handle_camera_frame(payload: Dict[str, Any]) -> None:
     """
     Receives JPEG frames from the Raspberry Pi webcam over the rover WebSocket.
     """
-    global latest_frame, latest_frame_metadata
+    global latest_frame, latest_frame_jpeg, latest_frame_metadata
 
     if payload.get("format") != "jpeg":
         logging.warning("Ignoring unsupported rover camera frame format: %r", payload.get("format"))
         return
 
     try:
-        raw = base64.b64decode(str(payload["image_b64"]), validate=True)
+        raw = base64.b64decode(str(payload["image_b64"]))
         image_array = np.frombuffer(raw, dtype=np.uint8)
         frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
     except Exception as exc:
@@ -984,6 +983,7 @@ def handle_camera_frame(payload: Dict[str, Any]) -> None:
         return
 
     latest_frame = frame
+    latest_frame_jpeg = raw
     latest_frame_metadata = {
         "source": "rover",
         "width": payload.get("width"),
