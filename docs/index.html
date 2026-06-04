@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>STASIS</title>
   <meta name="description" content="STASIS is a Raspberry Pi rover and local AI monitoring system for field detection, telemetry, and alert workflows.">
+  <script>
+    if (localStorage.getItem('theme') === 'light') {
+      document.documentElement.classList.add('light-theme');
+    }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz@6..96&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
@@ -28,9 +33,47 @@
       --shadow: 0 34px 90px rgba(0, 0, 0, 0.7);
     }
 
+    :root.light-theme {
+      color-scheme: light;
+      --bg: #f7f5f0;
+      --bg-soft: #edeae4;
+      --ink: #1d201a;
+      --muted: #4e5349;
+      --quiet: #7a8074;
+      --moss: #4a5f35;
+      --moss-deep: #c0d8ac;
+      --amber: #b88235;
+      --clay: #b05d42;
+      --steel: #566866;
+      --panel: rgba(245, 240, 230, 0.82);
+      --panel-strong: rgba(235, 230, 220, 0.94);
+      --line: rgba(29, 32, 26, 0.12);
+      --line-strong: rgba(184, 130, 53, 0.32);
+      --shadow: 0 16px 48px rgba(29, 32, 26, 0.08);
+    }
+
     * { box-sizing: border-box; }
 
     html { scroll-behavior: smooth; }
+
+    /* Clean theme transitions */
+    body, header, section, footer, .site-nav, .button, .work-card, .flow-card, .doc-card, .terminal-card, .story-copy, .story-panel, .terminal, .theme-toggle, .brand-logo {
+      transition: background 300ms ease, background-color 300ms ease, border-color 300ms ease, color 300ms ease, box-shadow 300ms ease, filter 300ms ease, opacity 300ms ease;
+    }
+
+    /* Subtle grain/noise overlay for tactile feel */
+    html::after {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      content: "";
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.038'/%3E%3C/svg%3E");
+      pointer-events: none;
+    }
+
+    :root.light-theme html::after {
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.048'/%3E%3C/svg%3E");
+    }
 
     body {
       margin: 0;
@@ -49,6 +92,14 @@
       background:
         linear-gradient(180deg, rgba(3, 4, 2, 0.12), rgba(3, 4, 2, 0.84) 66%, #030402 100%),
         url("assets/stasis-forest-real.jpg") center top / cover no-repeat;
+    }
+
+    :root.light-theme body::before {
+      background:
+        linear-gradient(180deg, rgba(247, 245, 240, 0.2), rgba(247, 245, 240, 0.88) 66%, #f7f5f0 100%),
+        url("assets/stasis-forest-real.jpg") center top / cover no-repeat;
+      filter: sepia(0.2) saturate(0.5) brightness(1.04);
+      opacity: 0.16;
     }
 
     body::after {
@@ -84,12 +135,17 @@
       justify-content: space-between;
       gap: 14px;
       padding: 9px 10px 9px 16px;
-      border: 1px solid rgba(245, 240, 230, 0.14);
+      border: 1px solid var(--line);
       border-radius: 999px;
       background: rgba(5, 6, 4, 0.78);
       box-shadow: 0 18px 54px rgba(0, 0, 0, 0.48);
       transform: translateX(-50%);
       backdrop-filter: blur(18px);
+    }
+
+    :root.light-theme .site-nav {
+      background: rgba(247, 245, 240, 0.85);
+      box-shadow: 0 18px 54px rgba(29, 32, 26, 0.08);
     }
 
     .brand {
@@ -107,12 +163,25 @@
       height: 32px;
       flex: 0 0 auto;
       place-items: center;
-      border: 1px solid rgba(215, 163, 79, 0.42);
+      border: 1px solid var(--line-strong);
       border-radius: 50%;
       background: linear-gradient(145deg, rgba(215, 163, 79, 0.24), rgba(154, 196, 107, 0.12));
       color: var(--amber);
       font-family: "JetBrains Mono", monospace;
       font-size: 0.72rem;
+    }
+
+    .brand-logo {
+      display: block;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 1px solid var(--line-strong);
+      object-fit: cover;
+    }
+
+    .brand:hover .brand-logo {
+      transform: rotate(45deg);
     }
 
     .nav-links {
@@ -126,26 +195,65 @@
     }
 
     .nav-links a,
-    .nav-action {
+    .nav-action,
+    .theme-toggle {
       border-radius: 999px;
       padding: 9px 13px;
-      transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
+      transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
     }
 
-    .nav-links a:hover,
-    .nav-action:hover {
-      background: rgba(245, 240, 230, 0.08);
+    .nav-links a:hover {
+      background: var(--line);
       color: var(--ink);
     }
 
     .nav-action {
-      border: 1px solid rgba(215, 163, 79, 0.38);
-      background: rgba(215, 163, 79, 0.16);
-      color: #fff7e7;
+      border: 1px solid var(--line-strong);
+      background: rgba(215, 163, 79, 0.12);
+      color: var(--amber);
       font-size: 0.86rem;
       font-weight: 800;
       white-space: nowrap;
     }
+
+    .nav-action:hover {
+      background: var(--line-strong);
+      color: var(--bg);
+    }
+
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      padding: 0;
+      border: 1px solid var(--line);
+      background: rgba(245, 240, 230, 0.05);
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    :root.light-theme .theme-toggle {
+      background: rgba(29, 32, 26, 0.04);
+    }
+
+    .theme-toggle:hover {
+      background: var(--line);
+      color: var(--ink);
+      border-color: var(--amber);
+    }
+
+    .theme-toggle svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .theme-toggle .sun-icon { display: block; }
+    .theme-toggle .moon-icon { display: none; }
+
+    :root.light-theme .theme-toggle .sun-icon { display: none; }
+    :root.light-theme .theme-toggle .moon-icon { display: block; }
 
     .hero {
       min-height: 100svh;
@@ -161,17 +269,62 @@
     }
 
     .hero-card {
-      width: min(850px, 100%);
+      position: relative;
+      width: min(920px, 100%);
       margin: 0 auto;
       padding: clamp(34px, 6vw, 76px);
-      border: 1px solid rgba(245, 240, 230, 0.16);
-      border-radius: 8px;
-      background:
-        linear-gradient(180deg, rgba(16, 18, 12, 0.78), rgba(6, 7, 5, 0.7)),
-        rgba(8, 9, 6, 0.64);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--panel-strong);
       box-shadow: var(--shadow);
       text-align: center;
       backdrop-filter: blur(12px);
+    }
+
+    /* Asymmetric crop marks (corner ticks) for technical blueprint design */
+    .hero-card::before, .hero-card::after {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      content: "";
+      border-color: var(--line-strong);
+      border-style: solid;
+      pointer-events: none;
+    }
+    .hero-card::before {
+      top: -1px;
+      left: -1px;
+      border-width: 1px 0 0 1px;
+    }
+    .hero-card::after {
+      bottom: -1px;
+      right: -1px;
+      border-width: 0 1px 1px 0;
+    }
+
+    .hero-card-ticks {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+    .hero-card-ticks::before, .hero-card-ticks::after {
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      content: "";
+      border-color: var(--line-strong);
+      border-style: solid;
+      pointer-events: none;
+    }
+    .hero-card-ticks::before {
+      top: -1px;
+      right: -1px;
+      border-width: 1px 1px 0 0;
+    }
+    .hero-card-ticks::after {
+      bottom: -1px;
+      left: -1px;
+      border-width: 0 0 1px 1px;
     }
 
     h1,
@@ -187,10 +340,31 @@
       letter-spacing: 0;
     }
 
+    /* Support line-by-line mask reveals for editorial animation */
+    .reveal-lines .line-wrapper {
+      display: block;
+      overflow: hidden;
+      line-height: 1.05;
+    }
+    .reveal-lines .line-wrapper span {
+      display: block;
+      transform: translateY(105%);
+      transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .reveal-lines.is-visible .line-wrapper span {
+      transform: translateY(0);
+    }
+    .reveal-lines.is-visible .line-wrapper:nth-child(1) span {
+      transition-delay: 120ms;
+    }
+    .reveal-lines.is-visible .line-wrapper:nth-child(2) span {
+      transition-delay: 240ms;
+    }
+
     .serif {
       font-family: "Bodoni Moda", Georgia, serif;
       font-weight: 400;
-      color: #fff7e8;
+      color: var(--ink);
     }
 
     .hero-card p {
@@ -213,25 +387,31 @@
       min-height: 44px;
       align-items: center;
       justify-content: center;
-      border: 1px solid rgba(245, 240, 230, 0.16);
+      border: 1px solid var(--line);
       border-radius: 999px;
-      padding: 11px 18px;
-      background: rgba(245, 240, 230, 0.08);
+      padding: 11px 22px;
+      background: var(--panel);
       color: var(--ink);
       font-weight: 800;
-      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
+      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, color 180ms ease;
     }
 
     .button:hover {
-      border-color: rgba(245, 240, 230, 0.34);
-      background: rgba(245, 240, 230, 0.13);
-      transform: translateY(-1px);
+      border-color: var(--line-strong);
+      background: var(--line);
+      transform: translateY(-1.5px);
     }
 
     .button.primary {
-      border-color: rgba(215, 163, 79, 0.62);
-      background: #d7a34f;
-      color: #120f08;
+      border-color: var(--line-strong);
+      background: var(--amber);
+      color: var(--bg);
+    }
+
+    .button.primary:hover {
+      background: var(--ink);
+      color: var(--bg);
+      border-color: var(--ink);
     }
 
     .hero-strip {
@@ -241,15 +421,15 @@
       overflow: hidden;
       width: min(960px, 100%);
       margin: 0 auto;
-      border: 1px solid rgba(245, 240, 230, 0.14);
-      border-radius: 8px;
-      background: rgba(245, 240, 230, 0.10);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: var(--line);
     }
 
     .hero-stat {
       min-height: 96px;
       padding: 18px;
-      background: rgba(6, 7, 5, 0.76);
+      background: var(--panel-strong);
     }
 
     .hero-stat strong {
@@ -408,30 +588,403 @@
       font-weight: 700;
     }
 
-    .flow-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+    .pipeline-split {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 34px;
+      align-items: center;
     }
 
-    .flow-card {
-      min-height: 230px;
+    .pipeline-cards {
+      display: grid;
+      gap: 16px;
+    }
+
+    .pipeline-card {
+      border: 1px solid var(--line);
+      border-radius: 4px;
       padding: 22px;
-      background:
-        linear-gradient(180deg, rgba(245, 240, 230, 0.04), transparent),
-        var(--panel);
+      background: var(--panel);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .pipeline-card::before {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      content: "";
+      background: transparent;
+      transition: background 220ms ease;
+    }
+
+    .pipeline-card.is-active::before,
+    .pipeline-card:hover::before {
+      background: var(--amber);
+    }
+
+    .pipeline-card.is-active {
+      border-color: var(--line-strong);
+      background: var(--panel-strong);
     }
 
     .flow-number {
       display: grid;
-      width: 38px;
-      height: 38px;
-      margin-bottom: 28px;
+      width: 34px;
+      height: 34px;
+      margin-bottom: 12px;
       place-items: center;
-      border: 1px solid rgba(154, 196, 107, 0.34);
+      border: 1px solid var(--line-strong);
       border-radius: 50%;
-      color: var(--moss);
+      color: var(--amber);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.76rem;
+      font-weight: 800;
+    }
+
+    .step-details {
+      margin-top: 12px;
+      border-top: 1px dashed var(--line);
+      padding-top: 8px;
+    }
+
+    .step-details code {
       font-family: "JetBrains Mono", monospace;
       font-size: 0.78rem;
-      font-weight: 800;
+      color: var(--quiet);
+    }
+
+    .pipeline-schematic {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 24px;
+      background: var(--panel-strong);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 480px;
+      box-shadow: var(--shadow);
+    }
+
+    #pipeline-svg {
+      width: 100%;
+      max-height: 340px;
+    }
+
+    .svg-node {
+      cursor: pointer;
+    }
+
+    .svg-node circle, .svg-node rect, .svg-node path, .svg-node text {
+      transition: fill 220ms ease, stroke 220ms ease, opacity 220ms ease, transform 300ms ease;
+    }
+
+    .svg-node:hover circle:first-child {
+      stroke: var(--amber);
+      fill: var(--line);
+    }
+
+    .svg-node.is-active circle:first-child {
+      stroke: var(--amber);
+      fill: var(--bg-soft);
+    }
+
+    .svg-node.is-active text {
+      fill: var(--amber);
+    }
+
+    .schematic-panel {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 14px;
+      background: var(--bg);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.78rem;
+      color: var(--ink);
+    }
+
+    .schematic-header {
+      display: block;
+      color: var(--amber);
+      font-weight: 700;
+      margin-bottom: 6px;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+    }
+
+    .schematic-data {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* Flow packet stream animation settings */
+    .flow-packet {
+      stroke-dasharray: 8 90;
+      animation: packet-flow 4s linear infinite;
+    }
+
+    #packet-0 { animation-delay: 0s; }
+    #packet-1 { animation-delay: 1.33s; }
+    #packet-2 { animation-delay: 2.66s; }
+
+    @keyframes packet-flow {
+      to {
+        stroke-dashoffset: -98;
+      }
+    }
+
+    /* Tactile Field Console Telemetry Simulator Widget */
+    .field-console {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      overflow: hidden;
+      background: #020302;
+      text-align: left;
+    }
+
+    .hud-screen {
+      position: relative;
+      height: 200px;
+      background: radial-gradient(circle at center, rgba(16, 28, 16, 0.45), #020502);
+      border-bottom: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .hud-grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(154, 196, 107, 0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(154, 196, 107, 0.05) 1px, transparent 1px);
+      background-size: 20px 20px;
+      background-position: center;
+      pointer-events: none;
+    }
+
+    .hud-scanline {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+    }
+
+    .hud-header {
+      position: absolute;
+      top: 10px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: var(--moss);
+      z-index: 5;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      pointer-events: none;
+    }
+
+    .blink {
+      animation: blinker 1.5s linear infinite;
+    }
+
+    @keyframes blinker {
+      50% { opacity: 0; }
+    }
+
+    .hud-viewfinder {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      pointer-events: none;
+    }
+
+    .viewfinder-cross {
+      width: 20px;
+      height: 20px;
+      position: relative;
+    }
+
+    .viewfinder-cross::before, .viewfinder-cross::after {
+      content: "";
+      position: absolute;
+      background: var(--moss);
+      opacity: 0.35;
+    }
+
+    .viewfinder-cross::before {
+      top: 9px;
+      left: 0;
+      width: 20px;
+      height: 2px;
+    }
+
+    .viewfinder-cross::after {
+      top: 0;
+      left: 9px;
+      width: 2px;
+      height: 20px;
+    }
+
+    .hud-bounding-box {
+      position: absolute;
+      border: 1px solid var(--moss);
+      background: rgba(154, 196, 107, 0.08);
+      padding: 4px;
+      border-radius: 2px;
+      transition: opacity 220ms ease, transform 300ms ease;
+    }
+
+    .hud-bounding-box.warning {
+      border-color: var(--clay);
+      background: rgba(159, 112, 74, 0.12);
+    }
+
+    .hud-bounding-box .box-label {
+      position: absolute;
+      top: -14px;
+      left: -1px;
+      background: var(--moss);
+      color: #030402;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.55rem;
+      font-weight: 700;
+      padding: 0 4px;
+      white-space: nowrap;
+      text-transform: uppercase;
+    }
+
+    .hud-bounding-box.warning .box-label {
+      background: var(--clay);
+      color: #fff7e6;
+    }
+
+    #hud-box-1 {
+      top: 35px;
+      left: 45px;
+      width: 75px;
+      height: 105px;
+    }
+
+    #hud-box-2 {
+      top: 75px;
+      right: 45px;
+      width: 85px;
+      height: 65px;
+      border-color: var(--amber);
+      background: rgba(215, 163, 79, 0.06);
+    }
+
+    #hud-box-2 .box-label {
+      background: var(--amber);
+    }
+
+    #hud-box-3 {
+      top: 45px;
+      left: 115px;
+      width: 105px;
+      height: 85px;
+    }
+
+    .hud-radar {
+      position: absolute;
+      bottom: 10px;
+      right: 12px;
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(154, 196, 107, 0.15);
+      z-index: 5;
+      pointer-events: none;
+    }
+
+    .radar-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .radar-beam {
+      transform-origin: 50px 50px;
+      animation: radar-sweep 3s linear infinite;
+    }
+
+    @keyframes radar-sweep {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    .console-controls {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--line);
+    }
+
+    .console-btn {
+      border: none;
+      background: #0c0e0c;
+      color: var(--quiet);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 10px 4px;
+      cursor: pointer;
+      text-align: center;
+      transition: background 150ms ease, color 150ms ease;
+    }
+
+    .console-btn:hover {
+      background: #141814;
+      color: var(--ink);
+    }
+
+    .console-btn.warning {
+      color: var(--clay);
+    }
+
+    .console-btn.warning:hover {
+      background: var(--clay);
+      color: #fff7e6;
+    }
+
+    .console-log {
+      padding: 12px;
+      background: #020302;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.7rem;
+      color: var(--moss);
+      height: 95px;
+      overflow-y: auto;
+      border-top: 1px solid var(--line);
+    }
+
+    .log-title {
+      color: var(--quiet);
+      font-weight: 700;
+      margin-bottom: 4px;
+      font-size: 0.64rem;
+      letter-spacing: 0.08em;
+    }
+
+    .console-log pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-all;
+      line-height: 1.4;
+      color: var(--moss);
     }
 
     .terminal-layout {
@@ -602,17 +1155,106 @@
     .video-frame {
       position: relative;
       min-height: 390px;
-      border: 1px solid rgba(245, 240, 230, 0.12);
-      border-radius: 8px;
+      border: 1px solid var(--line);
+      border-radius: 4px;
       overflow: hidden;
-      background: radial-gradient(circle at calc(22% + var(--tilt-x, 0px)) calc(18% + var(--tilt-y, 0px)), rgba(126, 145, 143, 0.34), transparent 20rem), linear-gradient(135deg, rgba(12, 18, 25, 0.94), rgba(32, 23, 52, 0.72) 52%, rgba(8, 13, 12, 0.96));
+      background: radial-gradient(circle at 50% 50%, rgba(20, 32, 20, 0.5), #020502);
     }
 
-    .video-frame video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 260ms ease; }
-    .video-frame.has-video video { opacity: 1; }
+    .video-frame::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(rgba(154, 196, 107, 0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(154, 196, 107, 0.04) 1px, transparent 1px);
+      background-size: 25px 25px;
+      background-position: center;
+      pointer-events: none;
+      z-index: 1;
+    }
 
-    .video-fallback { position: absolute; inset: 0; display: grid; place-items: center; padding: 28px; text-align: center; }
-    .video-fallback span { display: inline-flex; border: 1px solid rgba(245, 240, 230, 0.18); border-radius: 999px; padding: 9px 13px; background: rgba(5, 6, 4, 0.5); color: #f7dfb3; font-family: "JetBrains Mono", monospace; font-size: 0.72rem; font-weight: 800; text-transform: uppercase; }
+    .video-frame::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%);
+      background-size: 100% 4px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    .video-frame video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 260ms ease;
+      z-index: 0;
+    }
+
+    .video-frame.has-video video {
+      opacity: 1;
+    }
+
+    .video-fallback {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 28px;
+      text-align: center;
+      z-index: 2;
+    }
+
+    .video-fallback span {
+      display: inline-flex;
+      border: 1px solid var(--line-strong);
+      border-radius: 4px;
+      padding: 9px 15px;
+      background: rgba(2, 4, 2, 0.85);
+      color: var(--amber);
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.74rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    }
+
+    .video-frame-hud {
+      position: absolute;
+      inset: 18px;
+      border: 1px solid rgba(154, 196, 107, 0.12);
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .video-frame-hud::before {
+      content: "FPV SOURCE // DIRECT FEED";
+      position: absolute;
+      top: 8px;
+      left: 10px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--moss);
+      opacity: 0.7;
+    }
+
+    .video-frame-hud::after {
+      content: "[MONITORING ACTIVE]";
+      position: absolute;
+      top: 8px;
+      right: 10px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 0.62rem;
+      font-weight: 700;
+      color: var(--amber);
+      opacity: 0.7;
+    }
 
     .story-panel h3 { margin: 18px 6px 8px; font-size: clamp(1.35rem, 3vw, 2.1rem); line-height: 1; }
     .story-panel p { margin: 0 6px 8px; color: var(--muted); }
@@ -664,6 +1306,7 @@
 
       .hero-strip,
       .flow-grid,
+      .pipeline-split,
       .docs-grid,
       .work-grid,
       .terminal-layout,
@@ -733,7 +1376,7 @@
 <body>
   <nav class="site-nav" aria-label="Primary navigation">
     <a class="brand" href="#top" aria-label="STASIS home">
-      <span class="brand-mark">S</span>
+      <img class="brand-logo" src="assets/stasis-logo.png" alt="STASIS Logo" width="32" height="32">
       <span>STASIS</span>
     </a>
     <div class="nav-links" aria-label="Documentation">
@@ -743,14 +1386,24 @@
       <a href="#setup">Setup</a>
       <a href="#docs">Docs</a>
     </div>
-    <a class="nav-action" href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
+    <div style="display: flex; align-items: center; gap: 8px;">
+      <a class="nav-action" href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
+      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle visual profile">
+        <svg class="toggle-icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        <svg class="toggle-icon moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      </button>
+    </div>
   </nav>
 
   <main id="top">
     <header class="hero">
       <div class="wrap hero-grid">
         <div class="hero-card">
-          <h1>Build field intelligence with <span class="serif">STASIS.</span></h1>
+          <div class="hero-card-ticks"></div>
+          <h1 class="reveal-lines reveal">
+            <span class="line-wrapper"><span>Build field intelligence</span></span>
+            <span class="line-wrapper"><span>with <span class="serif">STASIS.</span></span></span>
+          </h1>
           <p>A Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
           <div class="actions">
             <a class="button primary" href="README_ROVER_SYSTEM.html">Read Rover Guide</a>
@@ -795,21 +1448,62 @@
           </article>
 
           <article class="work-card compact reveal" style="--reveal-delay: 120ms">
-            <span class="caption">Local decision loop</span>
-            <h3>Detection, context, response</h3>
-            <p>STASIS can combine object detection with a local model through Ollama or LM Studio so the system can summarize what it sees and decide what deserves attention.</p>
-            <div class="signal-list">
-              <div class="signal">
-                <code>detect</code>
-                <p>Run camera frames through local YOLO or ONNX providers.</p>
+            <span class="caption">Tactile field terminal</span>
+            <h3>Local decision loop</h3>
+            <p>STASIS processes camera feeds and sensors dynamically. Use the console below to simulate real-time sensor streams and trigger local model reasoning loops.</p>
+            
+            <div class="field-console">
+              <!-- HUD screen FPV wireframe camera simulation -->
+              <div class="hud-screen">
+                <div class="hud-grid-overlay"></div>
+                <div class="hud-scanline"></div>
+                <div class="hud-header">
+                  <span class="hud-status blink" id="hud-status">FEED STABLE</span>
+                  <span id="hud-timer">00:00:00</span>
+                </div>
+                
+                <!-- Viewfinder and simulated detection boxes -->
+                <div class="hud-viewfinder">
+                  <div class="viewfinder-cross"></div>
+                  
+                  <div class="hud-bounding-box" id="hud-box-1" style="display:none">
+                    <span class="box-label">HUMAN [91% CONFIDENCE]</span>
+                  </div>
+                  <div class="hud-bounding-box" id="hud-box-2" style="display:none">
+                    <span class="box-label">ANIMAL [86% CONFIDENCE]</span>
+                  </div>
+                  <div class="hud-bounding-box warning" id="hud-box-3" style="display:none">
+                    <span class="box-label">ALERT: ANOMALY</span>
+                  </div>
+                </div>
+
+                <!-- Sonar radar sweep overlay -->
+                <div class="hud-radar">
+                  <svg viewBox="0 0 100 100" class="radar-svg">
+                    <circle cx="50" cy="50" r="45" stroke="var(--moss)" stroke-width="0.75" fill="none" opacity="0.3"/>
+                    <circle cx="50" cy="50" r="30" stroke="var(--moss)" stroke-width="0.5" fill="none" opacity="0.2"/>
+                    <circle cx="50" cy="50" r="15" stroke="var(--moss)" stroke-width="0.5" fill="none" opacity="0.1"/>
+                    <line x1="50" y1="5" x2="50" y2="95" stroke="var(--moss)" stroke-width="0.5" opacity="0.15"/>
+                    <line x1="5" y1="50" x2="95" y2="50" stroke="var(--moss)" stroke-width="0.5" opacity="0.15"/>
+                    <line x1="50" y1="50" x2="50" y2="5" stroke="var(--moss)" stroke-width="1.5" class="radar-beam" opacity="0.6"/>
+                    <circle cx="65" cy="30" r="3.5" fill="var(--amber)" class="radar-blip" id="radar-blip-1" style="display:none; filter: drop-shadow(0 0 4px var(--amber));"/>
+                    <circle cx="35" cy="72" r="3.5" fill="var(--moss)" class="radar-blip" id="radar-blip-2" style="display:none; filter: drop-shadow(0 0 4px var(--moss));"/>
+                    <circle cx="75" cy="65" r="4" fill="var(--clay)" class="radar-blip" id="radar-blip-3" style="display:none; filter: drop-shadow(0 0 4px var(--clay));"/>
+                  </svg>
+                </div>
               </div>
-              <div class="signal">
-                <code>alert</code>
-                <p>Raise events for people, animals, signs of fire, tracks, and markers.</p>
+
+              <!-- Lower telemetry interaction console -->
+              <div class="console-controls">
+                <button class="console-btn" id="btn-detect">DETECTION ON</button>
+                <button class="console-btn" id="btn-ping">PING ROVER</button>
+                <button class="console-btn warning" id="btn-fault">FAULT TRIGGER</button>
+                <button class="console-btn" id="btn-reset">CLEAR LOG</button>
               </div>
-              <div class="signal">
-                <code>reason</code>
-                <p>Send selected observations to Qwen or another local model for plain-language output.</p>
+
+              <div class="console-log">
+                <div class="log-title">[STASIS FIELD LOG CONSOLE]</div>
+                <pre id="console-output">SYSTEM INITALIZED. WAITING FOR OPERATOR ACTION...</pre>
               </div>
             </div>
           </article>
@@ -824,27 +1518,107 @@
           <p>A simple split: the Pi handles capture and rover-side telemetry; the laptop handles heavier inference, the dashboard, and local model workflows.</p>
         </div>
 
-        <div class="flow-grid">
-          <article class="flow-card reveal">
-            <span class="flow-number">01</span>
-            <h3>Capture</h3>
-            <p>Pi camera frames and rover state are collected close to the sensor.</p>
-          </article>
-          <article class="flow-card reveal" style="--reveal-delay: 100ms">
-            <span class="flow-number">02</span>
-            <h3>Transmit</h3>
-            <p>WebSocket channels carry frames, status, and detection payloads.</p>
-          </article>
-          <article class="flow-card reveal" style="--reveal-delay: 200ms">
-            <span class="flow-number">03</span>
-            <h3>Infer</h3>
-            <p>Windows-side providers run object detection and prepare alert context.</p>
-          </article>
-          <article class="flow-card reveal" style="--reveal-delay: 300ms">
-            <span class="flow-number">04</span>
-            <h3>Act</h3>
-            <p>The dashboard surfaces events and can hand observations to a local LLM.</p>
-          </article>
+        <div class="pipeline-split">
+          <!-- Left side: Interactive text cards -->
+          <div class="pipeline-cards">
+            <article class="pipeline-card reveal is-active" data-step="0">
+              <span class="flow-number">01</span>
+              <h3>Capture (Pi & Camera)</h3>
+              <p>Raspberry Pi gathers 1080p camera frames and IMU/GPS status telemetry directly at the edge.</p>
+              <div class="step-details">
+                <code>Format: RAW MJPEG / 30fps</code>
+              </div>
+            </article>
+            <article class="pipeline-card reveal" style="--reveal-delay: 80ms" data-step="1">
+              <span class="flow-number">02</span>
+              <h3>Transmit (WebSocket)</h3>
+              <p>A low-latency WebSocket connection pipes raw streams and status strings continuously to the receiver.</p>
+              <div class="step-details">
+                <code>Protocol: ws:// (TCP Port 8765)</code>
+              </div>
+            </article>
+            <article class="pipeline-card reveal" style="--reveal-delay: 160ms" data-step="2">
+              <span class="flow-number">03</span>
+              <h3>Infer (YOLO & ONNX)</h3>
+              <p>Windows receiver runs object identification models, overlays tracking boxes, and generates detections.</p>
+              <div class="step-details">
+                <code>Latency: ~12ms (RTX TensorRT)</code>
+              </div>
+            </article>
+            <article class="pipeline-card reveal" style="--reveal-delay: 240ms" data-step="3">
+              <span class="flow-number">04</span>
+              <h3>Act (Local LLM & Dashboard)</h3>
+              <p>Dashboard records warnings, alerts operators, and pings Qwen/Ollama for automated text observations.</p>
+              <div class="step-details">
+                <code>Reasoning: local qwen2.5-coder</code>
+              </div>
+            </article>
+          </div>
+
+          <!-- Right side: Breathtaking SVG Pipeline schematic -->
+          <div class="pipeline-schematic reveal" style="--reveal-delay: 120ms">
+            <svg id="pipeline-svg" viewBox="0 0 400 450" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="path-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="var(--moss)"/>
+                  <stop offset="50%" stop-color="var(--amber)"/>
+                  <stop offset="100%" stop-color="var(--clay)"/>
+                </linearGradient>
+              </defs>
+
+              <!-- Connection lines (paths) -->
+              <path class="flow-path" id="path-0" d="M 200,60 L 200,160" stroke="var(--line)" stroke-width="2" stroke-dasharray="6,4"/>
+              <path class="flow-path" id="path-1" d="M 200,160 L 200,260" stroke="var(--line)" stroke-width="2" stroke-dasharray="6,4"/>
+              <path class="flow-path" id="path-2" d="M 200,260 L 200,360" stroke="var(--line)" stroke-width="2" stroke-dasharray="6,4"/>
+
+              <!-- Flowing data packets (animated dashes/circles) -->
+              <path class="flow-packet" id="packet-0" d="M 200,60 L 200,160" stroke="var(--moss)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
+              <path class="flow-packet" id="packet-1" d="M 200,160 L 200,260" stroke="var(--amber)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
+              <path class="flow-packet" id="packet-2" d="M 200,260 L 200,360" stroke="var(--clay)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
+
+              <!-- Node 1: Capture -->
+              <g class="svg-node is-active" id="node-0" data-step="0">
+                <circle cx="200" cy="60" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
+                <circle cx="200" cy="60" r="22" fill="none" stroke="var(--moss)" stroke-width="1.5" stroke-dasharray="4,2"/>
+                <circle cx="200" cy="60" r="6" fill="var(--moss)"/>
+                <text x="200" y="105" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">PI CAPTURE</text>
+              </g>
+
+              <!-- Node 2: Transmit -->
+              <g class="svg-node" id="node-1" data-step="1">
+                <circle cx="200" cy="160" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
+                <path d="M190 164 L210 164 L200 152 Z" fill="none" stroke="var(--amber)" stroke-width="1.5"/>
+                <circle cx="200" cy="160" r="22" fill="none" stroke="var(--line)" stroke-width="1"/>
+                <text x="200" y="205" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">WEBSOCKET</text>
+              </g>
+
+              <!-- Node 3: Infer -->
+              <g class="svg-node" id="node-2" data-step="2">
+                <circle cx="200" cy="260" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
+                <rect x="189" y="249" width="22" height="22" fill="none" stroke="var(--clay)" stroke-width="1.5" stroke-dasharray="3,2"/>
+                <rect x="194" y="254" width="12" height="12" fill="var(--clay)" opacity="0.8"/>
+                <circle cx="200" cy="260" r="22" fill="none" stroke="var(--line)" stroke-width="1"/>
+                <text x="200" y="305" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">AI INFERENCE</text>
+              </g>
+
+              <!-- Node 4: Act -->
+              <g class="svg-node" id="node-3" data-step="3">
+                <circle cx="200" cy="360" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
+                <circle cx="200" cy="360" r="22" fill="none" stroke="var(--steel)" stroke-width="1.5"/>
+                <path d="M194 360 L198 364 L208 354" stroke="var(--steel)" stroke-width="2" stroke-linecap="round" fill="none"/>
+                <text x="200" y="405" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">ACTION LOG</text>
+              </g>
+            </svg>
+
+            <!-- Technical Schema Details -->
+            <div class="schematic-panel">
+              <span class="schematic-header" id="schematic-header">[NODE TELEMETRY // STASIS-PI]</span>
+              <pre class="schematic-data" id="schematic-data">URL: http://192.168.1.45:8000/stream.mjpg
+Encoding: Motion JPEG (RAW frames)
+Buffer size: 104 KB per frame
+Heartbeat rate: 1.0Hz</pre>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -865,6 +1639,7 @@
         <div class="story-track">
           <article class="story-panel reveal" data-story-step="0">
             <div class="video-frame" data-video-frame>
+              <div class="video-frame-hud"></div>
               <video muted playsinline preload="metadata" data-scroll-video>
                 <source src="assets/stasis-patrol-scroll.mp4" type="video/mp4">
               </video>
@@ -876,6 +1651,7 @@
 
           <article class="story-panel reveal" data-story-step="1">
             <div class="video-frame" data-video-frame>
+              <div class="video-frame-hud"></div>
               <video muted playsinline preload="metadata" data-scroll-video>
                 <source src="assets/stasis-detect-scroll.mp4" type="video/mp4">
               </video>
@@ -887,6 +1663,7 @@
 
           <article class="story-panel reveal" data-story-step="2">
             <div class="video-frame" data-video-frame>
+              <div class="video-frame-hud"></div>
               <video muted playsinline preload="metadata" data-scroll-video>
                 <source src="assets/stasis-response-scroll.mp4" type="video/mp4">
               </video>
@@ -1036,6 +1813,183 @@ ollama run qwen2.5
     window.addEventListener('scroll', updateStory, { passive: true });
     window.addEventListener('resize', updateStory);
     updateStory();
+
+    // Theme Switcher Click Handler
+    const themeToggle = document.getElementById('theme-toggle');
+    if (themeToggle) {
+      themeToggle.addEventListener('click', () => {
+        const isLight = document.documentElement.classList.toggle('light-theme');
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+      });
+    }
+
+    // Parallax Scroll for Forest Background Image
+    function updateParallax() {
+      document.body.style.setProperty('--scroll-y', (window.pageYOffset * 0.35) + 'px');
+    }
+    window.addEventListener('scroll', updateParallax, { passive: true });
+    updateParallax();
+
+    // Pipeline Interactive Diagram Logic
+    const nodeDetails = [
+      {
+        header: "[NODE TELEMETRY // STASIS-PI]",
+        data: "URL: http://192.168.1.45:8000/stream.mjpg\nEncoding: Motion JPEG (RAW frames)\nBuffer size: 104 KB per frame\nHeartbeat rate: 1.0Hz"
+      },
+      {
+        header: "[SOCKET TRANSPORT LAYER]",
+        data: "WS Tunnel: ws://192.168.1.100:8765\nChannels: /stream, /telemetry\nCompression: None (RAW over TCP)\nHandshake: Secure upgrade requested"
+      },
+      {
+        header: "[YOLO DIRECT-X DETECTOR]",
+        data: "Provider: ONNX Execution Provider\nInput shape: 640x640x3\nClasses: human, vehicle, animal\nThreshold: 0.65 min confidence"
+      },
+      {
+        header: "[DECISION ENGINE LOGS]",
+        data: "Server: Ollama (Local)\nEndpoint: /api/generate\nModel: qwen2.5-coder:7b\nOutput size: 120 tokens max"
+      }
+    ];
+
+    const pipelineCards = document.querySelectorAll('.pipeline-card');
+    const svgNodes = document.querySelectorAll('.svg-node');
+    const schemHeader = document.getElementById('schematic-header');
+    const schemData = document.getElementById('schematic-data');
+
+    function selectPipelineStep(index) {
+      pipelineCards.forEach((c, idx) => c.classList.toggle('is-active', idx === index));
+      svgNodes.forEach((n, idx) => n.classList.toggle('is-active', idx === index));
+      
+      if (nodeDetails[index]) {
+        schemHeader.textContent = nodeDetails[index].header;
+        schemData.textContent = nodeDetails[index].data;
+      }
+    }
+
+    pipelineCards.forEach((card, index) => {
+      card.addEventListener('mouseenter', () => selectPipelineStep(index));
+    });
+
+    svgNodes.forEach((node, index) => {
+      node.addEventListener('mouseenter', () => selectPipelineStep(index));
+    });
+
+    // Telemetry Console Clock
+    const hudTimer = document.getElementById('hud-timer');
+    if (hudTimer) {
+      setInterval(() => {
+        const now = new Date();
+        hudTimer.textContent = now.toTimeString().split(' ')[0];
+      }, 1000);
+    }
+
+    // Telemetry Console Widget Buttons Logic
+    const btnDetect = document.getElementById('btn-detect');
+    const btnPing = document.getElementById('btn-ping');
+    const btnFault = document.getElementById('btn-fault');
+    const btnReset = document.getElementById('btn-reset');
+    const hudStatus = document.getElementById('hud-status');
+    const consoleOutput = document.getElementById('console-output');
+
+    const hudBoxes = [
+      document.getElementById('hud-box-1'),
+      document.getElementById('hud-box-2'),
+      document.getElementById('hud-box-3')
+    ];
+
+    const radarBlips = [
+      document.getElementById('radar-blip-1'),
+      document.getElementById('radar-blip-2'),
+      document.getElementById('radar-blip-3')
+    ];
+
+    function writeConsoleLog(text) {
+      const timeStr = new Date().toTimeString().split(' ')[0];
+      consoleOutput.textContent += `\n[${timeStr}] ${text}`;
+      consoleOutput.parentElement.scrollTop = consoleOutput.parentElement.scrollHeight;
+    }
+
+    function resetHUD() {
+      hudStatus.textContent = "FEED STABLE";
+      hudStatus.style.color = "var(--moss)";
+      hudBoxes.forEach(box => { if (box) box.style.display = 'none'; });
+      radarBlips.forEach(blip => { if (blip) blip.style.display = 'none'; });
+    }
+
+    let detectionToggle = false;
+
+    if (btnDetect) {
+      btnDetect.addEventListener('click', () => {
+        resetHUD();
+        detectionToggle = !detectionToggle;
+        if (detectionToggle) {
+          hudStatus.textContent = "SCAN ACTIVE";
+          hudStatus.style.color = "var(--amber)";
+          
+          // Randomly trigger box 1 or box 2
+          const target = Math.random() > 0.5 ? 0 : 1;
+          const box = hudBoxes[target];
+          const blip = radarBlips[target];
+          
+          if (box) box.style.display = 'block';
+          if (blip) blip.style.display = 'block';
+          
+          const targetClass = target === 0 ? "human" : "animal";
+          const conf = target === 0 ? "0.91" : "0.86";
+          
+          writeConsoleLog(`[AI] YOLO: {"class": "${targetClass}", "confidence": ${conf}, "status": "tracking"}`);
+          setTimeout(() => {
+            writeConsoleLog(`[LLM] Observed: ${target === 0 ? "A person is identified within the coordinate boundaries. Threat level normal." : "Wildlife spotted inside field area. Compiling status report."}`);
+          }, 450);
+          
+          btnDetect.textContent = "DETECTION OFF";
+        } else {
+          writeConsoleLog("[SYS] Stream scan paused by operator.");
+          btnDetect.textContent = "DETECTION ON";
+        }
+      });
+    }
+
+    if (btnPing) {
+      btnPing.addEventListener('click', () => {
+        writeConsoleLog("[SYS] WS Handshake -> ws://192.168.1.45:8765...");
+        const blip = radarBlips[1];
+        if (blip) blip.style.display = 'block';
+        
+        setTimeout(() => {
+          writeConsoleLog("[SYS] Handshake OK. Battery: 87% // Signal: -45dBm");
+          if (!detectionToggle && blip) blip.style.display = 'none';
+        }, 600);
+      });
+    }
+
+    if (btnFault) {
+      btnFault.addEventListener('click', () => {
+        resetHUD();
+        detectionToggle = false;
+        if (btnDetect) btnDetect.textContent = "DETECTION ON";
+        hudStatus.textContent = "ALERT FAULT";
+        hudStatus.style.color = "var(--clay)";
+        
+        const box = hudBoxes[2];
+        const blip = radarBlips[2];
+        if (box) box.style.display = 'block';
+        if (blip) blip.style.display = 'block';
+        
+        writeConsoleLog("[ERR] SENSOR ERROR: IMU report. Surface angle tilt threshold breached.");
+        setTimeout(() => {
+          writeConsoleLog("[LLM] CRITICAL SUMMARY: Rover tilt threshold breached (pitch: 34deg). Drive motors locked.");
+        }, 500);
+      });
+    }
+
+    if (btnReset) {
+      btnReset.addEventListener('click', () => {
+        detectionToggle = false;
+        if (btnDetect) btnDetect.textContent = "DETECTION ON";
+        resetHUD();
+        consoleOutput.textContent = "CONSOLE LOG RESET. WAITING FOR TRIGGER...";
+      });
+    }
   </script>
 
 </body>
