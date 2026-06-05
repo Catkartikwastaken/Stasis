@@ -93,7 +93,7 @@ class ObjectDetectionConfig:
     common_detection_enabled: bool = True
     common_target_classes: list[str] = field(default_factory=lambda: ["person", "cell phone"])
     ignored_classes: list[str] = field(default_factory=lambda: sorted(BACKGROUND_LABELS))
-    min_box_area_percent: float = 1.0
+    min_box_area_percent: float = 2.0
     max_box_area_percent: float = 85.0
     overlay_enabled: bool = True
     green_strip_enabled: bool = False
@@ -576,8 +576,6 @@ class ObjectDetectionRoverClient(base.RoverClient):
     def _send_object_detection(self, detections: list[dict[str, Any]], frame: Any) -> None:
         now = time.monotonic()
         signature = ",".join(f"{item['label']}:{item['category_hint']}" for item in detections[:4])
-        if detections and signature == self.last_detection_signature and now - self.last_detection_sent < self.detector_config.alert_cooldown_seconds:
-            return
         if not detections and not self.detector_config.send_empty_results:
             return
 

@@ -57,6 +57,23 @@ $env:STASIS_YOLO_ONNX_MODEL = "models/yolo11n.onnx"
 python security_rover_server_object_detection.py
 ```
 
+## False-Positive Filtering
+
+The YOLO model is not retrained. STASIS makes it stricter with server-side post-processing in `server/detection_filtering.py`.
+
+Tune the central config in `server/detection_filter_config.json`, or point `STASIS_DETECTION_FILTER_CONFIG` at another JSON file. The default gate is intentionally conservative:
+
+```text
+Human confidence: 0.70
+Object/wildlife confidence: 0.75
+Persistence: 5 consecutive stable frames
+Minimum box area: 2% of the frame
+Edge exclusion: top/bottom 10%, left/right 5%
+Duplicate alert cooldown: 10 seconds
+```
+
+Dashboard detections appear first as Detection Candidate. Only Confirmed Detection entries can trigger alerts, screenshots, notifications, rover commands, or saved alert records.
+
 Open:
 
 ```text
