@@ -167,9 +167,7 @@ tools/
   dataset_capture_assistant.py            Webcam dataset collection app
 
 hardware/cad/stasis-design/
-  inventor/                               Autodesk Inventor source parts and assemblies
-  drawings/                               DWG drawing exports
-  stl/                                    STL files for printing and previews
+  stasis-redesigns-compartment.zip        Archive containing redesign and compartment CAD assets
 
 docs/
   index.html                              GitHub Pages project website

@@ -1,16 +1,15 @@
-# STASIS CAD Files
+# STASIS CAD Archive
 
-This folder contains the rover design files exported from:
+This folder now keeps a single archive:
+
+```text
+stasis-redesigns-compartment.zip
+```
+
+The zip contains the redesign and compartment CAD assets exported from:
 
 ```text
 C:\Users\CatKartikSUPREMEPC\Documents\Stasis Design
 ```
 
-## Folders
-
-- `inventor/` - Autodesk Inventor part and assembly source files (`.ipt`, `.iam`).
-- `assemblies/` - additional assembly files from the source `Assemblies` folder.
-- `drawings/` - DWG drawing exports.
-- `stl/` - STL files for slicing, printing, and quick geometry previews.
-
-Generated Inventor backup/cache folders such as `OldVersions` and `Body/AIP/FEA` were intentionally not committed.
+It replaces the extracted file tree so the repo stays compact while still carrying the design package.
