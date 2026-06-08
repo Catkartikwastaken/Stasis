@@ -32,12 +32,15 @@ from flask_socketio import SocketIO, emit
 from PIL import Image
 from simple_websocket import ConnectionClosed, Server
 
+from detection_filtering import DetectionPostProcessor, load_detection_filter_config
+
 # ==========================================
 # FILE PATHS & WORKSPACE DEFINITIONS
 # ==========================================
 BASE_DIR: Path = Path(__file__).resolve().parent
 ALERTS_DIR: Path = BASE_DIR / "alerts"
 VISION_CONFIG_PATH: Path = Path(os.getenv("STASIS_VISION_CONFIG", BASE_DIR / "vision_config.json"))
+DETECTION_FILTER_CONFIG_PATH: Path = Path(os.getenv("STASIS_DETECTION_FILTER_CONFIG", BASE_DIR / "detection_filter_config.json"))
 
 # ==========================================
 # ENV LOADING HELPERS (With safe fallbacks)
@@ -195,6 +198,7 @@ home_heading: Optional[float] = None
 last_distance_traveled: Optional[float] = None
 latest_scan: List[Dict[str, float]] = []
 recent_detections: List[Dict[str, Any]] = []
+detection_postprocessor = DetectionPostProcessor(load_detection_filter_config(DETECTION_FILTER_CONFIG_PATH))
 
 rover_pose: Dict[str, float] = {
     "x": 400.0,
@@ -214,6 +218,9 @@ def record_detection_event(item: Dict[str, Any], accepted: bool, reason: str) ->
         "category": str(item.get("category_hint") or "unknown"),
         "confidence": item.get("confidence", 0),
         "accepted": accepted,
+        "state": str(item.get("state") or ("confirmed" if accepted else "candidate")),
+        "track_id": item.get("track_id", ""),
+        "consecutive_frames": item.get("consecutive_frames", 0),
         "reason": reason,
         "seen_at": datetime.now().isoformat(timespec="seconds"),
     }
@@ -1335,7 +1342,7 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
     max_box_height_ratio = float(os.getenv("STASIS_PI_MAX_BOX_HEIGHT_RATIO", "0.96"))
     frame_width = float(payload.get("frame_width") or payload.get("width") or 640)
     frame_height = float(payload.get("frame_height") or payload.get("height") or 480)
-    valid: List[Dict[str, Any]] = []
+    model_filtered: List[Dict[str, Any]] = []
     for item in detections:
         if not isinstance(item, dict):
             continue
@@ -1382,8 +1389,21 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
             logging.info("Filtered weak Pi animal label=%s confidence=%.2f.", label, confidence)
             record_detection_event(item, False, "weak_animal")
             continue
-        record_detection_event(item, True, "accepted")
-        valid.append(item)
+        model_filtered.append(item)
+
+    postprocessed = detection_postprocessor.process(model_filtered, int(frame_width), int(frame_height))
+    for rejected in postprocessed["rejected"]:
+        record_detection_event(rejected, False, str(rejected.get("reason") or "rejected"))
+    for candidate in postprocessed["candidates"]:
+        record_detection_event(candidate, False, "insufficient_persistence")
+    for confirmed in postprocessed["confirmed"]:
+        record_detection_event(
+            confirmed,
+            bool(confirmed.get("alert_allowed", False)),
+            str(confirmed.get("reason") or "confirmed"),
+        )
+
+    valid: List[Dict[str, Any]] = postprocessed["alertable"]
     if not valid:
         return
 

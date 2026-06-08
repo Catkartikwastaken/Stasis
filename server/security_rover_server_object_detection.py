@@ -23,6 +23,7 @@ import cv2
 import numpy as np
 import requests
 
+from detection_filtering import DetectionPostProcessor, load_detection_filter_config
 import security_rover_server_windows as base
 
 base.ALLOWED_EVENT_CATEGORIES.add("object")
@@ -148,7 +149,6 @@ IGNORED_LABELS = {
 
 OBJECT_REVIEW_PROVIDER = os.getenv("STASIS_OBJECT_REVIEW_PROVIDER", "fallback").strip().lower()
 OBJECT_REVIEW_TIMEOUT = float(os.getenv("STASIS_OBJECT_REVIEW_TIMEOUT", "20"))
-OBJECT_REVIEW_COOLDOWN = float(os.getenv("STASIS_OBJECT_REVIEW_COOLDOWN", "8"))
 OBJECT_ANALYSIS_INTERVAL = float(os.getenv("STASIS_OBJECT_ANALYSIS_INTERVAL_SECONDS", "0.8"))
 ONNX_MODEL_PATH = Path(os.getenv("STASIS_YOLO_ONNX_MODEL", str(DEFAULT_MODEL_PATH)))
 CUSTOM_ONNX_MODEL_PATH = Path(os.getenv("STASIS_CUSTOM_YOLO_ONNX_MODEL", str(DEFAULT_CUSTOM_MODEL_PATH)))
@@ -174,10 +174,10 @@ OLLAMA_BASE_URL = os.getenv("STASIS_OLLAMA_URL", "http://127.0.0.1:11434").rstri
 OLLAMA_TEXT_MODEL = os.getenv("STASIS_OLLAMA_TEXT_MODEL", "qwen2.5:0.5b")
 LMSTUDIO_BASE_URL = os.getenv("STASIS_LMSTUDIO_URL", "http://127.0.0.1:1234/v1").rstrip("/")
 LMSTUDIO_TEXT_MODEL = os.getenv("STASIS_LMSTUDIO_TEXT_MODEL", "qwen2.5-0.5b-instruct")
+DETECTION_FILTER_CONFIG_PATH = Path(os.getenv("STASIS_DETECTION_FILTER_CONFIG", str(SERVER_DIR / "detection_filter_config.json")))
 
-last_object_signature = ""
-last_object_review_at = 0.0
 detectors: list["YoloOnnxDetector"] = []
+detection_postprocessor = DetectionPostProcessor(load_detection_filter_config(DETECTION_FILTER_CONFIG_PATH))
 original_handle_rover_report = base.handle_rover_report
 
 
@@ -370,15 +370,16 @@ def draw_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> np.n
         if width <= 0 or height <= 0:
             continue
         category = str(item.get("category_hint", "object"))
-        color = (0, 255, 0)
+        state = str(item.get("state") or "candidate")
+        color = (80, 180, 255) if state == "candidate" else (0, 255, 0)
         if category == "human":
-            color = (0, 220, 255)
+            color = (0, 190, 255) if state == "candidate" else (0, 240, 255)
         elif category == "animal":
-            color = (120, 255, 120)
+            color = (120, 220, 120) if state == "candidate" else (120, 255, 120)
         cv2.rectangle(overlay, (x, y), (x + width, y + height), color, 2)
         cv2.putText(
             overlay,
-            f"{item.get('label', 'object')} {confidence_percent_text(item.get('confidence', 0))}",
+            f"{state}: {item.get('label', 'object')} {confidence_percent_text(item.get('confidence', 0))}",
             (x, max(18, y - 6)),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.55,
@@ -665,16 +666,8 @@ def save_alert_frame(frame: np.ndarray) -> str:
 
 
 def process_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> None:
-    global last_object_review_at, last_object_signature
-
     if not detections:
         return
-    signature = ",".join(f"{item.get('label')}:{item.get('category_hint')}" for item in detections[:4])
-    now = time.monotonic()
-    if signature == last_object_signature and now - last_object_review_at < OBJECT_REVIEW_COOLDOWN:
-        return
-    last_object_signature = signature
-    last_object_review_at = now
 
     payload = {
         "detections": detections,
@@ -751,24 +744,39 @@ def windows_object_detection_loop() -> None:
             detections = filter_scene_detections(detections, working_frame.shape[1], working_frame.shape[0])
             detections.sort(key=confidence_score, reverse=True)
             detections = detections[:ONNX_MAX_DETECTIONS]
+            postprocessed = detection_postprocessor.process(detections, working_frame.shape[1], working_frame.shape[0])
+            for rejected in postprocessed["rejected"]:
+                base.record_detection_event(rejected, False, str(rejected.get("reason") or "rejected"))
+            for candidate in postprocessed["candidates"]:
+                base.record_detection_event(candidate, False, "insufficient_persistence")
+            for confirmed in postprocessed["confirmed"]:
+                base.record_detection_event(
+                    confirmed,
+                    bool(confirmed.get("alert_allowed", False)),
+                    str(confirmed.get("reason") or "confirmed"),
+                )
+            visible_detections = [*postprocessed["candidates"], *postprocessed["confirmed"]]
+            alertable_detections = postprocessed["alertable"]
             logging.info(
-                "Windows YOLO detections: %s",
+                "Windows YOLO post-processed detections: %s",
                 [
                     {
                         "detector": item.get("detector"),
                         "label": item.get("label"),
                         "category": item.get("category_hint"),
                         "confidence": item.get("confidence"),
+                        "state": item.get("state"),
+                        "track_id": item.get("track_id"),
                     }
-                    for item in detections[:8]
+                    for item in visible_detections[:8]
                 ],
             )
-            if DRAW_OVERLAY and detections:
-                base.latest_frame = draw_detections(working_frame, detections)
+            if DRAW_OVERLAY and visible_detections:
+                base.latest_frame = draw_detections(working_frame, visible_detections)
                 ok_enc, encoded = cv2.imencode(".jpg", base.latest_frame)
                 if ok_enc:
                     base.latest_frame_jpeg = encoded.tobytes()
-            process_detections(working_frame, detections)
+            process_detections(working_frame, alertable_detections)
         except Exception as exc:
             logging.exception("Windows YOLO detection failed: %s", exc)
 

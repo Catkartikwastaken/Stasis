@@ -157,9 +157,24 @@ cell phone
 
 All detections are drawn on the livestream when `overlay_enabled` is `true`.
 
+## Reliability Gate
+
+Pi-side detections are still reviewed by the server post-processing gate before alerts are allowed. The Pi sends repeated detection telemetry so the server can confirm persistence across frames.
+
+Tune `server/detection_filter_config.json` on the laptop. By default, alerts require:
+
+```text
+Human confidence: 0.70
+Object/wildlife confidence: 0.75
+Persistence: 5 consecutive stable frames
+Minimum box area: 2% of the frame
+Edge exclusion: top/bottom 10%, left/right 5%
+Duplicate alert cooldown: 10 seconds
+```
+
 ## Human Stop And Follow
 
-When a human is detected, the Pi stops the L911S motors immediately and sends a `vision_decision` to the dashboard. The dashboard then offers:
+When a human detection is confirmed by the server reliability gate, the Pi stops the L911S motors and sends a `vision_decision` to the dashboard. The dashboard then offers:
 
 ```text
 Follow

@@ -1,0 +1,18 @@
+{
+  "detection_filter": {
+    "human_confidence_threshold": 0.70,
+    "object_confidence_threshold": 0.75,
+    "min_consecutive_frames": 5,
+    "min_box_area_ratio": 0.02,
+    "edge_margin_top_ratio": 0.10,
+    "edge_margin_bottom_ratio": 0.10,
+    "edge_margin_left_ratio": 0.05,
+    "edge_margin_right_ratio": 0.05,
+    "stability_iou_threshold": 0.30,
+    "stability_center_shift_ratio": 0.16,
+    "stability_size_change_ratio": 0.55,
+    "alert_cooldown_seconds": 10.0,
+    "max_track_missing_frames": 2,
+    "max_tracks": 32
+  }
+}

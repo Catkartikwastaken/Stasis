@@ -1232,6 +1232,21 @@
         color: var(--text);
       }
 
+      .debug-row.confirmed {
+        border-color: rgba(140, 255, 189, 0.3);
+        color: var(--text);
+      }
+
+      .debug-row.candidate {
+        border-color: rgba(255, 211, 109, 0.28);
+        color: var(--amber);
+      }
+
+      .debug-row.rejected {
+        border-color: rgba(255, 180, 171, 0.22);
+        color: var(--soft);
+      }
+
       /* Scan results */
       .scan-panel table {
         width: 100%;
@@ -1969,10 +1984,16 @@
         }
         for (const detection of detections) {
           const row = document.createElement("div");
-          row.className = `debug-row ${detection.accepted ? "accepted" : ""}`;
+          const state = detection.state || (detection.accepted ? "confirmed" : "candidate");
+          row.className = `debug-row ${detection.accepted ? "accepted" : ""} ${state}`;
           const confidence = Number(detection.confidence || 0);
           const percent = confidence > 1 ? confidence : confidence * 100;
-          row.textContent = `${detection.accepted ? "accepted" : "filtered"} - ${detection.label || detection.category} ${Math.round(percent)}% (${detection.reason || "seen"})`;
+          const stateLabel = state === "confirmed" ? "Confirmed Detection"
+            : state === "rejected" ? "Rejected Detection"
+            : "Detection Candidate";
+          const frames = Number(detection.consecutive_frames || 0);
+          const frameText = frames > 0 ? `, ${frames} frame${frames === 1 ? "" : "s"}` : "";
+          row.textContent = `${stateLabel} - ${detection.label || detection.category} ${Math.round(percent)}% (${detection.reason || "seen"}${frameText})`;
           detectionDebugEl.append(row);
         }
       }
