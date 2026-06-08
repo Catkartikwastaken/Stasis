@@ -166,6 +166,11 @@ rover/rpi2b/
 tools/
   dataset_capture_assistant.py            Webcam dataset collection app
 
+hardware/cad/stasis-design/
+  inventor/                               Autodesk Inventor source parts and assemblies
+  drawings/                               DWG drawing exports
+  stl/                                    STL files for printing and previews
+
 docs/
   index.html                              GitHub Pages project website
   README_ROVER_SYSTEM.md                  Full rover setup guide
