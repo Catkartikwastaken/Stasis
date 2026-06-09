@@ -43,6 +43,79 @@ def detect(frame: Any) -> List[Dict[str, Any]]:
     return []
 
 # ==========================================
+# DETECTION POST-PROCESSING UTILITIES
+# ==========================================
+DETECTION_CONFIDENCE_THRESHOLD = 0.70
+DETECTION_MIN_AREA_RATIO = 0.02
+
+def normalize_detection(raw: Any) -> Optional[Dict[str, Any]]:
+    """Validates raw dict structure and normalizes to standard schema."""
+    if not isinstance(raw, dict):
+        return None
+    try:
+        label = str(raw.get("label", "")).strip()
+        confidence = float(raw.get("confidence", 0.0))
+        bbox = raw.get("bbox")
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            return None
+            
+        x1, y1, x2, y2 = [float(c) for c in bbox]
+        return {
+            "label": label,
+            "confidence": confidence,
+            "bbox": [x1, y1, x2, y2]
+        }
+    except (ValueError, TypeError):
+        return None
+
+def filter_detection(detection: Dict[str, Any], frame_width: int, frame_height: int) -> tuple[bool, str]:
+    """Filters out low-confidence, tiny, or malformed bounding boxes."""
+    if frame_width <= 0 or frame_height <= 0:
+        return False, "invalid_frame_dimensions"
+
+    if not detection.get("label"):
+        return False, "empty_label"
+        
+    if detection.get("confidence", 0.0) < DETECTION_CONFIDENCE_THRESHOLD:
+        return False, "low_confidence"
+        
+    x1, y1, x2, y2 = detection.get("bbox", [0, 0, 0, 0])
+    
+    if x1 < 0 or y1 < 0 or x2 <= x1 or y2 <= y1:
+        return False, "invalid_bbox"
+
+    if x2 > frame_width or y2 > frame_height:
+        return False, "bbox_outside_frame"
+        
+    bbox_area = (x2 - x1) * (y2 - y1)
+    frame_area = frame_width * frame_height
+    
+    if bbox_area < (DETECTION_MIN_AREA_RATIO * frame_area):
+        return False, "bbox_too_small"
+        
+    return True, "valid"
+
+def postprocess_detections(detections: List[Any], frame_width: int, frame_height: int) -> List[Dict[str, Any]]:
+    """Pipeline to normalize, filter, and log discarded detections."""
+    valid_detections = []
+    if not detections:
+        return valid_detections
+        
+    for raw in detections:
+        normalized = normalize_detection(raw)
+        if not normalized:
+            logging.debug("Detection rejected: malformed_data_structure")
+            continue
+            
+        is_valid, reason = filter_detection(normalized, frame_width, frame_height)
+        if is_valid:
+            valid_detections.append(normalized)
+        else:
+            logging.debug("Detection rejected: %s", reason)
+            
+    return valid_detections
+
+# ==========================================
 # FILE PATHS & WORKSPACE DEFINITIONS
 # ==========================================
 BASE_DIR: Path = Path(__file__).resolve().parent
