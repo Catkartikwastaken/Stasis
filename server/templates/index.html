@@ -962,7 +962,7 @@
 
       .status-row {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 8px;
         padding: 12px;
       }
@@ -1413,8 +1413,8 @@
                   </div>
                   <!-- HUD: Top Right -->
                   <div class="sensor-right">
-                    <span>TEMP: -42°C</span>
-                    <span>RAD: 0.14 µSv/h</span>
+                    <span id="tempVal">TEMP: ---</span>
+                    <span id="radVal">RAD: ---</span>
                   </div>
                   <!-- HUD: Bottom -->
                   <div class="hud-bottom">
@@ -1468,6 +1468,10 @@
                     <span class="metric-label">Marker</span>
                     <div class="metric-value">green strip</div>
                   </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Heading</span>
+                    <div class="metric-value"><span id="headingVal">0</span>°</div>
+                  </div>
                 </div>
               </section>
 
@@ -1488,6 +1492,18 @@
                   </button>
                   <button id="stopRover" class="cmd-btn stop" type="button">
                     <span class="material-symbols-outlined">stop</span> Stop
+                  </button>
+                  <button id="moveForward" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_upward</span> Forward
+                  </button>
+                  <button id="moveBack" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_downward</span> Back
+                  </button>
+                  <button id="moveLeft" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_back</span> Left
+                  </button>
+                  <button id="moveRight" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_forward</span> Right
                   </button>
                   <button id="returnHome" class="cmd-btn" type="button">
                     <span class="material-symbols-outlined">home</span> Return
@@ -1753,10 +1769,15 @@
         marker.style.top = `${(y / mapSize) * 100}%`;
       }
 
+      const headingValEl = document.getElementById("headingVal");
+
       function renderPose() {
         positionMarker(roverEl, roverPose.x, roverPose.y);
         roverEl.style.setProperty("--yaw", `${roverPose.yaw || 0}deg`);
         homeDistanceEl.textContent = Math.round(roverPose.distance_from_home || 0);
+        if (headingValEl && roverPose.heading !== undefined) {
+          headingValEl.textContent = Math.round(roverPose.heading);
+        }
         if (roverPose.mode) {
           roverStatusEl.textContent = `mode: ${roverPose.mode}`;
         }
@@ -2009,6 +2030,21 @@
         addLogEntry("CONNECTION LOST.", true);
       });
 
+      function handleCommandAck(payload) {
+        if (payload && payload.sent === false) {
+          addLogEntry("COMMAND DROPPED: ROVER OFFLINE", true);
+          statusEl.textContent = "offline";
+          statusDot.classList.remove("online");
+        }
+      }
+
+      socket.on("manual_move_sent", handleCommandAck);
+      socket.on("stop_requested", handleCommandAck);
+      socket.on("scan_requested", handleCommandAck);
+      socket.on("marker_goal_commanded", handleCommandAck);
+      socket.on("human_decision_sent", handleCommandAck);
+      socket.on("goal_commanded", handleCommandAck);
+
       socket.on("rover_position", (pose) => {
         roverPose = pose;
         renderPose();
@@ -2017,7 +2053,18 @@
       socket.on("scan_data", renderScan);
       socket.on("detection_debug", renderDetectionDebug);
 
+      socket.on("object_detections", (payload) => {
+        if (!payload || !Array.isArray(payload.detections)) return;
+        const names = payload.detections
+          .map((d) => `${d.label} (${Math.round((d.confidence || 0) * 100)}%)`)
+          .join(", ");
+        if (names) {
+          addLogEntry(`[VISION] Detected: ${names}`);
+        }
+      });
+
       socket.on("rover_status", (payload) => {
+        if (!payload) return;
         roverStatusEl.textContent = payload.message
           ? `${payload.status}: ${payload.message}`
           : payload.status || "waiting";
@@ -2117,6 +2164,36 @@
 
       stopRoverBtn.addEventListener("click", stopRover);
       stopRoverSideBtn.addEventListener("click", stopRover);
+
+      const moveForwardBtn = document.getElementById("moveForward");
+      const moveBackBtn = document.getElementById("moveBack");
+      const moveLeftBtn = document.getElementById("moveLeft");
+      const moveRightBtn = document.getElementById("moveRight");
+
+      if (moveForwardBtn) {
+        moveForwardBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "forward" });
+          addLogEntry("COMMAND: MOVE FORWARD");
+        });
+      }
+      if (moveBackBtn) {
+        moveBackBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "back" });
+          addLogEntry("COMMAND: MOVE BACK");
+        });
+      }
+      if (moveLeftBtn) {
+        moveLeftBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "left" });
+          addLogEntry("COMMAND: MOVE LEFT");
+        });
+      }
+      if (moveRightBtn) {
+        moveRightBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "right" });
+          addLogEntry("COMMAND: MOVE RIGHT");
+        });
+      }
 
       returnHomeBtn.addEventListener("click", () => {
         socket.emit("return_home");

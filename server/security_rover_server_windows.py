@@ -28,19 +28,70 @@ from flask import Flask, render_template, request, send_from_directory, Response
 from flask_socketio import SocketIO, emit
 from simple_websocket import ConnectionClosed, Server
 
-DETECTOR_BACKEND = "none"
+DETECTOR_BACKEND = os.getenv("STASIS_DETECTOR_BACKEND", "none").strip().lower()
 VISION_ENABLED = False
+_custom_model = None
+_detector_loop_failed = False
 
 def detect(frame: Any) -> List[Dict[str, Any]]:
-    if DETECTOR_BACKEND == "none":
+    global _custom_model
+    if DETECTOR_BACKEND != "custom":
         return []
 
-    if DETECTOR_BACKEND == "custom":
-        logging.warning("Custom detector backend not implemented in this milestone.")
+    # Single-shot init
+    if _custom_model is None:
+        try:
+            import sys
+            import os
+            sys.path.append(os.path.dirname(__file__))
+            
+            from security_rover_server_object_detection import (
+                YoloOnnxDetector, CUSTOM_ONNX_MODEL_PATH, CUSTOM_ONNX_INPUT_SIZE
+            )
+
+            labels_path = os.path.join(os.path.dirname(__file__), "models", "stasis_custom.labels.txt")
+            if not os.path.exists(labels_path):
+                logging.warning("Custom detector labels not found; custom backend disabled")
+                _custom_model = False
+                return []
+                
+            with open(labels_path, "r", encoding="utf-8") as f:
+                labels = [line.strip().replace("_", " ") for line in f if line.strip()]
+
+            if not labels:
+                logging.warning("Custom detector labels not found; custom backend disabled")
+                _custom_model = False
+                return []
+
+            _custom_model = YoloOnnxDetector(CUSTOM_ONNX_MODEL_PATH, CUSTOM_ONNX_INPUT_SIZE, labels, "custom")
+            if not _custom_model.setup():
+                logging.warning("Failed to setup YoloOnnxDetector. Marking failed.")
+                _custom_model = False
+
+        except ImportError as e:
+            logging.warning("Dependency missing for custom detector (%s). Marking failed.", e)
+            _custom_model = False
+        except Exception as e:
+            logging.warning("Unexpected error initializing custom detector: %s", e)
+            _custom_model = False
+
+    if not _custom_model:
         return []
 
-    logging.warning("Unknown detector backend: %s", DETECTOR_BACKEND)
-    return []
+    try:
+        raw_results = _custom_model.detect(frame)
+        formatted = []
+        for r in raw_results:
+            b = r.get("box", {})
+            formatted.append({
+                "label": r.get("label", "unknown"),
+                "confidence": r.get("confidence", 0.0),
+                "bbox": [b.get("x", 0), b.get("y", 0), b.get("x", 0) + b.get("width", 0), b.get("y", 0) + b.get("height", 0)]
+            })
+        return formatted
+    except Exception as e:
+        logging.error("Error during detection frame processing: %s", e)
+        return []
 
 # ==========================================
 # DETECTION POST-PROCESSING UTILITIES
@@ -1896,6 +1947,53 @@ def on_message(payload: Any) -> None:
 
 
 # ==========================================
+# CUSTOM DETECTOR LOOP
+# ==========================================
+def custom_detector_loop() -> None:
+    global _detector_loop_failed
+    if DETECTOR_BACKEND != "custom":
+        return
+        
+    logging.info("Starting laptop-side custom detection loop...")
+    
+    try:
+        import cv2
+        import numpy as np
+    except ImportError:
+        logging.warning("cv2/numpy missing. Custom detection loop disabled.")
+        _detector_loop_failed = True
+        return
+
+    while True:
+        socketio.sleep(1.5)
+        
+        if _detector_loop_failed or not latest_frame_jpeg:
+            continue
+            
+        try:
+            # Safely decode JPEG bytes to BGR array
+            np_arr = np.frombuffer(latest_frame_jpeg, np.uint8)
+            frame = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
+            if frame is None:
+                continue
+                
+            raw_detections = detect(frame)
+            height, width = frame.shape[:2]
+            
+            valid_detections = postprocess_detections(raw_detections, width, height)
+            
+            if valid_detections:
+                socketio.emit("object_detections", {"detections": valid_detections})
+                
+                # Log summary safely (avoid dumping massive payloads)
+                summary = [f"{d['label']} ({int(d['confidence']*100)}%)" for d in valid_detections[:5]]
+                logging.info(f"Custom detector found: {', '.join(summary)}")
+                
+        except Exception as e:
+            logging.error("Error decoding frame in custom detection loop: %s", e)
+            _detector_loop_failed = True # Stop spamming
+
+# ==========================================
 # SYSTEM RUNENTRY HANDLER
 # ==========================================
 def main() -> None:
@@ -1916,6 +2014,10 @@ def main() -> None:
         socketio.start_background_task(vision_analysis_loop)
     else:
         logging.info("Vision backend disabled; not starting capture/analysis loops.")
+
+    # Start laptop-side custom background task
+    if DETECTOR_BACKEND == "custom":
+        socketio.start_background_task(custom_detector_loop)
     
     # Execute Flask SocketIO webserver
     logging.info("Starting STASIS Flask-SocketIO central webserver on 0.0.0.0:5000...")
