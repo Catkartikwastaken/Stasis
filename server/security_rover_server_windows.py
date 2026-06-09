@@ -24,13 +24,12 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Generator, Dict, List, Optional, Union
 
-import cv2
-import numpy as np
-import requests
 from flask import Flask, render_template, request, send_from_directory, Response
 from flask_socketio import SocketIO, emit
-from PIL import Image
 from simple_websocket import ConnectionClosed, Server
+
+DETECTOR_BACKEND = "none"
+VISION_ENABLED = False
 
 # ==========================================
 # FILE PATHS & WORKSPACE DEFINITIONS
@@ -226,6 +225,7 @@ def get_camera_backend() -> int:
     """
     Resolves OpenCV camera backend strings to functional constants.
     """
+    import cv2
     backend = CAMERA_BACKEND.strip().lower()
     if backend in {"", "auto", "default", "none"}:
         return 0
@@ -383,6 +383,7 @@ def webcam_capture_loop() -> None:
     Background worker loop continuously capturing frames from the configured video camera.
     """
     global latest_frame, latest_frame_jpeg
+    import cv2
 
     while True:
         try:
@@ -423,10 +424,12 @@ def webcam_capture_loop() -> None:
         time.sleep(2)
 
 
-def frame_to_pil(frame: Any) -> Image.Image:
+def frame_to_pil(frame: Any) -> Any:
     """
     Converts raw OpenCV BGR arrays to standard RGB PIL images.
     """
+    import cv2
+    from PIL import Image
     rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     return Image.fromarray(rgb_frame)
 
@@ -615,7 +618,7 @@ def extract_json_object(text: str) -> Dict[str, Any]:
     raise ValueError("Text contains no parsable JSON object segments.")
 
 
-def build_vision_messages(image: Image.Image) -> List[Dict[str, Any]]:
+def build_vision_messages(image: Any) -> List[Dict[str, Any]]:
     """
     Formats multi-modal user prompts compatible with HF ChatTemplates.
     """
@@ -640,6 +643,7 @@ def build_vision_messages(image: Image.Image) -> List[Dict[str, Any]]:
 
 
 def frame_to_jpeg_b64(frame: Any, quality: int = 70) -> str:
+    import cv2
     quality = max(30, min(95, int(quality)))
     ok, encoded = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
     if not ok:
@@ -648,6 +652,7 @@ def frame_to_jpeg_b64(frame: Any, quality: int = 70) -> str:
 
 
 def request_json(url: str, headers: Dict[str, str], payload: Dict[str, Any], timeout: float) -> Dict[str, Any]:
+    import requests
     response = requests.post(url, headers=headers, json=payload, timeout=timeout)
     response.raise_for_status()
     data = response.json()
@@ -931,6 +936,7 @@ def save_alert_frame(frame: Any) -> str:
     """
     Persists alert snapshots to disk under the alerts subdirectory.
     """
+    import cv2
     ALERTS_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"alert_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.jpg"
     image_path = ALERTS_DIR / filename
@@ -972,18 +978,20 @@ def handle_camera_frame(payload: Dict[str, Any]) -> None:
 
     try:
         raw = base64.b64decode(str(payload["image_b64"]))
-        image_array = np.frombuffer(raw, dtype=np.uint8)
-        frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        if DETECTOR_BACKEND != "none":
+            import cv2
+            import numpy as np
+            image_array = np.frombuffer(raw, dtype=np.uint8)
+            frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+            if frame is None:
+                logging.warning("Decoded rover camera frame was empty.")
+                return
+            latest_frame = frame
+        latest_frame_jpeg = raw
     except Exception as exc:
         logging.warning("Could not decode rover camera frame: %s", exc)
         return
 
-    if frame is None:
-        logging.warning("Decoded rover camera frame was empty.")
-        return
-
-    latest_frame = frame
-    latest_frame_jpeg = raw
     latest_frame_metadata = {
         "source": "rover",
         "width": payload.get("width"),
@@ -1391,6 +1399,8 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
     image_path = ""
     if payload.get("image_b64"):
         try:
+            import cv2
+            import numpy as np
             image_bytes = base64.b64decode(str(payload["image_b64"]))
             image_path = save_alert_frame(cv2.imdecode(np.frombuffer(image_bytes, dtype=np.uint8), cv2.IMREAD_COLOR))
         except Exception as exc:
@@ -1757,15 +1767,18 @@ def main() -> None:
     # Assert destination structures exist
     ALERTS_DIR.mkdir(parents=True, exist_ok=True)
     
-    # Load neural models
-    load_vision_model()
-    
-    # Start camera and vision processing. Default camera source is the Raspberry Pi rover.
-    if CAMERA_SOURCE == "local":
-        socketio.start_background_task(webcam_capture_loop)
+    # Load neural models if enabled
+    if VISION_ENABLED and DETECTOR_BACKEND != "none":
+        load_vision_model()
+        
+        # Start camera and vision processing. Default camera source is the Raspberry Pi rover.
+        if CAMERA_SOURCE == "local":
+            socketio.start_background_task(webcam_capture_loop)
+        else:
+            logging.info("Waiting for Raspberry Pi webcam frames over the rover WebSocket.")
+        socketio.start_background_task(vision_analysis_loop)
     else:
-        logging.info("Waiting for Raspberry Pi webcam frames over the rover WebSocket.")
-    socketio.start_background_task(vision_analysis_loop)
+        logging.info("Vision backend disabled; not starting capture/analysis loops.")
     
     # Execute Flask SocketIO webserver
     logging.info("Starting STASIS Flask-SocketIO central webserver on 0.0.0.0:5000...")
