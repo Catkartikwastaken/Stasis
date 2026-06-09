@@ -31,6 +31,17 @@ from simple_websocket import ConnectionClosed, Server
 DETECTOR_BACKEND = "none"
 VISION_ENABLED = False
 
+def detect(frame: Any) -> List[Dict[str, Any]]:
+    if DETECTOR_BACKEND == "none":
+        return []
+
+    if DETECTOR_BACKEND == "custom":
+        logging.warning("Custom detector backend not implemented in this milestone.")
+        return []
+
+    logging.warning("Unknown detector backend: %s", DETECTOR_BACKEND)
+    return []
+
 # ==========================================
 # FILE PATHS & WORKSPACE DEFINITIONS
 # ==========================================
@@ -82,7 +93,7 @@ def env_int(name: str, default: int) -> int:
 # ==========================================
 # GLOBAL SYSTEM CONFIGURATIONS
 # ==========================================
-VISION_ENABLED: bool = env_bool("STASIS_VISION_ENABLED", True)
+VISION_ENABLED: bool = env_bool("STASIS_VISION_ENABLED", False)
 VISION_REQUIRED: bool = env_bool("STASIS_VISION_REQUIRED", False)
 VISION_MODEL: str = os.getenv("STASIS_VISION_MODEL", "google/gemma-4-E2B-it")
 VISION_PIPELINE_TASK: str = os.getenv("STASIS_VISION_PIPELINE_TASK", "any-to-any")
