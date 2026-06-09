@@ -103,6 +103,35 @@ PIXEL_TO_CM: float = 1.0  # Mapping scale constant: pixels in UI to physical cm
 ROVER_CLIENT_ID: str = "rpi2b_rover"
 ALLOWED_EVENT_CATEGORIES: set[str] = {"human", "animal", "track", "fire", "marker"}
 
+# Event Logging Config
+EVENT_LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
+EVENT_LOG_FILE = os.path.join(EVENT_LOG_DIR, "stasis_events.jsonl")
+_last_log_times = {"camera_frame": 0.0, "telemetry": 0.0}
+
+def append_event_log(event_type: str, payload_summary: Dict[str, Any]) -> None:
+    try:
+        os.makedirs(EVENT_LOG_DIR, exist_ok=True)
+        now = time.time()
+        
+        if event_type == "camera_frame_received":
+            if now - _last_log_times["camera_frame"] < 5.0:
+                return
+            _last_log_times["camera_frame"] = now
+        elif event_type == "telemetry_update":
+            if now - _last_log_times["telemetry"] < 2.0:
+                return
+            _last_log_times["telemetry"] = now
+
+        entry = {
+            "timestamp": now,
+            "event_type": event_type,
+            "payload": payload_summary
+        }
+        with open(EVENT_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as exc:
+        logging.error("Failed to write to event log: %s", exc)
+
 # Lexicon mappings used to ensure vision alert relevance to the STASIS project
 PROJECT_KEYWORDS: set[str] = {
     "human", "person", "people", "intruder", "animal", "wildlife", "track", 
@@ -1000,6 +1029,12 @@ def handle_camera_frame(payload: Dict[str, Any]) -> None:
         "received_at": time.time(),
     }
     socketio.emit("camera_status", {"source": "rover", "connected": True})
+    append_event_log("camera_frame_received", {
+        "format": payload.get("format"),
+        "byte_length": len(str(payload.get("image_b64", ""))),
+        "width": payload.get("width"),
+        "height": payload.get("height")
+    })
 
 
 def send_rover_command(command: Dict[str, Any]) -> bool:
@@ -1010,23 +1045,33 @@ def send_rover_command(command: Dict[str, Any]) -> bool:
     """
     global rover_ws
 
+    summary = {
+        "cmd": command.get("cmd", command.get("type")),
+        "target": command.get("target", command.get("direction"))
+    }
+
     if rover_ws is not None:
         try:
             rover_ws.send(json.dumps(command))
             logging.info("Dispatched websocket command to rover: %s", command)
+            append_event_log("command_sent", summary)
             return True
         except ConnectionClosed:
             rover_ws = None
+            append_event_log("command_failed", {"reason": "ConnectionClosed", **summary})
 
     if rover_socketio_sid is not None:
         try:
             socketio.emit("rover_command", command, to=rover_socketio_sid)
             logging.info("Dispatched SocketIO command to rover: %s", command)
+            append_event_log("command_sent", summary)
             return True
         except Exception as exc:
             logging.error("Failed sending SocketIO command: %s", exc)
+            append_event_log("command_failed", {"reason": str(exc), **summary})
 
     logging.warning("Command drop: No rover client connection registered. Command: %s", command)
+    append_event_log("command_failed", {"reason": "no_connection", **summary})
     return False
 
 
@@ -1232,6 +1277,11 @@ def handle_rover_telemetry(payload: Dict[str, Any]) -> None:
         rover_pose["mode"] = mode
     update_distance_from_home()
     socketio.emit("rover_position", rover_pose.copy())
+    append_event_log("telemetry_update", {
+        "heading": rover_pose.get("heading"),
+        "distance_traveled": distance_traveled,
+        "mode": mode
+    })
 
 
 def handle_scan_report(payload: Dict[str, Any]) -> None:
@@ -1254,6 +1304,7 @@ def handle_scan_report(payload: Dict[str, Any]) -> None:
             continue
 
     socketio.emit("scan_data", {"data": latest_scan})
+    append_event_log("scan_received", {"point_count": len(latest_scan)})
 
 
 def handle_vision_decision(payload: Dict[str, Any]) -> None:
@@ -1554,6 +1605,7 @@ def rover_websocket() -> str:
     rover_ws = ws
     ws.send(json.dumps({"status": "registered", "id": client_id}))
     logging.info("Rover client register successful: websocket ID=%s", client_id)
+    append_event_log("rover_connected", {"client_id": client_id})
 
     if initial_payload is not None:
         handle_rover_report(initial_payload)
@@ -1566,6 +1618,7 @@ def rover_websocket() -> str:
             handle_rover_report(raw_msg)
     except ConnectionClosed:
         logging.warning("Rover client WebSocket connection lost.")
+        append_event_log("rover_disconnected", {"client_id": client_id})
     finally:
         if rover_ws is ws:
             rover_ws = None
@@ -1782,6 +1835,7 @@ def main() -> None:
     
     # Execute Flask SocketIO webserver
     logging.info("Starting STASIS Flask-SocketIO central webserver on 0.0.0.0:5000...")
+    append_event_log("server_start", {"message": "Server started"})
     socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
 
 
