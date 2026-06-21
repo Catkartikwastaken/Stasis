@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+alerts/
+.env
+rover/rpi2b/config.json
+server/vision_config.json
+server/*.log
+dataset/
+.DS_Store
+.agents/
+skills-lock.json

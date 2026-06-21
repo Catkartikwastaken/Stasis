@@ -1,0 +1,4 @@
+-r requirements.txt
+opencv-python
+ncnn
+ultralytics>=8.3.0

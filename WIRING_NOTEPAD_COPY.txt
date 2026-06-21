@@ -1,0 +1,297 @@
+STASIS WIRE CONNECTIONS - NOTEPAD COPY
+======================================
+
+CURRENT ANSWER
+--------------
+
+Yes, the repo has been updated and pushed to GitHub.
+
+Latest important commits:
+
+1e51308 - Add wiring and runbook guide
+9a6ed4e - Add fault tolerant all-sensors rover profile
+
+Current recommended setup:
+
+- Raspberry Pi 2B is the main rover controller.
+- USB webcam connects to Raspberry Pi.
+- Raspberry Pi runs object detection and sends data to Windows dashboard.
+- L911S motor driver can be driven directly by Raspberry Pi GPIO.
+- ESP32-S3 is optional. Use it only if you want it as a USB-Serial motor bridge.
+- Missing sensors should not stop the whole project. Connected components work; missing components are skipped.
+
+
+IMPORTANT POWER RULES
+---------------------
+
+1. Do NOT power DC motors from Raspberry Pi 5V.
+2. Use a separate motor battery for the L911S motor driver.
+3. Raspberry Pi GND, L911S GND, sensor GND, servo GND, and motor battery negative must share common ground.
+4. Raspberry Pi GPIO pins are 3.3V logic.
+5. HC-SR04 Echo is 5V. Use a voltage divider or level shifter before connecting Echo to Raspberry Pi GPIO.
+
+
+RASPBERRY PI 2B PIN MAP
+-----------------------
+
+Use BCM GPIO numbers in code.
+
+Function                         BCM GPIO     Physical Pin
+----------------------------------------------------------
+Left motor forward               GPIO5        Pin 29
+Left motor reverse               GPIO6        Pin 31
+Right motor forward              GPIO13       Pin 33
+Right motor reverse              GPIO19       Pin 35
+Ultrasonic trigger               GPIO23       Pin 16
+Ultrasonic echo                  GPIO24       Pin 18
+Scanner servo signal             GPIO18       Pin 12
+I2C SDA                          GPIO2        Pin 3
+I2C SCL                          GPIO3        Pin 5
+3.3V sensor power                3V3          Pin 1 or 17
+5V power                         5V           Pin 2 or 4
+Ground                           GND          Pin 6, 9, 14, 20, 25, 30, 34, or 39
+
+
+MINIMAL DEMO WIRING
+-------------------
+
+Use this if you want the simplest working rover.
+
+Raspberry Pi USB port -> USB webcam
+
+Raspberry Pi GPIO5  -> L911S A-IA
+Raspberry Pi GPIO6  -> L911S A-IB
+Raspberry Pi GPIO13 -> L911S B-IA
+Raspberry Pi GPIO19 -> L911S B-IB
+
+Raspberry Pi GND -> L911S GND
+Motor battery positive -> L911S VCC / VM
+Motor battery negative -> L911S GND
+L911S Motor A output -> Left DC motor
+L911S Motor B output -> Right DC motor
+
+Do not connect ESP32-S3 motor pins in this mode.
+
+
+L911S DIRECT RASPBERRY PI MOTOR WIRING
+--------------------------------------
+
+L911S Pin        Connect To
+---------------------------
+A-IA             Raspberry Pi GPIO5, physical pin 29
+A-IB             Raspberry Pi GPIO6, physical pin 31
+B-IA             Raspberry Pi GPIO13, physical pin 33
+B-IB             Raspberry Pi GPIO19, physical pin 35
+VCC / VM         Motor battery positive
+GND              Motor battery negative and Raspberry Pi GND
+Motor A output   Left DC motor
+Motor B output   Right DC motor
+
+Config:
+
+"direct_motor_control": true
+"esp32_serial_control": false
+
+
+ESP32-S3 OPTIONAL MOTOR BRIDGE
+------------------------------
+
+Use ESP32-S3 only if you want this:
+
+Raspberry Pi -> USB serial -> ESP32-S3 -> L911S -> motors
+
+Do NOT connect Raspberry Pi motor GPIO pins and ESP32-S3 motor GPIO pins to the L911S at the same time.
+
+Raspberry Pi To ESP32-S3:
+
+Raspberry Pi USB port -> ESP32-S3 USB / UART port
+
+ESP32-S3 To L911S:
+
+ESP32-S3 GPIO4 -> L911S A-IA
+ESP32-S3 GPIO5 -> L911S A-IB
+ESP32-S3 GPIO6 -> L911S B-IA
+ESP32-S3 GPIO7 -> L911S B-IB
+ESP32-S3 GND   -> L911S GND
+
+L911S power:
+
+Motor battery positive -> L911S VCC / VM
+Motor battery negative -> L911S GND
+L911S Motor A output -> Left DC motor
+L911S Motor B output -> Right DC motor
+
+ESP32-S3 firmware:
+
+rover/esp32_s3/stasis_motor_controller.ino
+
+Serial:
+
+Baud rate: 115200
+Command format: M:left_speed,right_speed
+Stop command: M:0,0
+
+Config for ESP32-S3 motor mode:
+
+"direct_motor_control": false
+"esp32_serial_control": true
+"esp32_serial_port": "/dev/ttyUSB0"
+"esp32_baudrate": 115200
+
+If Pi shows /dev/ttyACM0, use:
+
+"esp32_serial_port": "/dev/ttyACM0"
+
+
+USB WEBCAM
+----------
+
+Webcam USB cable -> Raspberry Pi USB port
+
+Check camera:
+
+ls /dev/video*
+
+Config:
+
+"camera": {
+  "enabled": true,
+  "index": 0
+}
+
+
+HC-SR04 ULTRASONIC SENSOR
+-------------------------
+
+HC-SR04 Pin      Connect To
+---------------------------
+VCC              5V
+GND              Raspberry Pi GND
+TRIG             GPIO23, physical pin 16
+ECHO             GPIO24, physical pin 18 through voltage divider / level shifter
+
+Config:
+
+"ultrasonic_enabled": true
+
+If ultrasonic is not connected, the rover skips ultrasonic and other parts continue.
+
+
+SCANNER SERVO
+-------------
+
+Servo Wire       Connect To
+---------------------------
+Signal           GPIO18, physical pin 12
+VCC              External 5V servo supply
+GND              External supply GND and Raspberry Pi GND
+
+Do not power a moving servo from Raspberry Pi 5V if it causes resets.
+
+Config:
+
+"scanner_servo_enabled": true
+
+If servo is not connected, the rover skips servo and other parts continue.
+
+
+MPU6050 IMU
+-----------
+
+MPU6050 Pin      Connect To
+---------------------------
+VCC              3.3V
+GND              Raspberry Pi GND
+SDA              GPIO2, physical pin 3
+SCL              GPIO3, physical pin 5
+
+Config:
+
+"i2c_enabled": true
+"mpu6050_enabled": true
+
+If MPU6050 is not connected, the rover skips IMU and other parts continue.
+
+
+HMC5883L / QMC5883L COMPASS
+---------------------------
+
+Compass Pin      Connect To
+---------------------------
+VCC              3.3V
+GND              Raspberry Pi GND
+SDA              GPIO2, physical pin 3
+SCL              GPIO3, physical pin 5
+
+Config:
+
+"i2c_enabled": true
+"compass_enabled": true
+
+If compass is not connected, the rover skips compass and other parts continue.
+
+
+ALL-SENSORS PROFILE
+-------------------
+
+Use this if all components may be connected, but you still want missing components to be skipped safely.
+
+On Raspberry Pi:
+
+cd ~/Documents/Stasis
+git pull origin main
+
+cd ~/Documents/Stasis/rover/rpi2b
+cp config.json config.before_all_sensors.json
+cp profiles/demo_all_sensors_pi.json config.json
+nano config.json
+
+Set server_host to Windows laptop IP:
+
+"server_host": "YOUR_WINDOWS_IP"
+
+Run:
+
+source .venv/bin/activate
+python rover_client_object_detection.py --config config.json
+
+
+WINDOWS SERVER RUN COMMANDS
+---------------------------
+
+On Windows PowerShell:
+
+cd C:\Users\haris\Downloads\Stasis-main\Stasis\server
+$env:STASIS_DETECTION_AUTHORITY="pi"
+$env:STASIS_OBJECT_REVIEW_PROVIDER="fallback"
+$env:STASIS_PI_IGNORE_LABELS=""
+$env:STASIS_PI_MIN_OBJECT_CONFIDENCE="0.20"
+$env:STASIS_PI_MIN_COMMON_OBJECT_CONFIDENCE="0.35"
+python security_rover_server_object_detection.py
+
+Open dashboard:
+
+http://WINDOWS_LAPTOP_IP:5000
+
+
+EXPECTED GOOD LOGS
+------------------
+
+Pi-side NCNN YOLO detector loaded
+Pi-side COCO object detector loaded
+Combined detector ready
+WebSocket handshake successful
+Streaming Pi webcam smoothly
+
+
+FAULT-TOLERANT BEHAVIOR
+-----------------------
+
+If ultrasonic is missing -> ultrasonic disabled, rest keeps working.
+If servo is missing -> servo disabled, rest keeps working.
+If MPU6050 is missing -> IMU disabled, rest keeps working.
+If compass is missing -> compass disabled, rest keeps working.
+If motor driver is missing -> motor output disabled, sensors/camera/object detection keep working.
+If ESP32-S3 is missing but direct Pi motors are enabled -> ESP32-S3 is not needed.
+If ESP32-S3 mode is enabled but ESP32-S3 is missing -> motor output disabled, camera/object detection keep working.
+

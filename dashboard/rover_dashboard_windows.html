@@ -1,0 +1,2160 @@
+<!doctype html>
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>STASIS Mission Control Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+      rel="stylesheet"
+    />
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      /* =============================================
+         STASIS MISSION CONTROL — DESIGN SYSTEM
+         ============================================= */
+      :root {
+        color-scheme: dark;
+        --bg: #000000;
+        --bg-soft: #0e0e0e;
+        --panel: #0e0e0e;
+        --panel-strong: #141313;
+        --surface: #201f1f;
+        --line: #444748;
+        --line-soft: rgba(68, 71, 72, 0.45);
+        --text: #ffffff;
+        --muted: #c4c7c8;
+        --soft: #8e9192;
+        --white: #ffffff;
+        --green: #8cffbd;
+        --cyan: #8bd6ff;
+        --amber: #ffd36d;
+        --red: #ffb4ab;
+        --violet: #b8a1ff;
+        --shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
+        --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+        --headline: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+        --body: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      }
+
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      body {
+        font-family: var(--body);
+        font-size: 14px;
+        line-height: 1.5;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        overflow-x: hidden;
+        cursor: default;
+      }
+
+      ::selection { background: #fff; color: #000; }
+
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: #0e0e0e; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb { background: #444748; border-radius: 4px; }
+      ::-webkit-scrollbar-thumb:hover { background: #ffffff; }
+
+      button { font: inherit; cursor: pointer; }
+
+      /* Grid overlay background */
+      .bg-grid {
+        background-image:
+          radial-gradient(circle at center, rgba(42, 42, 42, 0.4) 0%, rgba(0, 0, 0, 1) 100%),
+          linear-gradient(to right, rgba(28, 27, 27, 0.6) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(28, 27, 27, 0.6) 1px, transparent 1px);
+        background-size: 100% 100%, 32px 32px, 32px 32px;
+        background-attachment: fixed;
+      }
+
+      /* =============================================
+         LAYOUT SHELL
+         ============================================= */
+      .shell {
+        display: grid;
+        grid-template-columns: 96px minmax(0, 1fr);
+        min-height: 100vh;
+      }
+
+      /* =============================================
+         SIDEBAR
+         ============================================= */
+      .sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 28px 10px;
+        border-right: 1px solid var(--line);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 24%),
+          var(--bg-soft);
+        z-index: 50;
+      }
+
+      .brand-mark {
+        width: 76px;
+        display: grid;
+        place-items: center;
+        gap: 6px;
+        text-align: center;
+        padding-bottom: 16px;
+        border-bottom: 1px solid var(--line-soft);
+        margin-bottom: 8px;
+      }
+
+      .brand-icon {
+        font-family: "Material Symbols Outlined";
+        font-size: 1.8rem;
+        color: var(--text);
+        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.18));
+      }
+
+      .brand-caption {
+        display: grid;
+        gap: 2px;
+      }
+
+      .brand-caption strong {
+        color: var(--text);
+        font-family: var(--headline);
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .brand-caption span {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .nav-stack {
+        display: grid;
+        gap: 8px;
+        width: 100%;
+      }
+
+      .nav-pill {
+        width: 100%;
+        min-height: 58px;
+        border: 1px solid transparent;
+        border-radius: 16px;
+        background: transparent;
+        color: var(--muted);
+        display: grid;
+        place-items: center;
+        gap: 3px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        transition: all 150ms ease;
+      }
+
+      .nav-pill .icon {
+        font-family: "Material Symbols Outlined";
+        font-size: 1.35rem;
+        font-weight: 300;
+        line-height: 1;
+        transition: transform 150ms ease;
+      }
+
+      .nav-pill:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+        transform: scale(0.95);
+      }
+
+      .nav-pill:hover .icon { transform: scale(1.1); }
+
+      .nav-pill.active {
+        color: #000;
+        border-color: #fff;
+        background: #fff;
+        transform: scale(0.95);
+      }
+
+      .sidebar-spacer { flex: 1; }
+
+      .panic {
+        width: 100%;
+        min-height: 54px;
+        border: 1px solid rgba(255, 100, 109, 0.35);
+        border-radius: 16px;
+        background: rgba(255, 100, 109, 0.08);
+        color: var(--red);
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        display: grid;
+        place-items: center;
+        transition: all 150ms ease;
+      }
+
+      .panic:hover {
+        transform: translateY(-2px);
+        background: rgba(255, 100, 109, 0.22);
+        border-color: rgba(255, 100, 109, 0.6);
+      }
+
+      .sidebar-footer {
+        display: grid;
+        gap: 6px;
+        width: 100%;
+        margin-top: 8px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line-soft);
+      }
+
+      .sidebar-footer button {
+        width: 100%;
+        min-height: 40px;
+        border: none;
+        border-radius: 12px;
+        background: transparent;
+        color: var(--soft);
+        display: grid;
+        place-items: center;
+        font-family: "Material Symbols Outlined";
+        font-size: 1.1rem;
+        transition: all 150ms ease;
+      }
+
+      .sidebar-footer button:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+      }
+
+      /* =============================================
+         WORKSPACE / MAIN
+         ============================================= */
+      .workspace {
+        min-width: 0;
+        overflow-y: auto;
+        height: 100vh;
+      }
+
+      /* =============================================
+         TOP BAR
+         ============================================= */
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 40;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 14px 24px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(22px);
+      }
+
+      .topbar h1 {
+        font-family: var(--headline);
+        font-size: clamp(1rem, 2vw, 1.45rem);
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .topbar h1 .sep {
+        color: var(--soft);
+        font-weight: 400;
+        margin: 0 4px;
+      }
+
+      .topbar-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--bg-soft);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--red);
+        box-shadow: 0 0 10px var(--red);
+        animation: pulse 2s ease-in-out infinite;
+        flex-shrink: 0;
+      }
+
+      .status-dot.online {
+        background: var(--green);
+        box-shadow: 0 0 10px var(--green);
+      }
+
+      @keyframes pulse {
+        0%, 100% { opacity: 0.6; }
+        50% { opacity: 1; }
+      }
+
+      /* =============================================
+         TAB PANEL SYSTEM
+         ============================================= */
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+
+      /* =============================================
+         DASHBOARD GRID
+         ============================================= */
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: minmax(400px, 1.6fr) minmax(320px, 0.75fr);
+        gap: 18px;
+        padding: 20px 24px;
+        align-items: start;
+      }
+
+      .left-col,
+      .right-col {
+        display: grid;
+        gap: 18px;
+        min-width: 0;
+      }
+
+      .expanded-grid {
+        display: grid;
+        grid-template-columns: minmax(400px, 1fr) minmax(320px, 0.72fr);
+        gap: 18px;
+        padding: 20px 24px;
+        align-items: start;
+      }
+
+      .expanded-col {
+        display: grid;
+        gap: 18px;
+        min-width: 0;
+      }
+
+      /* =============================================
+         PANELS
+         ============================================= */
+      .panel {
+        min-width: 0;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%),
+          var(--panel);
+        box-shadow: var(--shadow);
+        overflow: hidden;
+        transition: transform 180ms ease, border-color 180ms ease;
+      }
+
+      .panel:hover {
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+      }
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--line);
+        background:
+          linear-gradient(90deg, rgba(255, 255, 255, 0.06), transparent 42%),
+          rgba(255, 255, 255, 0.025);
+      }
+
+      .panel-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        font-weight: 500;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .panel-title .material-symbols-outlined {
+        font-size: 1rem;
+        line-height: 1;
+      }
+
+      .panel-kicker {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        margin-bottom: 2px;
+      }
+
+      .panel-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border: 1px solid var(--line);
+        border-radius: 6px;
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .badge-live {
+        border-color: var(--text);
+        background: var(--text);
+        color: #000;
+        font-weight: 700;
+      }
+
+      .badge-rec { color: var(--soft); }
+
+      /* =============================================
+         CAMERA FEED
+         ============================================= */
+      .camera-frame {
+        position: relative;
+      }
+
+      .camera-feed {
+        position: relative;
+        height: min(58vh, 600px);
+        min-height: 340px;
+        overflow: hidden;
+        isolation: isolate;
+        background: #020303;
+      }
+
+      .camera-feed img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(139, 214, 255, 0.08), transparent 35%),
+          #020303;
+      }
+
+      /* Corner bracket overlay */
+      .camera-feed::before {
+        position: absolute;
+        inset: 16px;
+        pointer-events: none;
+        content: "";
+        z-index: 2;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        clip-path: polygon(
+          0 0, 12% 0, 12% 2px, 2px 2px, 2px 12%, 0 12%, 0 0,
+          100% 0, 100% 12%, calc(100% - 2px) 12%, calc(100% - 2px) 2px, 88% 2px, 88% 0, 100% 0,
+          100% 100%, 88% 100%, 88% calc(100% - 2px), calc(100% - 2px) calc(100% - 2px), calc(100% - 2px) 88%, 100% 88%, 100% 100%,
+          0 100%, 0 88%, 2px 88%, 2px calc(100% - 2px), 12% calc(100% - 2px), 12% 100%, 0 100%
+        );
+      }
+
+      /* Crosshair overlay */
+      .camera-feed::after {
+        position: absolute;
+        inset: 16px;
+        pointer-events: none;
+        content: "";
+        z-index: 2;
+        background:
+          linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+          linear-gradient(0deg, transparent calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% - 0.5px), rgba(255,255,255,0.35) calc(50% + 0.5px), transparent calc(50% + 0.5px));
+        opacity: 0.3;
+      }
+
+      /* Scanline overlay */
+      .camera-frame::after {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        content: "";
+        z-index: 3;
+        background: repeating-linear-gradient(0deg, rgba(255,255,255,0.03) 0 1px, transparent 1px 5px);
+        mix-blend-mode: screen;
+        opacity: 0.3;
+        animation: feedPulse 3s ease-in-out infinite;
+      }
+
+      @keyframes feedPulse {
+        0%, 100% { opacity: 0.25; }
+        50% { opacity: 0.45; }
+      }
+
+      .sensor-stack {
+        position: absolute;
+        top: 16px;
+        left: 16px;
+        z-index: 4;
+        display: grid;
+        gap: 5px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(14px);
+        color: rgba(255, 255, 255, 0.8);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .sensor-right {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 4;
+        display: grid;
+        gap: 5px;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(14px);
+        color: rgba(255, 255, 255, 0.8);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        text-align: right;
+        letter-spacing: 0.05em;
+      }
+
+      .hud-bottom {
+        position: absolute;
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        z-index: 4;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        gap: 12px;
+        pointer-events: none;
+      }
+
+      .hud-chip {
+        padding: 8px 10px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(12px);
+        color: rgba(255, 255, 255, 0.7);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .signal-bars {
+        display: flex;
+        align-items: flex-end;
+        gap: 3px;
+        height: 32px;
+        padding: 6px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        backdrop-filter: blur(12px);
+      }
+
+      .signal-bars i {
+        width: 4px;
+        display: block;
+        border-radius: 999px;
+        background: #fff;
+      }
+
+      .signal-bars i:nth-child(1) { height: 25%; opacity: 0.35; }
+      .signal-bars i:nth-child(2) { height: 45%; opacity: 0.55; }
+      .signal-bars i:nth-child(3) { height: 70%; opacity: 0.78; }
+      .signal-bars i:nth-child(4) { height: 100%; opacity: 1; }
+
+      .signal-label {
+        font-family: var(--mono);
+        font-size: 0.58rem;
+        color: var(--text);
+        margin-left: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        align-self: center;
+      }
+
+      /* Guidance HUD overlay on camera */
+      .tracking-hud {
+        position: absolute;
+        bottom: 56px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 5;
+        display: none;
+        align-items: center;
+        gap: 18px;
+        padding: 10px 18px;
+        border: 1px solid rgba(255, 211, 109, 0.3);
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(18px);
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .tracking-hud.visible { display: flex; }
+
+      .tracking-hud .t-label { color: var(--muted); }
+      .tracking-hud .t-name { color: var(--amber); font-weight: 700; }
+      .tracking-hud .t-dir { color: var(--text); font-weight: 700; font-size: 0.8rem; }
+      .tracking-hud .t-dist { color: var(--cyan); }
+
+      /* =============================================
+         MAP / RADAR
+         ============================================= */
+      #map {
+        position: relative;
+        width: 100%;
+        min-height: 260px;
+        aspect-ratio: 1;
+        overflow: hidden;
+        cursor: crosshair;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1), transparent 9%),
+          repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.14) 0 1px, transparent 1px 42px),
+          linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+          #050505;
+        background-size: auto, auto, 36px 36px, 36px 36px, auto;
+      }
+
+      #map::before {
+        position: absolute;
+        inset: 16px;
+        content: "";
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 999px;
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      #map::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 76%;
+        height: 1px;
+        content: "";
+        background: rgba(255, 255, 255, 0.2);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        z-index: 1;
+      }
+
+      .lidar-sweep {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        z-index: 2;
+        width: 72%;
+        aspect-ratio: 1;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+        animation: spinSweep 4s linear infinite;
+      }
+
+      .lidar-sweep::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 50%;
+        height: 1px;
+        content: "";
+        background: linear-gradient(90deg, rgba(255,255,255,0.6), transparent);
+        transform-origin: left center;
+      }
+
+      @keyframes spinSweep {
+        from { transform: translate(-50%, -50%) rotate(0deg); }
+        to { transform: translate(-50%, -50%) rotate(360deg); }
+      }
+
+      .map-compass {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        z-index: 3;
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 50%;
+        color: var(--cyan);
+        font-family: var(--mono);
+        font-weight: 800;
+        font-size: 0.75rem;
+        background: rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+      }
+
+      .map-compass::before {
+        position: absolute;
+        top: 5px;
+        width: 2px;
+        height: 14px;
+        content: "";
+        border-radius: 99px;
+        background: var(--cyan);
+      }
+
+      .map-label {
+        position: absolute;
+        z-index: 3;
+        padding: 3px 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.4);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        pointer-events: none;
+      }
+
+      .map-label.home { left: 50%; top: 50%; transform: translate(16px, -28px); }
+      .map-label.zone-a { left: 8%; top: 13%; }
+      .map-label.zone-b { right: 8%; bottom: 12%; }
+
+      .map-legend {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        z-index: 3;
+        display: grid;
+        gap: 5px;
+        padding: 7px 9px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.5);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        pointer-events: none;
+      }
+
+      .map-legend span {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .map-legend i {
+        width: 8px;
+        height: 8px;
+        display: inline-block;
+        border-radius: 50%;
+      }
+
+      /* Rover marker */
+      #rover {
+        position: absolute;
+        z-index: 5;
+        width: 18px;
+        height: 18px;
+        border: 3px solid var(--white);
+        border-radius: 50%;
+        background: #fff;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.1), 0 0 24px rgba(255, 255, 255, 0.2);
+        transition: left 0.3s ease, top 0.3s ease;
+      }
+
+      #rover::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 3px;
+        height: 28px;
+        content: "";
+        background: #fff;
+        border-radius: 999px;
+        transform: translate(-50%, -100%) rotate(var(--yaw, 0deg));
+        transform-origin: 50% 100%;
+      }
+
+      #rover::before {
+        position: absolute;
+        left: 50%;
+        top: -20px;
+        width: 0;
+        height: 0;
+        content: "";
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-bottom: 9px solid #fff;
+        transform: translateX(-50%) rotate(var(--yaw, 0deg));
+        transform-origin: 50% 29px;
+      }
+
+      /* Goal marker */
+      #goal, #trackedTarget {
+        position: absolute;
+        z-index: 4;
+        display: none;
+        border-radius: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+
+      #goal {
+        width: 22px;
+        height: 22px;
+        border: 2px solid var(--amber);
+      }
+
+      #goal::before, #goal::after {
+        position: absolute;
+        content: "";
+        background: var(--amber);
+      }
+
+      #goal::before {
+        left: 50%;
+        top: -6px;
+        width: 2px;
+        height: 30px;
+      }
+
+      #goal::after {
+        left: -6px;
+        top: 50%;
+        width: 30px;
+        height: 2px;
+      }
+
+      #trackedTarget {
+        width: 28px;
+        height: 28px;
+        border: 3px solid var(--amber);
+        box-shadow: 0 0 0 7px rgba(255, 211, 109, 0.15);
+        animation: targetPulse 1.5s ease-in-out infinite;
+      }
+
+      #trackedTarget::after {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 7px;
+        height: 7px;
+        content: "";
+        border-radius: 50%;
+        background: var(--amber);
+        transform: translate(-50%, -50%);
+      }
+
+      @keyframes targetPulse {
+        0%, 100% { box-shadow: 0 0 0 7px rgba(255, 211, 109, 0.15); }
+        50% { box-shadow: 0 0 0 14px rgba(255, 211, 109, 0.08); }
+      }
+
+      /* Alert dots on map */
+      .map-alert-dot {
+        position: absolute;
+        z-index: 4;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        border-radius: 50%;
+        background: var(--cyan);
+        cursor: pointer;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 5px rgba(139, 214, 255, 0.15);
+        transition: transform 160ms ease, box-shadow 160ms ease;
+      }
+
+      .map-alert-dot:hover {
+        transform: translate(-50%, -50%) scale(1.2);
+        box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.1);
+      }
+
+      .map-alert-dot.human {
+        z-index: 5;
+        width: 26px;
+        height: 26px;
+        border-color: var(--amber);
+        background: var(--red);
+        box-shadow: 0 0 0 8px rgba(255, 100, 109, 0.15);
+      }
+
+      .map-alert-dot.animal { background: var(--green); box-shadow: 0 0 0 5px rgba(140, 255, 189, 0.15); }
+      .map-alert-dot.marker { background: var(--violet); box-shadow: 0 0 0 5px rgba(184, 161, 255, 0.15); }
+      .map-alert-dot.object { background: var(--cyan); }
+
+      /* =============================================
+         GUIDANCE / METRICS
+         ============================================= */
+      .guidance-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 12px;
+      }
+
+      .guidance-box {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 10px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 50%), rgba(0,0,0,0.2);
+      }
+
+      .metric-label {
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .metric-value {
+        margin-top: 5px;
+        font-family: var(--headline);
+        font-size: 1rem;
+        font-weight: 700;
+        overflow-wrap: anywhere;
+      }
+
+      #guidanceDirection { color: var(--amber); }
+
+      .status-row {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 12px;
+      }
+
+      /* =============================================
+         COMMAND CONTROLS
+         ============================================= */
+      .command-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+        padding: 12px;
+      }
+
+      .cmd-btn {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--bg-soft);
+        color: var(--text);
+        padding: 10px 8px;
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: all 160ms ease;
+      }
+
+      .cmd-btn .material-symbols-outlined {
+        font-size: 0.9rem;
+        line-height: 1;
+      }
+
+      .cmd-btn:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.3);
+        background: #353434;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.3);
+      }
+
+      .cmd-btn.start {
+        color: #000;
+        border-color: transparent;
+        background: #fff;
+        font-weight: 700;
+      }
+
+      .cmd-btn.start:hover {
+        background: #e0e0e0;
+        color: #000;
+      }
+
+      .cmd-btn.stop {
+        color: #fff5f6;
+        border-color: rgba(255, 100, 109, 0.5);
+        background: rgba(255, 100, 109, 0.18);
+      }
+
+      .cmd-btn.stop:hover {
+        background: rgba(255, 100, 109, 0.32);
+      }
+
+      /* =============================================
+         EVENT LOG
+         ============================================= */
+      .event-log {
+        max-height: 320px;
+        overflow-y: auto;
+        padding: 12px;
+        display: grid;
+        gap: 8px;
+      }
+
+      .log-entry {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        border-left: 2px solid var(--line);
+        padding-left: 10px;
+        opacity: 0.7;
+        animation: riseIn 260ms ease both;
+      }
+
+      .log-entry.alert-entry {
+        border-left-color: var(--text);
+        opacity: 1;
+        background: rgba(255, 255, 255, 0.03);
+        padding: 8px 10px;
+        border-radius: 0 10px 10px 0;
+      }
+
+      .log-entry .log-time {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding-top: 1px;
+      }
+
+      .log-entry .log-msg {
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+
+      .log-entry.alert-entry .log-msg { font-weight: 700; }
+
+      .log-cursor {
+        display: flex;
+        align-items: center;
+        padding-left: 12px;
+        padding-top: 4px;
+      }
+
+      .log-cursor span {
+        width: 2px;
+        height: 14px;
+        border-radius: 2px;
+        background: var(--text);
+        animation: pulse 1s ease-in-out infinite;
+      }
+
+      .log-hint {
+        margin: 0 12px 12px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.02);
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      @keyframes riseIn {
+        from { opacity: 0; transform: translateY(6px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* =============================================
+         ALERTS TAB
+         ============================================= */
+      .alerts-list {
+        display: grid;
+        gap: 12px;
+        padding: 14px;
+        max-height: 600px;
+        overflow: auto;
+      }
+
+      .alert-card {
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 42%), rgba(0,0,0,0.24);
+        overflow: hidden;
+        animation: riseIn 260ms ease both;
+      }
+
+      .alert-card img {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        object-fit: cover;
+        background: #020303;
+      }
+
+      .alert-card .category-tag {
+        display: inline-block;
+        margin: 10px 12px 0;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 3px 9px;
+        color: var(--green);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        text-transform: uppercase;
+      }
+
+      .alert-card p {
+        padding: 8px 12px;
+        color: #e7edf4;
+        line-height: 1.4;
+      }
+
+      .track-alert {
+        display: inline-block;
+        margin: 0 12px 12px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 14px;
+        background: var(--bg-soft);
+        color: var(--amber);
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        transition: all 160ms ease;
+      }
+
+      .track-alert:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 211, 109, 0.4);
+        background: #353434;
+      }
+
+      .decision-actions {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 6px;
+        margin: 0 12px 12px;
+      }
+
+      .decision-actions button {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 6px;
+        background: var(--bg-soft);
+        color: var(--text);
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        transition: all 160ms ease;
+      }
+
+      .decision-actions button:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.3);
+        background: #353434;
+      }
+
+      /* Debug panel */
+      .debug-list {
+        display: grid;
+        gap: 8px;
+        padding: 14px;
+        max-height: 400px;
+        overflow: auto;
+      }
+
+      .debug-row {
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 8px 10px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        background: linear-gradient(135deg, rgba(255,255,255,0.03), transparent 42%), rgba(0,0,0,0.2);
+      }
+
+      .debug-row.accepted {
+        border-color: rgba(140, 255, 189, 0.3);
+        color: var(--text);
+      }
+
+      /* Scan results */
+      .scan-panel table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--mono);
+        font-size: 0.82rem;
+      }
+
+      .scan-panel th,
+      .scan-panel td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 14px;
+        text-align: left;
+      }
+
+      .scan-panel th {
+        color: var(--muted);
+        font-weight: 700;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+      }
+
+      .scan-panel tbody tr:last-child td {
+        border-bottom: 0;
+      }
+
+      /* =============================================
+         RESPONSIVE
+         ============================================= */
+      @media (max-width: 1100px) {
+        .dashboard-grid,
+        .expanded-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .camera-feed {
+          height: 50vh;
+        }
+      }
+
+      @media (max-width: 760px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .sidebar {
+          position: static;
+          height: auto;
+          flex-direction: row;
+          justify-content: space-between;
+          padding: 10px;
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .brand-mark {
+          width: 54px;
+          border-bottom: 0;
+          padding-bottom: 0;
+          margin-bottom: 0;
+        }
+
+        .nav-stack {
+          display: flex;
+          width: auto;
+        }
+
+        .nav-pill { width: 52px; min-height: 48px; }
+        .sidebar-spacer { display: none; }
+        .panic { width: 54px; min-height: 48px; }
+        .sidebar-footer { display: none; }
+
+        .topbar {
+          position: static;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .topbar-meta { justify-content: flex-start; }
+
+        .camera-feed {
+          height: 42vh;
+          min-height: 260px;
+        }
+
+        .command-grid,
+        .guidance-grid,
+        .status-row {
+          grid-template-columns: 1fr;
+        }
+
+        .dashboard-grid { padding: 12px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <!-- ==========================================
+           SIDEBAR NAVIGATION
+           ========================================== -->
+      <aside class="sidebar" aria-label="Mission navigation">
+        <div class="brand-mark">
+          <span class="brand-icon" aria-label="Mission Control Unit">satellite_alt</span>
+          <div class="brand-caption">
+            <strong>CONTROL</strong>
+            <span>V-0.9.4</span>
+          </div>
+        </div>
+
+        <div class="nav-stack">
+          <button class="nav-pill active" type="button" data-tab="live">
+            <span class="icon">explore</span>LIVE
+          </button>
+          <button class="nav-pill" type="button" data-tab="map">
+            <span class="icon">radar</span>MAP
+          </button>
+          <button class="nav-pill" type="button" data-tab="alerts">
+            <span class="icon">analytics</span>LOG
+          </button>
+        </div>
+
+        <div class="sidebar-spacer"></div>
+
+        <button id="stopRoverSide" class="panic" type="button" title="Emergency Stop">
+          <span class="material-symbols-outlined" style="font-size:1.2rem;margin-bottom:2px;">warning</span>
+          STOP
+        </button>
+
+        <div class="sidebar-footer">
+          <button type="button" title="Settings"><span>settings</span></button>
+          <button type="button" title="Logout"><span>logout</span></button>
+        </div>
+      </aside>
+
+      <!-- ==========================================
+           MAIN WORKSPACE
+           ========================================== -->
+      <main class="workspace bg-grid">
+        <!-- Top Status Bar -->
+        <header class="topbar">
+          <h1>STASIS <span class="sep">///</span> MISSION CONTROL</h1>
+          <div class="topbar-meta">
+            <div class="chip">
+              <div id="statusDot" class="status-dot"></div>
+              <span id="status">offline</span>
+            </div>
+            <div class="chip">
+              <strong style="color:#fff;font-weight:700;">ROVER</strong>&nbsp;ALPHA-7&nbsp;[&nbsp;<span id="roverStatusTop">NOMINAL</span>&nbsp;]
+            </div>
+            <div class="chip">
+              SYS TIME: <span id="sys-time" style="color:#fff;font-weight:600;">00:00:00</span>
+            </div>
+          </div>
+        </header>
+
+        <!-- ========================================
+             TAB: LIVE DASHBOARD (Camera + State + Controls)
+             ======================================== -->
+        <div id="liveTab" class="tab-panel active">
+          <div class="dashboard-grid">
+            <!-- LEFT COLUMN: Camera Feed -->
+            <section class="left-col">
+              <section class="panel camera-frame" aria-label="Live rover camera">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Primary Sensor</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">videocam</span>
+                      CAM_FRONT_MAIN
+                    </h2>
+                  </div>
+                  <div style="display:flex;gap:6px;">
+                    <span class="panel-badge badge-rec">REC</span>
+                    <span class="panel-badge badge-live">LIVE</span>
+                  </div>
+                </div>
+                <div class="camera-feed">
+                  <img id="cameraFeed" src="" alt="Raspberry Pi webcam feed" />
+                  <!-- HUD: Top Left -->
+                  <div class="sensor-stack">
+                    <span>CAM_FRONT_MAIN</span>
+                    <span>DETECT: PI AUTHORITY</span>
+                    <span>TRACK: BBOX GUIDANCE</span>
+                  </div>
+                  <!-- HUD: Top Right -->
+                  <div class="sensor-right">
+                    <span>TEMP: -42°C</span>
+                    <span>RAD: 0.14 µSv/h</span>
+                  </div>
+                  <!-- HUD: Bottom -->
+                  <div class="hud-bottom">
+                    <div class="hud-chip">
+                      <div>LINK: WebSocket</div>
+                      <div style="margin-top:2px;">STREAM: MJPEG</div>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;gap:8px;">
+                      <div class="signal-bars" aria-hidden="true">
+                        <i></i><i></i><i></i><i></i>
+                        <span class="signal-label">SIG</span>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Tracking HUD (appears when target is tracked) -->
+                  <div id="trackingHud" class="tracking-hud">
+                    <span class="t-label">TRK:</span>
+                    <span id="hudTrackName" class="t-name">--</span>
+                    <span class="t-label">|</span>
+                    <span id="hudTrackDir" class="t-dir">--</span>
+                    <span class="t-label">|</span>
+                    <span id="hudTrackDist" class="t-dist">-- cm</span>
+                  </div>
+                </div>
+              </section>
+            </section>
+
+            <!-- RIGHT COLUMN: State + Controls -->
+            <section class="right-col">
+              <!-- Rover State Panel -->
+              <section class="panel" aria-label="Rover status">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Health</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">memory</span>
+                      Rover State
+                    </h2>
+                  </div>
+                </div>
+                <div class="status-row">
+                  <div class="guidance-box">
+                    <span class="metric-label">Mode</span>
+                    <div id="roverStatus" class="metric-value">waiting</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Home Range</span>
+                    <div class="metric-value"><span id="homeDistance">0</span> cm</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Marker</span>
+                    <div class="metric-value">green strip</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Command Override Panel -->
+              <section class="panel" aria-label="Rover commands">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Override</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">tune</span>
+                      Command Override
+                    </h2>
+                  </div>
+                </div>
+                <div class="command-grid">
+                  <button id="startRobot" class="cmd-btn start" type="button">
+                    <span class="material-symbols-outlined">play_arrow</span> Start
+                  </button>
+                  <button id="stopRover" class="cmd-btn stop" type="button">
+                    <span class="material-symbols-outlined">stop</span> Stop
+                  </button>
+                  <button id="returnHome" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">home</span> Return
+                  </button>
+                  <button id="scanArea" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">travel_explore</span> Scan
+                  </button>
+                  <button id="searchGreenStrip" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">texture</span> Find Strip
+                  </button>
+                  <button id="goToGreenStrip" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">near_me</span> Go Strip
+                  </button>
+                </div>
+              </section>
+            </section>
+          </div>
+        </div>
+
+        <!-- ========================================
+             TAB: MAP (Map + Guidance + Scan Results)
+             ======================================== -->
+        <div id="mapTab" class="tab-panel">
+          <div class="expanded-grid">
+            <section class="expanded-col">
+              <!-- Full Map Panel -->
+              <section class="panel" aria-label="Rover map panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Navigation</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">map</span>
+                      Target Board
+                    </h2>
+                  </div>
+                </div>
+                <div id="map" aria-label="Rover map">
+                  <div class="map-compass">N</div>
+                  <div class="lidar-sweep"></div>
+                  <div class="map-label home">home</div>
+                  <div class="map-label zone-a">scan zone</div>
+                  <div class="map-label zone-b">strip zone</div>
+                  <div class="map-legend">
+                    <span><i style="background:var(--red)"></i>human</span>
+                    <span><i style="background:var(--green)"></i>animal</span>
+                    <span><i style="background:var(--cyan)"></i>object</span>
+                    <span><i style="background:var(--violet)"></i>marker</span>
+                  </div>
+                  <div id="goal"></div>
+                  <div id="trackedTarget"></div>
+                  <div id="rover"></div>
+                </div>
+              </section>
+            </section>
+            <section class="expanded-col">
+              <!-- Tracking Guidance Panel -->
+              <section class="panel" aria-label="Tracking guidance" aria-live="polite">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Target</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">explore</span>
+                      Tracking Guidance
+                    </h2>
+                  </div>
+                </div>
+                <div class="guidance-grid">
+                  <div class="guidance-box">
+                    <span class="metric-label">Target</span>
+                    <div id="trackingName" class="metric-value">none</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Direction</span>
+                    <div id="guidanceDirection" class="metric-value">select a human alert</div>
+                  </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Distance</span>
+                    <div class="metric-value"><span id="guidanceDistance">--</span> cm</div>
+                  </div>
+                </div>
+              </section>
+              <!-- Scan Results Panel -->
+              <section class="panel scan-panel" aria-label="Ultrasonic scan results">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Rangefinder</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">sensors</span>
+                      Scan Results
+                    </h2>
+                  </div>
+                </div>
+                <table>
+                  <thead>
+                    <tr><th>Scan point</th><th>Distance</th></tr>
+                  </thead>
+                  <tbody id="scanResults">
+                    <tr><td colspan="2">No scan yet</td></tr>
+                  </tbody>
+                </table>
+              </section>
+            </section>
+          </div>
+        </div>
+
+        <!-- ========================================
+             TAB: LOG (Event Log + Alerts + Debug)
+             ======================================== -->
+        <div id="alertsTab" class="tab-panel">
+          <div class="expanded-grid">
+            <section class="expanded-col">
+              <!-- Event Log -->
+              <section class="panel" aria-label="Event log">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">System</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">terminal</span>
+                      Event Log
+                    </h2>
+                  </div>
+                  <span class="panel-badge">AUTO-SCROLL</span>
+                </div>
+                <div id="eventLog" class="event-log" style="max-height:360px;">
+                  <div class="log-entry">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-msg">SYSTEM INITIALIZED. AWAITING CONNECTION.</span>
+                  </div>
+                  <div class="log-cursor"><span></span></div>
+                </div>
+                <div class="log-hint">TARGET EVENTS STREAM HERE</div>
+              </section>
+              <!-- Alert History -->
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Events</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">notifications</span>
+                      Alert History
+                    </h2>
+                  </div>
+                </div>
+                <div id="alerts" class="alerts-list"></div>
+                <div class="log-hint">AUTO-SCROLL ACTIVE / TARGET EVENTS STREAM HERE</div>
+              </section>
+            </section>
+            <section class="expanded-col">
+              <section class="panel">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Perception</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">analytics</span>
+                      Detection Debug
+                    </h2>
+                  </div>
+                </div>
+                <div id="detectionDebug" class="debug-list"></div>
+              </section>
+            </section>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- ==========================================
+         JAVASCRIPT — FULL FUNCTIONAL INTEGRATION
+         ========================================== -->
+    <script>
+      /* =============================================
+         CONFIGURATION — Auto-detect standalone vs. Flask-served
+         ============================================= */
+      const WINDOWS_LAPTOP_IP = "<WINDOWS_LAPTOP_IP>";
+      const isStandalone = window.location.protocol === "file:";
+      const serverBase = isStandalone ? `http://${WINDOWS_LAPTOP_IP}:5000` : "";
+      const socket = isStandalone && !WINDOWS_LAPTOP_IP.includes("<")
+        ? io(`${serverBase}`)
+        : io();
+
+      /* =============================================
+         DOM REFERENCES
+         ============================================= */
+      const navTabs = Array.from(document.querySelectorAll("[data-tab]"));
+      const panels = {
+        live: document.getElementById("liveTab"),
+        map: document.getElementById("mapTab"),
+        alerts: document.getElementById("alertsTab"),
+      };
+
+      const statusEl = document.getElementById("status");
+      const statusDot = document.getElementById("statusDot");
+      const mapEl = document.getElementById("map");
+      const roverEl = document.getElementById("rover");
+      const goalEl = document.getElementById("goal");
+      const trackedTargetEl = document.getElementById("trackedTarget");
+      const alertsEl = document.getElementById("alerts");
+      const eventLogEl = document.getElementById("eventLog");
+      const trackingNameEl = document.getElementById("trackingName");
+      const guidanceDirectionEl = document.getElementById("guidanceDirection");
+      const guidanceDistanceEl = document.getElementById("guidanceDistance");
+      const homeDistanceEl = document.getElementById("homeDistance");
+      const roverStatusEl = document.getElementById("roverStatus");
+      const roverStatusTopEl = document.getElementById("roverStatusTop");
+      const scanResultsEl = document.getElementById("scanResults");
+      const detectionDebugEl = document.getElementById("detectionDebug");
+      const cameraFeed = document.getElementById("cameraFeed");
+
+      const startRobotBtn = document.getElementById("startRobot");
+      const stopRoverBtn = document.getElementById("stopRover");
+      const stopRoverSideBtn = document.getElementById("stopRoverSide");
+      const returnHomeBtn = document.getElementById("returnHome");
+      const scanAreaBtn = document.getElementById("scanArea");
+      const searchGreenStripBtn = document.getElementById("searchGreenStrip");
+      const goToGreenStripBtn = document.getElementById("goToGreenStrip");
+
+      const trackingHud = document.getElementById("trackingHud");
+      const hudTrackName = document.getElementById("hudTrackName");
+      const hudTrackDir = document.getElementById("hudTrackDir");
+      const hudTrackDist = document.getElementById("hudTrackDist");
+
+      /* =============================================
+         STATE
+         ============================================= */
+      const mapSize = 800;
+      let roverPose = { x: 400, y: 400, yaw: 0 };
+      let trackedAlert = null;
+      let lastSpokenGuidance = "";
+      const mapAlertDots = [];
+
+      /* =============================================
+         CAMERA FEED
+         ============================================= */
+      const cameraUrl = isStandalone
+        ? `${serverBase}/camera.mjpg`
+        : "/camera.mjpg";
+      if (!WINDOWS_LAPTOP_IP.includes("<") || !isStandalone) {
+        cameraFeed.src = cameraUrl;
+      }
+
+      /* =============================================
+         TAB NAVIGATION
+         ============================================= */
+      function setTab(tab) {
+        for (const button of navTabs) {
+          button.classList.toggle("active", button.dataset.tab === tab);
+        }
+        for (const [name, panel] of Object.entries(panels)) {
+          panel.classList.toggle("active", name === tab);
+        }
+        renderPose();
+      }
+
+      for (const button of navTabs) {
+        button.addEventListener("click", () => setTab(button.dataset.tab));
+      }
+
+      /* =============================================
+         MAP: POSITION MARKERS
+         ============================================= */
+      function positionMarker(marker, x, y) {
+        marker.style.left = `${(x / mapSize) * 100}%`;
+        marker.style.top = `${(y / mapSize) * 100}%`;
+      }
+
+      function renderPose() {
+        positionMarker(roverEl, roverPose.x, roverPose.y);
+        roverEl.style.setProperty("--yaw", `${roverPose.yaw || 0}deg`);
+        homeDistanceEl.textContent = Math.round(roverPose.distance_from_home || 0);
+        if (roverPose.mode) {
+          roverStatusEl.textContent = `mode: ${roverPose.mode}`;
+        }
+        updateGuidance(false);
+      }
+
+      /* =============================================
+         MAP: ALERT DOTS
+         ============================================= */
+      function addMapAlertDot(alert, x, y) {
+        const dot = document.createElement("button");
+        dot.type = "button";
+        dot.className = `map-alert-dot ${alert.category || "object"}`;
+        dot.title = `${alert.label || alert.category || "event"}: ${alert.message || "detected"}`;
+        dot.setAttribute("aria-label", dot.title);
+        positionMarker(dot, x, y);
+        dot.addEventListener("click", (event) => {
+          event.stopPropagation();
+          setTrackedAlert({ ...alert, x, y }, true);
+        });
+        mapEl.append(dot);
+        mapAlertDots.push(dot);
+        if (mapAlertDots.length > 18) {
+          mapAlertDots.shift().remove();
+        }
+      }
+
+      /* =============================================
+         MAP: CLICK TO SET GOAL
+         ============================================= */
+      mapEl.addEventListener("click", (event) => {
+        const rect = mapEl.getBoundingClientRect();
+        const x = Math.round(((event.clientX - rect.left) / rect.width) * mapSize);
+        const y = Math.round(((event.clientY - rect.top) / rect.height) * mapSize);
+        positionMarker(goalEl, x, y);
+        goalEl.style.display = "block";
+        socket.emit("set_goal", { x, y });
+        addLogEntry("GOAL SET: [" + x + ", " + y + "]");
+      });
+
+      /* =============================================
+         TRACKING & GUIDANCE
+         ============================================= */
+      function setTrackedAlert(alert, focusMap) {
+        trackedAlert = alert;
+        roverStatusEl.textContent =
+          alert.category === "human" ? "human target selected" : `${alert.category || "event"} target selected`;
+        updateStatusTop();
+        updateGuidance(false);
+        socket.emit("track_target", {
+          id: alert.id || "",
+          category: alert.category || "event",
+          label: alert.label || "",
+          x: alert.x,
+          y: alert.y,
+          guidance: alert.guidance || {},
+        });
+        if (focusMap) {
+          setTab("map");
+        }
+      }
+
+      function normalizeTurn(value) {
+        let turn = value;
+        while (turn > Math.PI) turn -= Math.PI * 2;
+        while (turn < -Math.PI) turn += Math.PI * 2;
+        return turn;
+      }
+
+      function guidanceTextForTarget(target) {
+        if (target.guidance && target.guidance.direction) {
+          const distance = Number(target.guidance.forward_cm || target.guidance.distance_cm || 0);
+          return { distance: Math.max(0, Math.round(distance)), direction: target.guidance.direction };
+        }
+        const dx = target.x - roverPose.x;
+        const dy = target.y - roverPose.y;
+        const distance = Math.max(0, Math.round(Math.hypot(dx, dy)));
+
+        if (distance <= 25) {
+          return { distance, direction: `${target.category || "target"} nearby` };
+        }
+
+        const targetBearing = Math.atan2(dy, dx);
+        const roverBearing = ((Number(roverPose.yaw) || 0) * Math.PI) / 180;
+        const turn = normalizeTurn(targetBearing - roverBearing);
+
+        if (Math.abs(turn) <= 0.44) return { distance, direction: "move forward" };
+        if (Math.abs(turn) >= 2.53) return { distance, direction: "turn back" };
+        return { distance, direction: turn > 0 ? "move right" : "move left" };
+      }
+
+      function speakGuidance(text) {
+        if (text === lastSpokenGuidance || !("speechSynthesis" in window)) return;
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+        lastSpokenGuidance = text;
+      }
+
+      function updateGuidance(shouldSpeak) {
+        if (!trackedAlert) {
+          trackedTargetEl.style.display = "none";
+          trackingNameEl.textContent = "none";
+          guidanceDirectionEl.textContent = "select a human alert";
+          guidanceDistanceEl.textContent = "--";
+          trackingHud.classList.remove("visible");
+          return;
+        }
+
+        positionMarker(trackedTargetEl, trackedAlert.x, trackedAlert.y);
+        trackedTargetEl.style.display = "block";
+
+        const guidance = guidanceTextForTarget(trackedAlert);
+        trackingNameEl.textContent = trackedAlert.label || trackedAlert.category || "event";
+        guidanceDirectionEl.textContent = guidance.direction;
+        guidanceDistanceEl.textContent = guidance.distance;
+
+        // HUD overlay on camera
+        hudTrackName.textContent = trackedAlert.label || trackedAlert.category || "event";
+        hudTrackDir.textContent = guidance.direction;
+        hudTrackDist.textContent = guidance.distance + " cm";
+        trackingHud.classList.add("visible");
+
+        if (shouldSpeak) {
+          speakGuidance(`${guidance.direction}. ${guidance.distance} centimeters.`);
+        }
+      }
+
+      /* =============================================
+         SCAN RESULTS
+         ============================================= */
+      function scanPointLabel(angle) {
+        const value = Number(angle);
+        if (!Number.isFinite(value)) return "scan point";
+        if (value < 60) return "left side";
+        if (value > 120) return "right side";
+        return "front side";
+      }
+
+      function renderScan(scan) {
+        const points = Array.isArray(scan.data) ? scan.data : [];
+        scanResultsEl.textContent = "";
+
+        if (!points.length) {
+          const row = document.createElement("tr");
+          const cell = document.createElement("td");
+          cell.colSpan = 2;
+          cell.textContent = "No scan yet";
+          row.append(cell);
+          scanResultsEl.append(row);
+          return;
+        }
+
+        for (const point of points) {
+          const row = document.createElement("tr");
+          const angle = document.createElement("td");
+          const distance = document.createElement("td");
+          angle.textContent = scanPointLabel(point.angle);
+          distance.textContent = point.distance < 0 ? "No echo" : `${Math.round(point.distance)} cm`;
+          row.append(angle, distance);
+          scanResultsEl.append(row);
+        }
+      }
+
+      /* =============================================
+         DETECTION DEBUG
+         ============================================= */
+      function renderDetectionDebug(payload) {
+        const detections = Array.isArray(payload.detections) ? payload.detections.slice(-8).reverse() : [];
+        detectionDebugEl.textContent = "";
+        if (!detections.length) {
+          const empty = document.createElement("div");
+          empty.className = "debug-row";
+          empty.textContent = "No detections yet";
+          detectionDebugEl.append(empty);
+          return;
+        }
+        for (const detection of detections) {
+          const row = document.createElement("div");
+          row.className = `debug-row ${detection.accepted ? "accepted" : ""}`;
+          const confidence = Number(detection.confidence || 0);
+          const percent = confidence > 1 ? confidence : confidence * 100;
+          row.textContent = `${detection.accepted ? "accepted" : "filtered"} - ${detection.label || detection.category} ${Math.round(percent)}% (${detection.reason || "seen"})`;
+          detectionDebugEl.append(row);
+        }
+      }
+
+      /* =============================================
+         HUMAN DECISION
+         ============================================= */
+      function sendHumanDecision(action) {
+        socket.emit("human_decision", { action });
+        addLogEntry(`HUMAN DECISION: ${action.toUpperCase()}`);
+      }
+
+      /* =============================================
+         EVENT LOG (inline mini-log on live tab)
+         ============================================= */
+      function addLogEntry(message, isAlert) {
+        const cursor = eventLogEl.querySelector(".log-cursor");
+        const entry = document.createElement("div");
+        entry.className = "log-entry" + (isAlert ? " alert-entry" : "");
+
+        const time = document.createElement("span");
+        time.className = "log-time";
+        time.textContent = new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+
+        const msg = document.createElement("span");
+        msg.className = "log-msg";
+        msg.textContent = message;
+
+        entry.append(time, msg);
+
+        if (cursor) {
+          eventLogEl.insertBefore(entry, cursor);
+        } else {
+          eventLogEl.append(entry);
+        }
+
+        // Keep log limited
+        const entries = eventLogEl.querySelectorAll(".log-entry");
+        if (entries.length > 50) {
+          entries[0].remove();
+        }
+
+        eventLogEl.scrollTop = eventLogEl.scrollHeight;
+      }
+
+      function updateStatusTop() {
+        const text = roverStatusEl.textContent;
+        roverStatusTopEl.textContent = text.length > 20 ? text.substring(0, 20) + "…" : text;
+      }
+
+      /* =============================================
+         SOCKET.IO EVENT HANDLERS
+         ============================================= */
+      socket.on("connect", () => {
+        statusEl.textContent = "online";
+        statusDot.classList.add("online");
+        addLogEntry("CONNECTION ESTABLISHED.");
+      });
+
+      socket.on("disconnect", () => {
+        statusEl.textContent = "offline";
+        statusDot.classList.remove("online");
+        addLogEntry("CONNECTION LOST.", true);
+      });
+
+      socket.on("rover_position", (pose) => {
+        roverPose = pose;
+        renderPose();
+      });
+
+      socket.on("scan_data", renderScan);
+      socket.on("detection_debug", renderDetectionDebug);
+
+      socket.on("rover_status", (payload) => {
+        roverStatusEl.textContent = payload.message
+          ? `${payload.status}: ${payload.message}`
+          : payload.status || "waiting";
+        updateStatusTop();
+        addLogEntry(`STATUS: ${roverStatusEl.textContent.toUpperCase()}`);
+      });
+
+      socket.on("marker_seen", (marker) => {
+        roverStatusEl.textContent = `marker seen: ${marker.name}`;
+        updateStatusTop();
+        addLogEntry(`MARKER SEEN: ${marker.name}`, true);
+      });
+
+      socket.on("marker_error", (payload) => {
+        roverStatusEl.textContent = payload.message || `Marker not found: ${payload.marker}`;
+        updateStatusTop();
+        addLogEntry(`MARKER ERROR: ${roverStatusEl.textContent.toUpperCase()}`);
+      });
+
+      socket.on("new_alert", (alert) => {
+        // === Full Alert Card (Alerts Tab) ===
+        const item = document.createElement("article");
+        item.className = "alert-card";
+
+        const img = document.createElement("img");
+        img.src = isStandalone
+          ? (alert.image_path.startsWith("http") ? alert.image_path : `${serverBase}/${alert.image_path}`)
+          : `/${alert.image_path}`;
+        img.alt = "Alert snapshot";
+
+        const category = document.createElement("span");
+        category.className = "category-tag";
+        category.textContent = alert.category || "event";
+
+        const message = document.createElement("p");
+        message.textContent = alert.message || "Activity detected";
+
+        item.append(img, category, message);
+
+        const x = Number(alert.x);
+        const y = Number(alert.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) {
+          addMapAlertDot(alert, x, y);
+          const trackButton = document.createElement("button");
+          trackButton.className = "track-alert";
+          trackButton.type = "button";
+          trackButton.textContent = "Track";
+          trackButton.addEventListener("click", () => {
+            setTrackedAlert({ ...alert, x, y }, true);
+          });
+          item.append(trackButton);
+        }
+
+        if (alert.category === "human") {
+          roverStatusEl.textContent = "human detected - choose action";
+          updateStatusTop();
+          const decisions = document.createElement("div");
+          decisions.className = "decision-actions";
+          const follow = document.createElement("button");
+          const stay = document.createElement("button");
+          const resume = document.createElement("button");
+          follow.type = stay.type = resume.type = "button";
+          follow.textContent = "Follow";
+          stay.textContent = "Stay";
+          resume.textContent = "Resume";
+          follow.addEventListener("click", () => sendHumanDecision("follow"));
+          stay.addEventListener("click", () => sendHumanDecision("stay_stopped"));
+          resume.addEventListener("click", () => sendHumanDecision("resume_patrol"));
+          decisions.append(follow, stay, resume);
+          item.append(decisions);
+        }
+
+        alertsEl.prepend(item);
+
+        // === Inline Event Log Entry (Live Tab) ===
+        const logMsg = alert.category === "human"
+          ? `HUMAN DETECTED: ${alert.message || "Activity detected"}`
+          : `ALERT: ${(alert.category || "event").toUpperCase()} - ${alert.message || "Activity detected"}`;
+        addLogEntry(logMsg, true);
+      });
+
+      /* =============================================
+         BUTTON HANDLERS
+         ============================================= */
+      startRobotBtn.addEventListener("click", () => {
+        roverStatusEl.textContent = "robot started - scanning";
+        updateStatusTop();
+        socket.emit("human_decision", { action: "resume_patrol" });
+        socket.emit("request_scan");
+        addLogEntry("COMMAND: START ROBOT");
+      });
+
+      function stopRover() {
+        socket.emit("stop_rover");
+        addLogEntry("COMMAND: EMERGENCY STOP", true);
+      }
+
+      stopRoverBtn.addEventListener("click", stopRover);
+      stopRoverSideBtn.addEventListener("click", stopRover);
+
+      returnHomeBtn.addEventListener("click", () => {
+        socket.emit("return_home");
+        addLogEntry("COMMAND: RETURN TO BASE");
+      });
+
+      scanAreaBtn.addEventListener("click", () => {
+        socket.emit("request_scan");
+        addLogEntry("COMMAND: SCAN AREA");
+      });
+
+      searchGreenStripBtn.addEventListener("click", () => {
+        socket.emit("search_marker", { marker: "green_strip" });
+        addLogEntry("COMMAND: SEARCH GREEN STRIP");
+      });
+
+      goToGreenStripBtn.addEventListener("click", () => {
+        socket.emit("go_to_marker", { marker: "green_strip" });
+        addLogEntry("COMMAND: GO TO GREEN STRIP");
+      });
+
+      /* =============================================
+         SYSTEM CLOCK
+         ============================================= */
+      function updateClock() {
+        const node = document.getElementById("sys-time");
+        if (!node) return;
+        node.textContent = new Date().toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+
+      setInterval(updateClock, 1000);
+      updateClock();
+      renderPose();
+    </script>
+  </body>
+</html>

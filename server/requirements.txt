@@ -1,0 +1,12 @@
+flask
+flask-socketio
+simple-websocket
+opencv-python
+pillow
+requests
+torch
+torchvision
+transformers>=4.53.0
+accelerate
+sentencepiece
+protobuf

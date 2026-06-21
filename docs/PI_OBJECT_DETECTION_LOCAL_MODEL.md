@@ -1,0 +1,185 @@
+---
+title: Pi Object Detection Local Model
+---
+
+# Pi Object Detection Local Model
+
+STASIS can run a Pi-only detector when the demo must work without laptop-side AI.
+For the fastest demo, use the Windows laptop-side detector instead and keep the Pi as the camera and motor controller.
+
+For best Pi 2B behavior, use the combined detector:
+
+```text
+custom YOLO model -> your demo objects
+OpenCV COCO model -> person + cell phone
+Green Strip detector -> optional color marker
+```
+
+This lets your custom model stay focused on your demo objects while the older COCO detector covers humans and mobile phones.
+
+## Recommended Profiles
+
+Use a known-good profile instead of hand-editing detection values every run:
+
+```bash
+cd ~/Documents/Stasis/rover/rpi2b
+cp profiles/demo_stable_pi.json config.json
+nano config.json
+```
+
+Set only `server_host` to the Windows laptop IP. Keep `input_size` at `320` for the current NCNN export.
+
+Available profiles:
+
+```text
+profiles/demo_stable_pi.json  - recommended demo profile
+profiles/demo_fast_pi.json    - lower stream resolution and faster detection cadence
+profiles/debug_verbose.json   - loose thresholds and detection debug output
+```
+
+The stable profile uses these important values inside `object_detection`:
+
+```json
+{
+  "backend": "combined",
+  "yolo_model_path": "models/best_ncnn_model",
+  "target_classes": ["debit card", "green strip", "paper", "plastic covers", "plastic water bottle", "steel water bottle", "torch", "wallet", "wood"],
+  "common_detection_enabled": true,
+  "common_target_classes": ["person", "cell phone"],
+  "common_detection_every_n": 2,
+  "class_names_path": "models/coco.names",
+  "config_path": "models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt",
+  "weights_path": "models/frozen_inference_graph.pb",
+  "confidence_threshold": 35,
+  "nms_threshold": 20,
+  "input_size": 320,
+  "max_box_area_percent": 90.0,
+  "overlay_enabled": false,
+  "stream_interval_seconds": 0.12,
+  "stream_jpeg_quality": 50,
+  "upload_interval_seconds": 1.5
+}
+```
+
+If your custom model is an exported NCNN folder, set:
+
+```json
+"yolo_model_path": "models/best_ncnn_model"
+```
+
+With an NCNN folder, the Pi client loads `model.ncnn.param` and `model.ncnn.bin` directly. It does not need Ultralytics for the custom model.
+
+## Files Needed On The Pi
+
+Put custom NCNN model here:
+
+```text
+~/Documents/Stasis/rover/rpi2b/models/best_ncnn_model/
+```
+
+The folder must contain:
+
+```text
+model.ncnn.param
+model.ncnn.bin
+metadata.yaml
+```
+
+Keep these COCO files too:
+
+```text
+~/Documents/Stasis/rover/rpi2b/models/coco.names
+~/Documents/Stasis/rover/rpi2b/models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
+~/Documents/Stasis/rover/rpi2b/models/frozen_inference_graph.pb
+```
+
+## Install
+
+```bash
+cd ~/Documents/Stasis/rover/rpi2b
+source .venv/bin/activate
+pip install -r requirements.txt
+pip install -r requirements-object-detection.txt
+```
+
+Only install Ultralytics if you are trying to run a `.pt` model directly on the Pi:
+
+```bash
+python -m pip install ultralytics
+```
+
+If this fails because of `torch`, use an exported model format that works on your Pi environment, or run only the OpenCV COCO detector with:
+
+```json
+"backend": "opencv"
+```
+
+## Run
+
+```bash
+cd ~/Documents/Stasis/rover/rpi2b
+source .venv/bin/activate
+python rover_client_object_detection.py --config config.json
+```
+
+Good startup logs should include:
+
+```text
+Pi-side YOLO object detector loaded
+Pi-side COCO object detector loaded
+Combined detector ready
+WebSocket handshake successful
+```
+
+## What It Detects
+
+Your custom model detects the classes it was trained with. For the current exported model, examples include:
+
+```text
+cardboard
+debit card
+green strip
+paper
+plastic covers
+plastic water bottle
+steel water bottle
+torch
+wallet
+wood
+```
+
+The common model detects:
+
+```text
+person
+cell phone
+```
+
+All detections are drawn on the livestream when `overlay_enabled` is `true`.
+
+## Reliability Gate
+
+Pi-side detections are still reviewed by the server post-processing gate before alerts are allowed. The Pi sends repeated detection telemetry so the server can confirm persistence across frames.
+
+Tune `server/detection_filter_config.json` on the laptop. By default, alerts require:
+
+```text
+Human confidence: 0.70
+Object/wildlife confidence: 0.75
+Persistence: 5 consecutive stable frames
+Minimum box area: 2% of the frame
+Edge exclusion: top/bottom 10%, left/right 5%
+Duplicate alert cooldown: 10 seconds
+```
+
+## Human Stop And Follow
+
+When a human detection is confirmed by the server reliability gate, the Pi stops the L911S motors and sends a `vision_decision` to the dashboard. The dashboard then offers:
+
+```text
+Follow
+Stay
+Resume
+```
+
+`Follow` uses the human bounding box center to steer left/right and the box area as a rough distance signal. `Stop` on the dashboard always overrides follow, patrol, and goto.

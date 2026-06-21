@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title | default: site.title }} - STASIS</title>
+  <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
+</head>
+<body>
+  <div class="doc-page">
+    <header class="doc-header">
+      <a class="doc-brand" href="{{ '/' | relative_url }}" aria-label="STASIS home">
+        <img src="{{ '/assets/stasis-mark.svg' | relative_url }}" alt="" width="34" height="34">
+        <span>STASIS</span>
+      </a>
+      <nav class="doc-nav" aria-label="Documentation navigation">
+        <a href="{{ '/' | relative_url }}">Website</a>
+        <a href="{{ '/README_ROVER_SYSTEM.html' | relative_url }}">System</a>
+        <a href="{{ '/VISION_PROVIDERS.html' | relative_url }}">Providers</a>
+        <a href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="doc-shell">
+      <aside class="doc-sidebar">
+        <strong>Docs</strong>
+        <a href="{{ '/README_ROVER_SYSTEM.html' | relative_url }}">Rover System</a>
+        <a href="{{ '/PROJECT_BRIEF.html' | relative_url }}">Project Brief</a>
+        <a href="{{ '/VISION_PROVIDERS.html' | relative_url }}">Vision Providers</a>
+        <a href="{{ '/GEMMA_VISION.html' | relative_url }}">Gemma Vision</a>
+        <a href="{{ '/WINDOWS_YOLO_ONNX_DETECTION.html' | relative_url }}">Windows YOLO ONNX</a>
+        <a href="{{ '/PI_OBJECT_DETECTION_LOCAL_MODEL.html' | relative_url }}">Pi Object Detection</a>
+        <a href="{{ '/DATASET_CAPTURE_ASSISTANT.html' | relative_url }}">Dataset Capture</a>
+      </aside>
+
+      <article class="doc-content">
+        {{ content }}
+      </article>
+    </main>
+  </div>
+</body>
+</html>

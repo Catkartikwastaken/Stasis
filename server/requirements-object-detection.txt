@@ -1,0 +1,6 @@
+-r requirements-api.txt
+requests
+opencv-python
+numpy
+onnxruntime
+ultralytics>=8.3.0
