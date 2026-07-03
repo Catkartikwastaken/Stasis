@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>STASIS</title>
-  <meta name="description" content="STASIS is a Raspberry Pi rover and local AI monitoring system for field detection, telemetry, and alert workflows.">
+  <title>STASIS — Competition Field Robotics Platform</title>
+  <meta name="description" content="STASIS is a competition-grade Raspberry Pi rover for field monitoring, real-time YOLO object detection, local AI reasoning, and operator-guided alert response.">
   <script>
     if (localStorage.getItem('theme') === 'light') {
       document.documentElement.classList.add('light-theme');
@@ -1383,6 +1383,7 @@
       <a href="#system">System</a>
       <a href="#pipeline">Pipeline</a>
       <a href="#motion">Motion</a>
+      <a href="#hardware">Hardware</a>
       <a href="#setup">Setup</a>
       <a href="#docs">Docs</a>
     </div>
@@ -1404,7 +1405,7 @@
             <span class="line-wrapper"><span>Build field intelligence</span></span>
             <span class="line-wrapper"><span>with <span class="serif">STASIS.</span></span></span>
           </h1>
-          <p>A Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
+          <p>A competition-grade Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
           <div class="actions">
             <a class="button primary" href="README_ROVER_SYSTEM.html">Read Rover Guide</a>
             <a class="button" href="#setup">Start Setup</a>
@@ -1412,10 +1413,10 @@
           </div>
         </div>
 
-        <div class="hero-strip" aria-label="STASIS capabilities">
+        <div class="hero-strip" aria-label="Competition project capabilities">
           <div class="hero-stat">
-            <strong>Pi Camera</strong>
-            <span>Live rover frames over WebSocket.</span>
+            <strong>Competition Entry</strong>
+            <span>Field robotics & AI monitoring showcase.</span>
           </div>
           <div class="hero-stat">
             <strong>Local AI</strong>
@@ -1677,6 +1678,129 @@ Heartbeat rate: 1.0Hz</pre>
     </section>
 
 
+    <section id="hardware">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <h2>Hardware <span class="serif">connections</span>.</h2>
+          <p>Complete pin mapping and wiring guide for every component in the STASIS rover platform. All pins use BCM GPIO numbering on the Raspberry Pi 2B 40-pin header.</p>
+        </div>
+
+        <div class="terminal-layout reveal">
+          <!-- Left: Pin Map -->
+          <div class="terminal" aria-label="Raspberry Pi pin map" style="padding:0; height:fit-content;">
+            <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
+            <div style="padding:18px;">
+              <span class="caption" style="margin-bottom:12px;">Raspberry Pi 2B Pin Map</span>
+              <table style="width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:var(--muted);">
+                <thead><tr style="color:var(--amber);text-align:left;border-bottom:1px solid var(--line);"><th style="padding:8px 10px;">Function</th><th style="padding:8px 10px;">GPIO</th><th style="padding:8px 10px;">Pin</th></tr></thead>
+                <tbody style="color:var(--ink);">
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Left motor forward</td><td>GPIO5</td><td>29</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Left motor reverse</td><td>GPIO6</td><td>31</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Right motor forward</td><td>GPIO13</td><td>33</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Right motor reverse</td><td>GPIO19</td><td>35</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Ultrasonic trigger</td><td>GPIO23</td><td>16</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Ultrasonic echo</td><td>GPIO24</td><td>18</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Scanner servo</td><td>GPIO18</td><td>12</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">I2C SDA</td><td>GPIO2</td><td>3</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">I2C SCL</td><td>GPIO3</td><td>5</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">3.3V sensor power</td><td>3V3</td><td>1 or 17</td></tr>
+                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">5V power</td><td>5V</td><td>2 or 4</td></tr>
+                  <tr><td style="padding:6px 10px;">Ground</td><td>GND</td><td>6,9,14,20,25,30,34,39</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Right: Wiring Info -->
+          <article class="terminal-card">
+            <span class="caption">Quick Start Wiring</span>
+            <h3>Minimal Demo Setup</h3>
+            <p>The simplest working rover needs only the Pi, a USB webcam, and the L911S motor driver.</p>
+            <div class="signal-list">
+              <div class="signal">
+                <code>USB Webcam</code>
+                <span>Connect to Raspberry Pi USB port. Verify: ls /dev/video*</span>
+              </div>
+              <div class="signal">
+                <code>L911S Motors</code>
+                <span>Pi GPIO5/6 (left) and GPIO13/19 (right) → L911S A-IA/A-IB and B-IA/B-IB</span>
+              </div>
+              <div class="signal">
+                <code>Motor Power</code>
+                <span>Separate battery → L911S VCC/VM. Share GND with Pi.</span>
+              </div>
+              <div class="signal">
+                <code>Ultrasonic (optional)</code>
+                <span>HC-SR04 TRIG→GPIO23, ECHO→GPIO24 via level shifter</span>
+              </div>
+              <div class="signal">
+                <code>Servo (optional)</code>
+                <span>SG90 signal→GPIO18, powered from external 5V supply</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <!-- Full wiring tables in two columns -->
+        <div class="work-grid reveal" style="--reveal-delay: 120ms; margin-top:14px;">
+          <article class="terminal-card">
+            <span class="caption">Sensors (I2C)</span>
+            <h3>MPU6050 IMU & HMC5883L Compass</h3>
+            <p>Both share the I2C bus on GPIO2 (SDA) and GPIO3 (SCL). Connect VCC to 3.3V, GND to Pi GND.</p>
+            <div class="signal-list">
+              <div class="signal">
+                <code>MPU6050</code>
+                <span>I2C addr 0x68. Enable: "mpu6050_enabled": true</span>
+              </div>
+              <div class="signal">
+                <code>HMC5883L</code>
+                <span>I2C addr 0x1E. Enable: "compass_enabled": true</span>
+              </div>
+              <div class="signal">
+                <code>Power Rules</code>
+                <span>Never power motors from Pi 5V. Use separate battery. Share all GNDs.</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="terminal-card">
+            <span class="caption">ESP32-S3 Bridge (Optional)</span>
+            <h3>Serial Motor Delegation</h3>
+            <p>Pi USB → ESP32-S3 USB/UART. ESP32 GPIO4/5/6/7 → L911S. Baud 115200. Uses "M:left,right" protocol.</p>
+            <div class="signal-list">
+              <div class="signal">
+                <code>ESP32 GPIO4</code>
+                <span>L911S A-IA (left forward)</span>
+              </div>
+              <div class="signal">
+                <code>ESP32 GPIO5</code>
+                <span>L911S A-IB (left reverse)</span>
+              </div>
+              <div class="signal">
+                <code>ESP32 GPIO6</code>
+                <span>L911S B-IA (right forward)</span>
+              </div>
+              <div class="signal">
+                <code>ESP32 GPIO7</code>
+                <span>L911S B-IB (right reverse)</span>
+              </div>
+              <div class="signal">
+                <code>Firmware</code>
+                <span>rover/esp32_s3/stasis_motor_controller.ino</span>
+              </div>
+            </div>
+          </article>
+        </div>
+
+        <div class="terminal-card reveal" style="--reveal-delay: 240ms; margin-top:14px; padding:22px;">
+          <span class="caption">Fault Tolerance</span>
+          <h3>Graceful Degradation</h3>
+          <p>Every sensor, motor output, and I2C device is optional. If a component is missing or fails, the system logs a warning and continues. Camera streaming and object detection run with zero hardware dependencies beyond the USB webcam.</p>
+        </div>
+      </div>
+    </section>
+
+
     <section id="setup">
       <div class="wrap">
         <div class="terminal-layout reveal">
@@ -1763,7 +1887,7 @@ ollama run qwen2.5
 
   <footer class="footer">
     <div class="wrap footer-inner">
-      <span>STASIS field monitoring rover.</span>
+      <span>STASIS &mdash; Competition field monitoring rover platform.</span>
       <a href="https://github.com/Catkartikwastaken/Stasis">Catkartikwastaken/Stasis</a>
     </div>
   </footer>

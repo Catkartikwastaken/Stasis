@@ -1,10 +1,12 @@
 # STASIS
 
-**A Raspberry Pi rover platform for forest-style monitoring, live camera streaming, object detection, and dashboard-guided response.**
+**A Raspberry Pi rover platform for forest-style monitoring, live camera streaming, object detection, and dashboard-guided response — built as a competition entry for field robotics and AI-integrated monitoring systems.**
 
-STASIS is an open-source prototype for a small monitoring rover. It is built around a Raspberry Pi, a USB webcam, a Windows laptop for heavier vision processing, and a browser dashboard that shows what the rover sees and how it is responding.
+STASIS is a competition-grade prototype for a small monitoring rover designed to showcase real-time edge-AI detection, telemetry-driven situational awareness, and operator-in-the-loop decision making. It is built around a Raspberry Pi 2B, a USB webcam, a Windows laptop for heavier vision processing, and a browser dashboard that shows what the rover sees and how it is responding.
 
 The current build is focused on an indoor forest-like demo space: no GPS, no complicated field infrastructure, and no unnecessary hardware. The rover streams camera frames from the Raspberry Pi, the Windows server analyzes them, and the dashboard turns detections into clear alerts, map points, and simple movement guidance.
+
+> **Competition Project Website:** [catkartikwastaken.github.io/Stasis](https://catkartikwastaken.github.io/Stasis)
 
 ## Highlights
 
@@ -38,6 +40,140 @@ In plain English:
 3. The server runs the selected vision pipeline.
 4. The result goes back to the Pi and appears on the dashboard.
 5. The dashboard can track a detected target, show map dots, and send rover commands.
+
+## Raspberry Pi Pin Map
+
+Use BCM GPIO numbers in code. All pins are from the Raspberry Pi 2B 40-pin header.
+
+| Function | BCM GPIO | Physical Pin |
+| --- | --- | --- |
+| Left motor forward | GPIO5 | Pin 29 |
+| Left motor reverse | GPIO6 | Pin 31 |
+| Right motor forward | GPIO13 | Pin 33 |
+| Right motor reverse | GPIO19 | Pin 35 |
+| Ultrasonic trigger | GPIO23 | Pin 16 |
+| Ultrasonic echo | GPIO24 | Pin 18 |
+| Scanner servo signal | GPIO18 | Pin 12 |
+| I2C SDA | GPIO2 | Pin 3 |
+| I2C SCL | GPIO3 | Pin 5 |
+| 3.3V sensor power | 3V3 | Pin 1 or 17 |
+| 5V power | 5V | Pin 2 or 4 |
+| Ground | GND | Pin 6, 9, 14, 20, 25, 30, 34, or 39 |
+
+## Hardware Connections
+
+### Minimal Demo Wiring (Simplest Working Rover)
+
+| Raspberry Pi | Component |
+| --- | --- |
+| USB port | USB webcam |
+| GPIO5 | L911S A-IA (left motor forward) |
+| GPIO6 | L911S A-IB (left motor reverse) |
+| GPIO13 | L911S B-IA (right motor forward) |
+| GPIO19 | L911S B-IB (right motor reverse) |
+| GND | L911S GND |
+
+**Motor power (separate battery):**
+- Motor battery positive → L911S VCC / VM
+- Motor battery negative → L911S GND (shared with Pi GND)
+- L911S Motor A output → Left DC motor
+- L911S Motor B output → Right DC motor
+
+### L911S Direct Motor Control
+
+| L911S Pin | Connect To |
+| --- | --- |
+| A-IA | Pi GPIO5 (pin 29) |
+| A-IB | Pi GPIO6 (pin 31) |
+| B-IA | Pi GPIO13 (pin 33) |
+| B-IB | Pi GPIO19 (pin 35) |
+| VCC / VM | Motor battery positive |
+| GND | Motor battery negative + Pi GND |
+| Motor A output | Left DC motor |
+| Motor B output | Right DC motor |
+
+Config: `"direct_motor_control": true`, `"esp32_serial_control": false`
+
+### ESP32-S3 Optional Motor Bridge
+
+Use only if you want serial-delegated motor control. Do NOT connect both Pi GPIO and ESP32 GPIO to the L911S simultaneously.
+
+| Raspberry Pi | ESP32-S3 |
+| --- | --- |
+| USB port | ESP32-S3 USB/UART port |
+
+| ESP32-S3 GPIO | L911S Pin |
+| --- | --- |
+| GPIO4 | A-IA |
+| GPIO5 | A-IB |
+| GPIO6 | B-IA |
+| GPIO7 | B-IB |
+| GND | L911S GND |
+
+Config: `"direct_motor_control": false`, `"esp32_serial_control": true`, `"esp32_serial_port": "/dev/ttyUSB0"`, `"esp32_baudrate": 115200`
+
+### USB Webcam
+
+| Webcam | Raspberry Pi |
+| --- | --- |
+| USB cable | Pi USB port |
+
+Verify: `ls /dev/video*`. Config: `"camera": { "enabled": true, "index": 0 }`
+
+### HC-SR04 Ultrasonic Sensor
+
+| HC-SR04 Pin | Connect To |
+| --- | --- |
+| VCC | 5V |
+| GND | Pi GND |
+| TRIG | GPIO23 (pin 16) |
+| ECHO | GPIO24 (pin 18) **through voltage divider / level shifter (5V → 3.3V)** |
+
+Config: `"ultrasonic_enabled": true`
+
+### SG90 Scanner Servo
+
+| Servo Wire | Connect To |
+| --- | --- |
+| Signal | GPIO18 (pin 12) |
+| VCC | External 5V servo supply (not Pi 5V) |
+| GND | External supply GND + Pi GND |
+
+Config: `"scanner_servo_enabled": true`
+
+### MPU6050 IMU (I2C)
+
+| MPU6050 Pin | Connect To |
+| --- | --- |
+| VCC | 3.3V |
+| GND | Pi GND |
+| SDA | GPIO2 (pin 3) |
+| SCL | GPIO3 (pin 5) |
+
+Config: `"i2c_enabled": true`, `"mpu6050_enabled": true`
+
+### HMC5883L / QMC5883L Compass (I2C)
+
+| Compass Pin | Connect To |
+| --- | --- |
+| VCC | 3.3V |
+| GND | Pi GND |
+| SDA | GPIO2 (pin 3) |
+| SCL | GPIO3 (pin 5) |
+
+Config: `"i2c_enabled": true`, `"compass_enabled": true`
+
+### Important Power Rules
+
+1. Do **not** power DC motors from Raspberry Pi 5V.
+2. Use a separate motor battery for the L911S motor driver.
+3. Pi GND, L911S GND, sensor GND, servo GND, and motor battery negative must share common ground.
+4. Pi GPIO pins are 3.3V logic. HC-SR04 Echo is 5V — use a voltage divider/level shifter.
+5. Do not power a moving servo from Pi 5V if it causes resets.
+
+### Fault-Tolerant Behavior
+
+Missing sensors are logged as warnings and disabled; the rest of the system keeps running. Camera streaming and object detection work even when motors, IMU, compass, or ultrasonic are disconnected.
 
 ## What It Detects
 
@@ -134,19 +270,11 @@ It captures:
 
 The tool lets you choose camera resolution, FPS, brightness, contrast, exposure, focus, and save location from the app itself. See [Dataset Capture Assistant](docs/DATASET_CAPTURE_ASSISTANT.md).
 
-## Project Website
+## Competition Project Website
 
-This repo includes a GitHub Pages-ready website in [docs/index.html](docs/index.html).
+The project's competition landing page is live at **[catkartikwastaken.github.io/Stasis](https://catkartikwastaken.github.io/Stasis)**.
 
-To publish it:
-
-1. Open the repository on GitHub.
-2. Go to `Settings` -> `Pages`.
-3. Set source to `Deploy from a branch`.
-4. Select `main` and `/docs`.
-5. Save.
-
-GitHub will then publish the project site from the `docs` folder.
+The site (built from [docs/index.html](docs/index.html)) covers the system overview, rover pipeline, scroll-driven mission reel, setup instructions, hardware connections, and links to all project documentation — presented as a polished field platform showcase.
 
 ## Project Structure
 

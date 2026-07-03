@@ -1,0 +1,109 @@
+Video Generation Prompts for STASIS Competition Website Assets
+=====================================================================
+
+Use these prompts with video/image generation tools (Runway ML, Pika, Sora,
+Kling, Stable Video Diffusion, etc.) to create the three demo videos referenced
+in docs/index.html.
+
+Place the generated MP4 files in: docs/assets/
+
+---
+
+1. STASIS PATROL SCROLL
+   Required filename: docs/assets/stasis-patrol-scroll.mp4
+
+   A small four-wheeled Raspberry Pi rover with a USB webcam mounted on top slowly
+   drives forward through an indoor forest-like demo space. The scene shows potted
+   plants, artificial foliage, and a wooden floor. The camera perspective is the
+   rover's first-person view (FPV). The rover moves methodically in a straight line
+   scanning left and right with slight panning. Overlaid HUD elements show a faint
+   crosshair, grid lines, and the text "FPV SOURCE // DIRECT FEED" and
+   "[MONITORING ACTIVE]" in green monospace font. The lighting is dim indoor with
+   warm side-lighting. No humans visible. The rover's movement is smooth and steady
+   like a patrol route. Duration: 8-10 seconds. Resolution: 1920x1080. Style:
+   cinematic, moody, tactical, blue-green color grade, slight film grain.
+
+   Preferred tool: Runway Gen-3 or Kling with an image of the STASIS rover chassis
+   as the starting frame.
+
+
+2. STASIS DETECT SCROLL
+   Required filename: docs/assets/stasis-detect-scroll.mp4
+
+   Continuation of the patrol scene from the rover's FPV camera. As the rover enters
+   a new area of the indoor forest demo, a bounding box appears around a person
+   standing among the plants. The box glows amber/gold and a label reads
+   "HUMAN [91% CONFIDENCE]" in monospace text above it. A second smaller bounding
+   box in green appears over a plush animal toy (stand-in for wildlife), labeled
+   "ANIMAL [86% CONFIDENCE]". The rover slows down and stops. The HUD crosshair
+   locks onto the human bounding box. The radar mini-map in the corner shows amber
+   and green blip dots. The background scanlines and grid overlay remain visible.
+   Duration: 8-10 seconds. Resolution: 1920x1080. Style: same as patrol clip,
+   consistent color grade, smooth transition from patrol motion to alert state.
+
+   Preferred tool: Runway Gen-3 or Pika, with a still frame from the patrol clip
+   as keyframe reference, or an image of the STASIS rover with a person in frame.
+
+
+3. STASIS RESPONSE SCROLL
+   Required filename: docs/assets/stasis-response-scroll.mp4
+
+   Starts from the rover's stopped FPV after detection. A split-screen or overlay
+   transition reveals a dark-themed browser dashboard on the operator's laptop
+   screen showing the STASIS Mission Control interface. The dashboard displays:
+   the live camera feed (matching the rover FPV), an alert card reading "human
+   detected", the tracking map with the rover marker and an amber target dot, and
+   command buttons. The operator's cursor clicks "STOP" and then "TRACK". The rover
+   HUD updates to show "TRACKING ACTIVE" in amber. The video ends with the rover
+   camera reframing to keep the human in the center of the frame. Duration: 8-10
+   seconds. Resolution: 1920x1080. Style: consistent with previous clips, tactical
+   dashboard aesthetic, dark theme with amber/green accent colors.
+
+   Preferred tool: Runway Gen-3 or composite in video editor using the actual
+   dashboard screenshot as overlay. Can be created as a screen recording of the
+   real dashboard with a simulated detection, then composited with rover FPV.
+
+
+4. STASIS LANDING PAGE HERO BACKGROUND
+   Required filename: docs/assets/stasis-forest-real.jpg
+
+   A dramatic wide-angle photograph or render of the STASIS rover on a forest
+   floor, seen from a low angle. The rover is a small Raspberry Pi-based chassis
+   with four wheels, a USB webcam on the front, wires visible in a clean technical
+   way, and green LED indicators. Behind it, a blur of trees, ferns, and natural
+   forest undergrowth creates a deep bokeh effect. Gentle god rays filter through
+   the canopy. The image should feel like a field robotics expedition photo — not
+   a product shot, but a capture from a real mission. Resolution: 2560x1440 or
+   higher. Style: natural photography, earthy tones, mossy greens, amber sunlight,
+   documentary feel, slight desaturation.
+
+   Preferred tool: Midjourney or DALL-E 3 with a reference photo of the actual
+   STASIS rover. If using Midjourney, add "--ar 16:9 --style raw" for
+   photorealistic results.
+
+
+5. STASIS BRAND LOGO
+   Required filename: docs/assets/stasis-logo.png
+
+   A minimalist circular emblem logo for the STASIS project. The design should
+   feature a stylized radar/sonar sweep arc in amber/gold, a small rover/crosshair
+   icon at center, and the word "STASIS" in a clean monospace or geometric
+   sans-serif typeface around the outer ring. Dark background, 512x512px
+   transparent PNG. Should work at 32x32px as a favicon-sized logo in the nav bar.
+   Color palette: amber (#d7a34f), moss green (#9ac46b), and off-white (#f5f0e6)
+   on dark (#030402).
+
+   Preferred tool: Canva, Figma, or any SVG editor. Can also be generated with
+   DALL-E 3 or Midjourney with "--no text" flag, then cleaned up manually.
+
+
+=====================================================================
+NOTES:
+- All video files should be H.264 MP4, 1920x1080, 24-30fps, under 20MB each.
+- The hero background (stasis-forest-real.jpg) is the most critical missing asset —
+  the entire landing page hero section uses it.
+- If video generation is not available, record actual rover footage and edit it.
+- PNG logo should be 512x512px with transparent background.
+- Put all assets in: docs/assets/
+- Test files work with the site locally before deploying.
+=====================================================================
