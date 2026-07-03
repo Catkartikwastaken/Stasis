@@ -1,0 +1,161 @@
+STASIS START AGAIN STEPS
+========================
+
+Use this when the rover must start from a known working state.
+
+
+PART 1 - WINDOWS SERVER
+-----------------------
+
+1. Open PowerShell on the Windows laptop.
+
+2. Start the server in Pi-authority mode:
+
+cd C:\Users\haris\Downloads\Stasis-main\Stasis\server
+$env:STASIS_DETECTION_AUTHORITY="pi"
+$env:STASIS_OBJECT_REVIEW_PROVIDER="fallback"
+$env:STASIS_PI_IGNORE_LABELS=""
+$env:STASIS_PI_MIN_OBJECT_CONFIDENCE="0.35"
+$env:STASIS_PI_MIN_COMMON_OBJECT_CONFIDENCE="0.35"
+python security_rover_server_object_detection.py
+
+3. Keep PowerShell open.
+
+4. Open the dashboard:
+
+http://127.0.0.1:5000
+
+
+PART 2 - RASPBERRY PI CONFIG
+----------------------------
+
+1. Open terminal on Raspberry Pi.
+
+2. Go to the Pi rover folder:
+
+cd ~/Documents/Stasis/rover/rpi2b
+
+3. Backup the current config:
+
+cp config.json config.before_demo.json
+
+4. Activate the stable demo profile:
+
+cp profiles/demo_stable_pi.json config.json
+
+5. Edit the Windows laptop IP:
+
+nano config.json
+
+Set:
+
+"server_host": "YOUR_WINDOWS_LAPTOP_IP",
+
+For example:
+
+"server_host": "192.168.29.69",
+
+
+PART 3 - MODEL FILES
+--------------------
+
+The custom NCNN model must be here:
+
+models/best_ncnn_model/model.ncnn.param
+models/best_ncnn_model/model.ncnn.bin
+models/best_ncnn_model/metadata.yaml
+
+The COCO person/phone files must be here:
+
+models/coco.names
+models/ssd_mobilenet_v3_large_coco_2020_01_14.pbtxt
+models/frozen_inference_graph.pb
+
+
+PART 4 - START PI ROVER
+-----------------------
+
+cd ~/Documents/Stasis/rover/rpi2b
+source .venv/bin/activate
+python rover_client_object_detection.py --config config.json
+
+Good logs:
+
+Configuration successfully loaded
+Pi-side NCNN YOLO detector loaded
+Pi-side COCO object detector loaded
+Combined detector ready
+WebSocket handshake successful
+Streaming Pi webcam smoothly
+
+
+PART 5 - DEMO BEHAVIOR
+----------------------
+
+Human detected:
+
+1. Rover immediately stops.
+2. Dashboard shows alert.
+3. Choose Follow, Stay, or Resume.
+
+Follow:
+
+Rover follows the latest human bounding box with simple left/right steering.
+If the target disappears, it stops.
+
+Stop:
+
+Dashboard Stop always cancels motion and stops motors.
+
+Green strip:
+
+Dashboard stores the marker and can go to it after it is seen.
+
+
+PART 6 - IF IT BREAKS
+---------------------
+
+Use debug profile:
+
+cp profiles/debug_verbose.json config.json
+nano config.json
+python rover_client_object_detection.py --config config.json
+
+Then send Codex:
+
+1. Pi terminal output.
+2. Windows server output.
+3. A screenshot of the dashboard Detections panel.
+
+
+PART 7 - ALL SENSOR MODE
+------------------------
+
+Use this only after the ultrasonic sensor, scanner servo, MPU6050, and compass are physically connected.
+
+cd ~/Documents/Stasis/rover/rpi2b
+cp config.json config.before_all_sensors.json
+cp profiles/demo_all_sensors_pi.json config.json
+nano config.json
+
+Set server_host to the Windows laptop IP.
+
+Run:
+
+source .venv/bin/activate
+python rover_client_object_detection.py --config config.json
+
+The all-sensors profile enables:
+
+- direct Raspberry Pi GPIO motor control
+- USB webcam
+- custom NCNN YOLO object detection
+- COCO person/cell-phone detection
+- HC-SR04 ultrasonic obstacle checks
+- scanner servo sweep
+- MPU6050
+- HMC5883L/QMC5883L compass
+
+If any optional component is missing, the rover should continue running camera streaming and object detection. Missing sensors or motor outputs will be logged as warnings and disabled.
+
+Do not enable ESP32-S3 motor mode unless the L911S motor input wires are moved from the Pi GPIO pins to the ESP32-S3 GPIO pins.

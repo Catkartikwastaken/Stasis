@@ -1,0 +1,5 @@
+websocket-client
+smbus2
+RPi.GPIO
+pyserial
+opencv-python
