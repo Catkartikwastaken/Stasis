@@ -1,121 +1,74 @@
 <!doctype html>
-<html lang="en">
+<html class="dark" lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>STASIS — Competition Field Robotics Platform</title>
-  <meta name="description" content="STASIS is a competition-grade Raspberry Pi rover for field monitoring, real-time YOLO object detection, local AI reasoning, and operator-guided alert response.">
-  <script>
-    if (localStorage.getItem('theme') === 'light') {
-      document.documentElement.classList.add('light-theme');
-    }
-  </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz@6..96&family=Hanken+Grotesk:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>STASIS — Field Robotics Platform</title>
+  <meta name="description" content="STASIS is a competition-grade Raspberry Pi rover for field monitoring, real-time YOLO object detection, local AI reasoning, and operator-guided alert response." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
   <style>
+    /* =============================================
+       STASIS — DESIGN SYSTEM (matches Mission Control Dashboard)
+       ============================================= */
     :root {
       color-scheme: dark;
-      --bg: #030402;
-      --bg-soft: #070906;
-      --ink: #f5f0e6;
-      --muted: #c9c1b0;
-      --quiet: #8e897c;
-      --moss: #9ac46b;
-      --moss-deep: #3f5b2c;
-      --amber: #d7a34f;
-      --clay: #9f704a;
-      --steel: #7e918f;
-      --panel: rgba(9, 11, 8, 0.72);
-      --panel-strong: rgba(13, 15, 11, 0.88);
-      --line: rgba(245, 240, 230, 0.14);
-      --line-strong: rgba(215, 163, 79, 0.34);
-      --shadow: 0 34px 90px rgba(0, 0, 0, 0.7);
+      --bg: #000000;
+      --bg-soft: #0e0e0e;
+      --panel: #0e0e0e;
+      --panel-strong: #141313;
+      --surface: #201f1f;
+      --line: #444748;
+      --line-soft: rgba(68, 71, 72, 0.45);
+      --text: #ffffff;
+      --muted: #c4c7c8;
+      --soft: #8e9192;
+      --white: #ffffff;
+      --green: #8cffbd;
+      --cyan: #8bd6ff;
+      --amber: #ffd36d;
+      --red: #ffb4ab;
+      --violet: #b8a1ff;
+      --shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+      --headline: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+      --body: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
     }
 
-    :root.light-theme {
-      color-scheme: light;
-      --bg: #f7f5f0;
-      --bg-soft: #edeae4;
-      --ink: #1d201a;
-      --muted: #4e5349;
-      --quiet: #7a8074;
-      --moss: #4a5f35;
-      --moss-deep: #c0d8ac;
-      --amber: #b88235;
-      --clay: #b05d42;
-      --steel: #566866;
-      --panel: rgba(245, 240, 230, 0.82);
-      --panel-strong: rgba(235, 230, 220, 0.94);
-      --line: rgba(29, 32, 26, 0.12);
-      --line-strong: rgba(184, 130, 53, 0.32);
-      --shadow: 0 16px 48px rgba(29, 32, 26, 0.08);
-    }
-
-    * { box-sizing: border-box; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     html { scroll-behavior: smooth; }
 
-    /* Clean theme transitions */
-    body, header, section, footer, .site-nav, .button, .work-card, .flow-card, .doc-card, .terminal-card, .story-copy, .story-panel, .terminal, .theme-toggle, .brand-logo {
-      transition: background 300ms ease, background-color 300ms ease, border-color 300ms ease, color 300ms ease, box-shadow 300ms ease, filter 300ms ease, opacity 300ms ease;
-    }
-
-    /* Subtle grain/noise overlay for tactile feel */
-    html::after {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      content: "";
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.038'/%3E%3C/svg%3E");
-      pointer-events: none;
-    }
-
-    :root.light-theme html::after {
-      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 250 250' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.048'/%3E%3C/svg%3E");
-    }
-
     body {
-      margin: 0;
-      min-width: 320px;
-      background: var(--bg);
-      color: var(--ink);
-      font-family: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: var(--body);
+      font-size: 14px;
       line-height: 1.5;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: default;
     }
 
-    body::before {
-      position: fixed;
-      inset: 0;
-      z-index: -3;
-      content: "";
-      background:
-        linear-gradient(180deg, rgba(3, 4, 2, 0.12), rgba(3, 4, 2, 0.84) 66%, #030402 100%),
-        url("assets/stasis-forest-real.jpg") center top / cover no-repeat;
-    }
+    ::selection { background: #fff; color: #000; }
 
-    :root.light-theme body::before {
-      background:
-        linear-gradient(180deg, rgba(247, 245, 240, 0.2), rgba(247, 245, 240, 0.88) 66%, #f7f5f0 100%),
-        url("assets/stasis-forest-real.jpg") center top / cover no-repeat;
-      filter: sepia(0.2) saturate(0.5) brightness(1.04);
-      opacity: 0.16;
-    }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: var(--bg-soft); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text); }
 
-    body::after {
-      position: fixed;
-      inset: 0;
-      z-index: -2;
-      content: "";
-      background:
-        radial-gradient(circle at 26% 28%, rgba(215, 163, 79, 0.15), transparent 26rem),
-        linear-gradient(90deg, rgba(3, 4, 2, 0.32), transparent 45%, rgba(3, 4, 2, 0.5));
-      pointer-events: none;
-    }
+    a { color: inherit; text-decoration: none; }
+    button { font: inherit; cursor: pointer; }
 
-    a {
-      color: inherit;
-      text-decoration: none;
+    /* Grid overlay background */
+    .bg-grid {
+      background-image:
+        radial-gradient(circle at center, rgba(42, 42, 42, 0.4) 0%, rgba(0, 0, 0, 1) 100%),
+        linear-gradient(to right, rgba(28, 27, 27, 0.6) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(28, 27, 27, 0.6) 1px, transparent 1px);
+      background-size: 100% 100%, 32px 32px, 32px 32px;
+      background-attachment: fixed;
     }
 
     .wrap {
@@ -123,11 +76,14 @@
       margin: 0 auto;
     }
 
+    /* =============================================
+       NAVIGATION
+       ============================================= */
     .site-nav {
       position: fixed;
       top: 18px;
       left: 50%;
-      z-index: 20;
+      z-index: 50;
       display: flex;
       width: min(940px, calc(100% - 28px));
       min-height: 54px;
@@ -137,15 +93,10 @@
       padding: 9px 10px 9px 16px;
       border: 1px solid var(--line);
       border-radius: 999px;
-      background: rgba(5, 6, 4, 0.78);
+      background: rgba(14, 14, 14, 0.82);
       box-shadow: 0 18px 54px rgba(0, 0, 0, 0.48);
       transform: translateX(-50%);
       backdrop-filter: blur(18px);
-    }
-
-    :root.light-theme .site-nav {
-      background: rgba(247, 245, 240, 0.85);
-      box-shadow: 0 18px 54px rgba(29, 32, 26, 0.08);
     }
 
     .brand {
@@ -153,8 +104,10 @@
       align-items: center;
       gap: 10px;
       min-width: 0;
-      font-weight: 800;
+      font-family: var(--headline);
+      font-weight: 700;
       letter-spacing: 0.14em;
+      text-transform: uppercase;
     }
 
     .brand-mark {
@@ -163,12 +116,17 @@
       height: 32px;
       flex: 0 0 auto;
       place-items: center;
-      border: 1px solid var(--line-strong);
+      border: 1px solid var(--line);
       border-radius: 50%;
-      background: linear-gradient(145deg, rgba(215, 163, 79, 0.24), rgba(154, 196, 107, 0.12));
-      color: var(--amber);
-      font-family: "JetBrains Mono", monospace;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04));
+      color: var(--text);
+      font-family: var(--mono);
       font-size: 0.72rem;
+      transition: transform 200ms ease;
+    }
+
+    .brand:hover .brand-mark {
+      transform: rotate(45deg);
     }
 
     .brand-logo {
@@ -176,12 +134,8 @@
       width: 32px;
       height: 32px;
       border-radius: 50%;
-      border: 1px solid var(--line-strong);
+      border: 1px solid var(--line);
       object-fit: cover;
-    }
-
-    .brand:hover .brand-logo {
-      transform: rotate(45deg);
     }
 
     .nav-links {
@@ -194,72 +148,53 @@
       font-weight: 700;
     }
 
-    .nav-links a,
-    .nav-action,
-    .theme-toggle {
+    .nav-links a {
       border-radius: 999px;
       padding: 9px 13px;
-      transition: background 180ms ease, color 180ms ease, border-color 180ms ease, transform 180ms ease;
+      transition: background 180ms ease, color 180ms ease;
     }
 
     .nav-links a:hover {
-      background: var(--line);
-      color: var(--ink);
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--text);
     }
 
     .nav-action {
-      border: 1px solid var(--line-strong);
-      background: rgba(215, 163, 79, 0.12);
-      color: var(--amber);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
       font-size: 0.86rem;
-      font-weight: 800;
+      font-weight: 700;
       white-space: nowrap;
+      transition: all 180ms ease;
     }
 
     .nav-action:hover {
-      background: var(--line-strong);
-      color: var(--bg);
+      background: var(--text);
+      color: #000;
+      border-color: var(--text);
     }
 
-    .theme-toggle {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 38px;
-      height: 38px;
-      padding: 0;
-      border: 1px solid var(--line);
-      background: rgba(245, 240, 230, 0.05);
-      color: var(--muted);
-      cursor: pointer;
-    }
-
-    :root.light-theme .theme-toggle {
-      background: rgba(29, 32, 26, 0.04);
-    }
-
-    .theme-toggle:hover {
-      background: var(--line);
-      color: var(--ink);
-      border-color: var(--amber);
-    }
-
-    .theme-toggle svg {
-      width: 15px;
-      height: 15px;
-    }
-
-    .theme-toggle .sun-icon { display: block; }
-    .theme-toggle .moon-icon { display: none; }
-
-    :root.light-theme .theme-toggle .sun-icon { display: none; }
-    :root.light-theme .theme-toggle .moon-icon { display: block; }
-
+    /* =============================================
+       HERO
+       ============================================= */
     .hero {
       min-height: 100svh;
       display: grid;
       align-items: center;
       padding: 112px 0 56px;
+      background-image:
+        radial-gradient(ellipse at 50% 30%, rgba(139, 214, 255, 0.06) 0%, transparent 50%),
+        radial-gradient(circle at center, rgba(42, 42, 42, 0.4) 0%, rgba(0, 0, 0, 1) 100%),
+        linear-gradient(to right, rgba(28, 27, 27, 0.6) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(28, 27, 27, 0.6) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+      background-attachment: fixed;
     }
 
     .hero-grid {
@@ -274,97 +209,30 @@
       margin: 0 auto;
       padding: clamp(34px, 6vw, 76px);
       border: 1px solid var(--line);
-      border-radius: 4px;
-      background: var(--panel-strong);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel-strong);
       box-shadow: var(--shadow);
       text-align: center;
-      backdrop-filter: blur(12px);
     }
 
-    /* Asymmetric crop marks (corner ticks) for technical blueprint design */
-    .hero-card::before, .hero-card::after {
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      content: "";
-      border-color: var(--line-strong);
-      border-style: solid;
-      pointer-events: none;
-    }
-    .hero-card::before {
-      top: -1px;
-      left: -1px;
-      border-width: 1px 0 0 1px;
-    }
-    .hero-card::after {
-      bottom: -1px;
-      right: -1px;
-      border-width: 0 1px 1px 0;
-    }
-
-    .hero-card-ticks {
-      position: absolute;
-      inset: 0;
-      pointer-events: none;
-    }
-    .hero-card-ticks::before, .hero-card-ticks::after {
-      position: absolute;
-      width: 16px;
-      height: 16px;
-      content: "";
-      border-color: var(--line-strong);
-      border-style: solid;
-      pointer-events: none;
-    }
-    .hero-card-ticks::before {
-      top: -1px;
-      right: -1px;
-      border-width: 1px 1px 0 0;
-    }
-    .hero-card-ticks::after {
-      bottom: -1px;
-      left: -1px;
-      border-width: 0 0 1px 1px;
-    }
-
-    h1,
-    h2,
-    h3,
-    p { margin-top: 0; }
-
-    h1 {
+    .hero-card h1 {
       max-width: 760px;
       margin: 0 auto 18px;
+      font-family: var(--headline);
       font-size: clamp(3.1rem, 8vw, 7.2rem);
       line-height: 0.9;
       letter-spacing: 0;
     }
 
-    /* Support line-by-line mask reveals for editorial animation */
-    .reveal-lines .line-wrapper {
+    .hero-card .sub {
+      color: var(--cyan);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
       display: block;
-      overflow: hidden;
-      line-height: 1.05;
-    }
-    .reveal-lines .line-wrapper span {
-      display: block;
-      transform: translateY(105%);
-      transition: transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
-    }
-    .reveal-lines.is-visible .line-wrapper span {
-      transform: translateY(0);
-    }
-    .reveal-lines.is-visible .line-wrapper:nth-child(1) span {
-      transition-delay: 120ms;
-    }
-    .reveal-lines.is-visible .line-wrapper:nth-child(2) span {
-      transition-delay: 240ms;
-    }
-
-    .serif {
-      font-family: "Bodoni Moda", Georgia, serif;
-      font-weight: 400;
-      color: var(--ink);
     }
 
     .hero-card p {
@@ -390,28 +258,30 @@
       border: 1px solid var(--line);
       border-radius: 999px;
       padding: 11px 22px;
-      background: var(--panel);
-      color: var(--ink);
-      font-weight: 800;
-      transition: transform 180ms ease, background 180ms ease, border-color 180ms ease, color 180ms ease;
+      background: transparent;
+      color: var(--text);
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 180ms ease;
     }
 
     .button:hover {
-      border-color: var(--line-strong);
-      background: var(--line);
+      border-color: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 255, 255, 0.06);
       transform: translateY(-1.5px);
     }
 
     .button.primary {
-      border-color: var(--line-strong);
-      background: var(--amber);
-      color: var(--bg);
+      border-color: var(--text);
+      background: var(--text);
+      color: #000;
+      font-weight: 700;
     }
 
     .button.primary:hover {
-      background: var(--ink);
-      color: var(--bg);
-      border-color: var(--ink);
+      background: transparent;
+      color: var(--text);
+      border-color: var(--text);
     }
 
     .hero-strip {
@@ -422,29 +292,36 @@
       width: min(960px, 100%);
       margin: 0 auto;
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 20px;
       background: var(--line);
     }
 
     .hero-stat {
       min-height: 96px;
       padding: 18px;
-      background: var(--panel-strong);
+      background: var(--panel);
+      text-align: center;
     }
 
     .hero-stat strong {
       display: block;
-      color: var(--amber);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.82rem;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
+      margin-bottom: 4px;
     }
 
     .hero-stat span {
-      color: var(--muted);
-      font-size: 0.94rem;
+      color: var(--soft);
+      font-size: 0.9rem;
     }
 
+    /* =============================================
+       SECTION COMMON
+       ============================================= */
     section {
       padding: 78px 0;
     }
@@ -459,9 +336,14 @@
 
     .section-head h2 {
       margin-bottom: 0;
+      font-family: var(--headline);
       font-size: clamp(2.1rem, 4vw, 4.5rem);
       line-height: 0.94;
       letter-spacing: 0;
+    }
+
+    .section-head h2 .accent {
+      color: var(--cyan);
     }
 
     .section-head p {
@@ -470,78 +352,70 @@
       font-size: 1.05rem;
     }
 
-    .work-grid,
-    .flow-grid,
-    .docs-grid {
+    .section-sub {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--soft);
+      margin-bottom: 8px;
+    }
+
+    .section-sub .material-symbols-outlined {
+      font-size: 1rem;
+    }
+
+    /* =============================================
+       WORK GRID
+       ============================================= */
+    .work-grid {
       display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
       gap: 14px;
     }
 
-    .work-grid {
-      grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-    }
-
-    .work-card,
-    .flow-card,
-    .doc-card,
-    .terminal-card {
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
-      overflow: hidden;
-    }
-
     .work-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel);
+      box-shadow: var(--shadow);
+      overflow: hidden;
       min-height: 410px;
       display: grid;
       align-content: end;
       padding: 24px;
       position: relative;
       isolation: isolate;
+      transition: transform 180ms ease, border-color 180ms ease;
     }
 
-    .work-card::before {
-      position: absolute;
-      inset: 0;
-      z-index: -2;
-      content: "";
-      background: url("assets/stasis-forest-real.jpg") center / cover no-repeat;
-      transform: scale(1.02);
-    }
-
-    .work-card::after {
-      position: absolute;
-      inset: 0;
-      z-index: -1;
-      content: "";
-      background:
-        linear-gradient(180deg, rgba(3, 4, 2, 0.1), rgba(3, 4, 2, 0.88)),
-        linear-gradient(90deg, rgba(3, 4, 2, 0.86), rgba(3, 4, 2, 0.1));
+    .work-card:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
     }
 
     .work-card.compact {
       min-height: 410px;
-      background:
-        linear-gradient(145deg, rgba(154, 196, 107, 0.12), transparent 42%),
-        linear-gradient(180deg, rgba(13, 15, 11, 0.92), rgba(5, 6, 4, 0.86));
+      background: linear-gradient(180deg, rgba(139, 214, 255, 0.06), transparent 36%), var(--panel);
     }
-
-    .work-card.compact::before,
-    .work-card.compact::after { display: none; }
 
     .caption {
       display: inline-flex;
       width: fit-content;
       margin-bottom: 14px;
-      border: 1px solid rgba(215, 163, 79, 0.38);
+      border: 1px solid var(--line);
       border-radius: 999px;
-      padding: 6px 10px;
-      background: rgba(6, 7, 5, 0.64);
-      color: #f3d7a0;
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.72rem;
-      font-weight: 700;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.65rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
@@ -550,6 +424,7 @@
     .doc-card h3,
     .terminal-card h3 {
       margin-bottom: 9px;
+      font-family: var(--headline);
       font-size: 1.45rem;
       line-height: 1.05;
     }
@@ -562,30 +437,12 @@
       color: var(--muted);
     }
 
-    .signal-list {
+    /* =============================================
+       FLOW / PIPELINE SECTION
+       ============================================= */
+    .flow-grid {
       display: grid;
-      gap: 10px;
-      margin-top: 24px;
-    }
-
-    .signal {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 12px;
-      align-items: start;
-      border-top: 1px solid rgba(245, 240, 230, 0.12);
-      padding-top: 12px;
-    }
-
-    .signal code,
-    .terminal code {
-      font-family: "JetBrains Mono", monospace;
-    }
-
-    .signal code {
-      color: var(--moss);
-      font-size: 0.78rem;
-      font-weight: 700;
+      gap: 14px;
     }
 
     .pipeline-split {
@@ -602,12 +459,13 @@
 
     .pipeline-card {
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 20px;
       padding: 22px;
-      background: var(--panel);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel);
       cursor: pointer;
       position: relative;
       overflow: hidden;
+      transition: transform 180ms ease, border-color 180ms ease;
     }
 
     .pipeline-card::before {
@@ -623,12 +481,12 @@
 
     .pipeline-card.is-active::before,
     .pipeline-card:hover::before {
-      background: var(--amber);
+      background: var(--cyan);
     }
 
     .pipeline-card.is-active {
-      border-color: var(--line-strong);
-      background: var(--panel-strong);
+      border-color: rgba(255, 255, 255, 0.3);
+      background: linear-gradient(180deg, rgba(139, 214, 255, 0.08), transparent 36%), var(--panel-strong);
     }
 
     .flow-number {
@@ -637,31 +495,36 @@
       height: 34px;
       margin-bottom: 12px;
       place-items: center;
-      border: 1px solid var(--line-strong);
+      border: 1px solid var(--line);
       border-radius: 50%;
-      color: var(--amber);
-      font-family: "JetBrains Mono", monospace;
+      color: var(--soft);
+      font-family: var(--mono);
       font-size: 0.76rem;
-      font-weight: 800;
+      font-weight: 700;
+    }
+
+    .pipeline-card.is-active .flow-number {
+      border-color: var(--cyan);
+      color: var(--cyan);
     }
 
     .step-details {
       margin-top: 12px;
-      border-top: 1px dashed var(--line);
+      border-top: 1px solid var(--line);
       padding-top: 8px;
     }
 
     .step-details code {
-      font-family: "JetBrains Mono", monospace;
+      font-family: var(--mono);
       font-size: 0.78rem;
-      color: var(--quiet);
+      color: var(--soft);
     }
 
     .pipeline-schematic {
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 20px;
       padding: 24px;
-      background: var(--panel-strong);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel-strong);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
@@ -674,42 +537,36 @@
       max-height: 340px;
     }
 
-    .svg-node {
-      cursor: pointer;
-    }
-
+    .svg-node { cursor: pointer; }
     .svg-node circle, .svg-node rect, .svg-node path, .svg-node text {
       transition: fill 220ms ease, stroke 220ms ease, opacity 220ms ease, transform 300ms ease;
     }
-
     .svg-node:hover circle:first-child {
-      stroke: var(--amber);
-      fill: var(--line);
+      stroke: var(--cyan);
+      fill: rgba(255, 255, 255, 0.06);
     }
-
     .svg-node.is-active circle:first-child {
-      stroke: var(--amber);
-      fill: var(--bg-soft);
+      stroke: var(--cyan);
+      fill: rgba(139, 214, 255, 0.08);
     }
-
     .svg-node.is-active text {
-      fill: var(--amber);
+      fill: var(--cyan);
     }
 
     .schematic-panel {
       margin-top: 18px;
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 12px;
       padding: 14px;
       background: var(--bg);
-      font-family: "JetBrains Mono", monospace;
+      font-family: var(--mono);
       font-size: 0.78rem;
-      color: var(--ink);
+      color: var(--muted);
     }
 
     .schematic-header {
       display: block;
-      color: var(--amber);
+      color: var(--cyan);
       font-weight: 700;
       margin-bottom: 6px;
       font-size: 0.7rem;
@@ -720,40 +577,63 @@
       margin: 0;
       white-space: pre-wrap;
       word-break: break-all;
-      color: var(--muted);
+      color: var(--soft);
       line-height: 1.5;
     }
 
-    /* Flow packet stream animation settings */
+    /* Flow packet stream animation */
     .flow-packet {
       stroke-dasharray: 8 90;
       animation: packet-flow 4s linear infinite;
     }
-
     #packet-0 { animation-delay: 0s; }
     #packet-1 { animation-delay: 1.33s; }
     #packet-2 { animation-delay: 2.66s; }
-
     @keyframes packet-flow {
-      to {
-        stroke-dashoffset: -98;
-      }
+      to { stroke-dashoffset: -98; }
     }
 
-    /* Tactile Field Console Telemetry Simulator Widget */
+    /* =============================================
+       SIGNAL LIST
+       ============================================= */
+    .signal-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .signal {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      border-top: 1px solid var(--line-soft);
+      padding-top: 12px;
+    }
+
+    .signal code {
+      font-family: var(--mono);
+      color: var(--cyan);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+
+    /* =============================================
+       FIELD CONSOLE / HUD
+       ============================================= */
     .field-console {
       margin-top: 18px;
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 20px;
       overflow: hidden;
-      background: #020302;
+      background: var(--bg);
       text-align: left;
     }
 
     .hud-screen {
       position: relative;
       height: 200px;
-      background: radial-gradient(circle at center, rgba(16, 28, 16, 0.45), #020502);
+      background: radial-gradient(circle at center, rgba(14, 14, 14, 0.8), #000);
       border-bottom: 1px solid var(--line);
       overflow: hidden;
     }
@@ -761,9 +641,9 @@
     .hud-grid-overlay {
       position: absolute;
       inset: 0;
-      background-image: 
-        linear-gradient(rgba(154, 196, 107, 0.05) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(154, 196, 107, 0.05) 1px, transparent 1px);
+      background-image:
+        linear-gradient(rgba(68, 71, 72, 0.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(68, 71, 72, 0.12) 1px, transparent 1px);
       background-size: 20px 20px;
       background-position: center;
       pointer-events: none;
@@ -785,23 +665,18 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      font-family: "JetBrains Mono", monospace;
+      font-family: var(--mono);
       font-size: 0.68rem;
       font-weight: 700;
-      color: var(--moss);
+      color: var(--green);
       z-index: 5;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       pointer-events: none;
     }
 
-    .blink {
-      animation: blinker 1.5s linear infinite;
-    }
-
-    @keyframes blinker {
-      50% { opacity: 0; }
-    }
+    .blink { animation: blinker 1.5s linear infinite; }
+    @keyframes blinker { 50% { opacity: 0; } }
 
     .hud-viewfinder {
       position: absolute;
@@ -816,21 +691,18 @@
       height: 20px;
       position: relative;
     }
-
     .viewfinder-cross::before, .viewfinder-cross::after {
       content: "";
       position: absolute;
-      background: var(--moss);
-      opacity: 0.35;
+      background: var(--text);
+      opacity: 0.15;
     }
-
     .viewfinder-cross::before {
       top: 9px;
       left: 0;
       width: 20px;
       height: 2px;
     }
-
     .viewfinder-cross::after {
       top: 0;
       left: 9px;
@@ -840,25 +712,20 @@
 
     .hud-bounding-box {
       position: absolute;
-      border: 1px solid var(--moss);
-      background: rgba(154, 196, 107, 0.08);
+      border: 1px solid var(--green);
+      background: rgba(140, 255, 189, 0.08);
       padding: 4px;
-      border-radius: 2px;
+      border-radius: 4px;
       transition: opacity 220ms ease, transform 300ms ease;
-    }
-
-    .hud-bounding-box.warning {
-      border-color: var(--clay);
-      background: rgba(159, 112, 74, 0.12);
     }
 
     .hud-bounding-box .box-label {
       position: absolute;
       top: -14px;
       left: -1px;
-      background: var(--moss);
-      color: #030402;
-      font-family: "JetBrains Mono", monospace;
+      background: var(--green);
+      color: #000;
+      font-family: var(--mono);
       font-size: 0.55rem;
       font-weight: 700;
       padding: 0 4px;
@@ -866,37 +733,19 @@
       text-transform: uppercase;
     }
 
+    .hud-bounding-box.warning {
+      border-color: var(--red);
+      background: rgba(255, 180, 171, 0.08);
+    }
     .hud-bounding-box.warning .box-label {
-      background: var(--clay);
-      color: #fff7e6;
+      background: var(--red);
+      color: #000;
     }
 
-    #hud-box-1 {
-      top: 35px;
-      left: 45px;
-      width: 75px;
-      height: 105px;
-    }
-
-    #hud-box-2 {
-      top: 75px;
-      right: 45px;
-      width: 85px;
-      height: 65px;
-      border-color: var(--amber);
-      background: rgba(215, 163, 79, 0.06);
-    }
-
-    #hud-box-2 .box-label {
-      background: var(--amber);
-    }
-
-    #hud-box-3 {
-      top: 45px;
-      left: 115px;
-      width: 105px;
-      height: 85px;
-    }
+    #hud-box-1 { top: 35px; left: 45px; width: 75px; height: 105px; }
+    #hud-box-2 { top: 75px; right: 45px; width: 85px; height: 65px; border-color: var(--amber); background: rgba(255, 211, 109, 0.06); }
+    #hud-box-2 .box-label { background: var(--amber); }
+    #hud-box-3 { top: 45px; left: 115px; width: 105px; height: 85px; }
 
     .hud-radar {
       position: absolute;
@@ -906,21 +755,16 @@
       height: 54px;
       border-radius: 50%;
       background: rgba(0, 0, 0, 0.7);
-      border: 1px solid rgba(154, 196, 107, 0.15);
+      border: 1px solid rgba(68, 71, 72, 0.3);
       z-index: 5;
       pointer-events: none;
     }
 
-    .radar-svg {
-      width: 100%;
-      height: 100%;
-    }
-
+    .radar-svg { width: 100%; height: 100%; }
     .radar-beam {
       transform-origin: 50px 50px;
       animation: radar-sweep 3s linear infinite;
     }
-
     @keyframes radar-sweep {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -935,9 +779,9 @@
 
     .console-btn {
       border: none;
-      background: #0c0e0c;
-      color: var(--quiet);
-      font-family: "JetBrains Mono", monospace;
+      background: var(--bg);
+      color: var(--soft);
+      font-family: var(--mono);
       font-size: 0.65rem;
       font-weight: 700;
       padding: 10px 4px;
@@ -947,32 +791,31 @@
     }
 
     .console-btn:hover {
-      background: #141814;
-      color: var(--ink);
+      background: var(--surface);
+      color: var(--text);
     }
 
     .console-btn.warning {
-      color: var(--clay);
+      color: var(--red);
     }
-
     .console-btn.warning:hover {
-      background: var(--clay);
-      color: #fff7e6;
+      background: rgba(255, 180, 171, 0.12);
+      color: var(--red);
     }
 
     .console-log {
       padding: 12px;
-      background: #020302;
-      font-family: "JetBrains Mono", monospace;
+      background: var(--bg);
+      font-family: var(--mono);
       font-size: 0.7rem;
-      color: var(--moss);
+      color: var(--green);
       height: 95px;
       overflow-y: auto;
       border-top: 1px solid var(--line);
     }
 
     .log-title {
-      color: var(--quiet);
+      color: var(--soft);
       font-weight: 700;
       margin-bottom: 4px;
       font-size: 0.64rem;
@@ -984,9 +827,12 @@
       white-space: pre-wrap;
       word-break: break-all;
       line-height: 1.4;
-      color: var(--moss);
+      color: var(--green);
     }
 
+    /* =============================================
+       TERMINAL / CODE BLOCKS
+       ============================================= */
     .terminal-layout {
       display: grid;
       grid-template-columns: minmax(0, 0.86fr) minmax(0, 1.14fr);
@@ -995,15 +841,24 @@
     }
 
     .terminal-card {
+      border: 1px solid var(--line);
+      border-radius: 20px;
       padding: 26px;
-      background: rgba(8, 10, 7, 0.82);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel);
+      box-shadow: var(--shadow);
+      transition: transform 180ms ease, border-color 180ms ease;
+    }
+
+    .terminal-card:hover {
+      border-color: rgba(255, 255, 255, 0.3);
+      transform: translateY(-1px);
     }
 
     .terminal {
       min-height: 100%;
-      border: 1px solid rgba(245, 240, 230, 0.14);
-      border-radius: 8px;
-      background: #050604;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: var(--bg-soft);
       overflow: hidden;
     }
 
@@ -1011,25 +866,29 @@
       display: flex;
       gap: 7px;
       padding: 13px 15px;
-      border-bottom: 1px solid rgba(245, 240, 230, 0.11);
-      background: rgba(245, 240, 230, 0.04);
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(255, 255, 255, 0.025);
     }
 
     .terminal-bar span {
       width: 9px;
       height: 9px;
       border-radius: 50%;
-      background: var(--quiet);
+      background: var(--soft);
     }
 
     .terminal pre {
       margin: 0;
       overflow-x: auto;
       padding: 20px;
-      color: #d9e6cf;
-      font-family: "JetBrains Mono", monospace;
+      color: var(--muted);
+      font-family: var(--mono);
       font-size: 0.87rem;
       line-height: 1.7;
+    }
+
+    .terminal code {
+      font-family: var(--mono);
     }
 
     .terminal b {
@@ -1037,8 +896,31 @@
       font-weight: 700;
     }
 
+    .terminal table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+
+    .terminal thead tr {
+      color: var(--cyan);
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .terminal th { padding: 8px 10px; }
+    .terminal td { padding: 6px 10px; border-bottom: 1px solid var(--line-soft); }
+    .terminal tbody { color: var(--muted); }
+
+    /* =============================================
+       DOCS GRID
+       ============================================= */
     .docs-grid {
+      display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
     }
 
     .doc-card {
@@ -1046,25 +928,30 @@
       min-height: 210px;
       align-content: space-between;
       padding: 22px;
-      transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel);
+      box-shadow: var(--shadow);
+      transition: transform 180ms ease, border-color 180ms ease;
     }
 
     .doc-card:hover {
-      border-color: rgba(215, 163, 79, 0.38);
-      background: rgba(14, 17, 12, 0.84);
+      border-color: rgba(255, 255, 255, 0.3);
       transform: translateY(-2px);
     }
 
     .doc-card span {
-      color: var(--amber);
-      font-family: "JetBrains Mono", monospace;
-      font-size: 0.76rem;
-      font-weight: 700;
+      color: var(--violet);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
     }
 
-
-
+    /* =============================================
+       SCROLL REVEAL
+       ============================================= */
     .reveal {
       opacity: 0;
       transform: translateY(34px) scale(0.985);
@@ -1075,6 +962,9 @@
 
     .reveal.is-visible { opacity: 1; transform: translateY(0) scale(1); }
 
+    /* =============================================
+       SCROLL STORY (Motion Section)
+       ============================================= */
     .scroll-story { position: relative; padding: 92px 0; }
 
     .story-shell {
@@ -1089,10 +979,10 @@
       top: 112px;
       min-height: 520px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 20px;
       padding: clamp(22px, 4vw, 36px);
-      background: linear-gradient(145deg, rgba(126, 145, 143, 0.13), transparent 46%), rgba(7, 9, 7, 0.78);
-      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.34);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel-strong);
+      box-shadow: var(--shadow);
       overflow: hidden;
     }
 
@@ -1101,7 +991,7 @@
       inset: auto 24px 24px 24px;
       height: 1px;
       content: "";
-      background: linear-gradient(90deg, transparent, rgba(215, 163, 79, 0.7), transparent);
+      background: linear-gradient(90deg, transparent, rgba(139, 214, 255, 0.7), transparent);
       transform: scaleX(var(--story-progress, 0));
       transform-origin: left;
     }
@@ -1116,8 +1006,8 @@
       grid-template-columns: 34px minmax(0, 1fr);
       gap: 12px;
       align-items: center;
-      color: var(--quiet);
-      font-family: "JetBrains Mono", monospace;
+      color: var(--soft);
+      font-family: var(--mono);
       font-size: 0.78rem;
       font-weight: 700;
       text-transform: uppercase;
@@ -1127,47 +1017,48 @@
       width: 10px;
       height: 10px;
       margin-left: 10px;
-      border: 1px solid rgba(215, 163, 79, 0.45);
+      border: 1px solid var(--line);
       border-radius: 50%;
       content: "";
-      background: rgba(245, 240, 230, 0.1);
+      background: transparent;
       transition: background 180ms ease, box-shadow 180ms ease, transform 180ms ease;
     }
 
-    .story-dot.is-active { color: var(--ink); }
-    .story-dot.is-active::before { background: var(--amber); box-shadow: 0 0 28px rgba(215, 163, 79, 0.48); transform: scale(1.18); }
+    .story-dot.is-active { color: var(--text); }
+    .story-dot.is-active::before { background: var(--cyan); box-shadow: 0 0 28px rgba(139, 214, 255, 0.48); transform: scale(1.18); }
 
     .story-track { display: grid; gap: 26px; }
 
     .story-panel {
       min-height: 540px;
       border: 1px solid var(--line);
-      border-radius: 8px;
+      border-radius: 20px;
       padding: 16px;
-      background: rgba(9, 11, 8, 0.74);
-      box-shadow: 0 34px 90px rgba(0, 0, 0, 0.44);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 36%), var(--panel);
+      box-shadow: var(--shadow);
       overflow: hidden;
       transform-style: preserve-3d;
+      transition: border-color 180ms ease;
     }
 
-    .story-panel:hover { border-color: rgba(215, 163, 79, 0.36); }
+    .story-panel:hover { border-color: rgba(255, 255, 255, 0.3); }
 
     .video-frame {
       position: relative;
       min-height: 390px;
       border: 1px solid var(--line);
-      border-radius: 4px;
+      border-radius: 12px;
       overflow: hidden;
-      background: radial-gradient(circle at 50% 50%, rgba(20, 32, 20, 0.5), #020502);
+      background: radial-gradient(circle at 50% 50%, rgba(14, 14, 14, 0.8), #000);
     }
 
     .video-frame::before {
       content: "";
       position: absolute;
       inset: 0;
-      background-image: 
-        linear-gradient(rgba(154, 196, 107, 0.04) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(154, 196, 107, 0.04) 1px, transparent 1px);
+      background-image:
+        linear-gradient(rgba(68, 71, 72, 0.08) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(68, 71, 72, 0.08) 1px, transparent 1px);
       background-size: 25px 25px;
       background-position: center;
       pointer-events: none;
@@ -1195,9 +1086,7 @@
       z-index: 0;
     }
 
-    .video-frame.has-video video {
-      opacity: 1;
-    }
+    .video-frame.has-video video { opacity: 1; }
 
     .video-fallback {
       position: absolute;
@@ -1211,23 +1100,22 @@
 
     .video-fallback span {
       display: inline-flex;
-      border: 1px solid var(--line-strong);
-      border-radius: 4px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
       padding: 9px 15px;
-      background: rgba(2, 4, 2, 0.85);
-      color: var(--amber);
-      font-family: "JetBrains Mono", monospace;
+      background: var(--bg-soft);
+      color: var(--soft);
+      font-family: var(--mono);
       font-size: 0.74rem;
-      font-weight: 800;
+      font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.06em;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
     }
 
     .video-frame-hud {
       position: absolute;
       inset: 18px;
-      border: 1px solid rgba(154, 196, 107, 0.12);
+      border: 1px solid rgba(68, 71, 72, 0.25);
       pointer-events: none;
       z-index: 3;
     }
@@ -1237,11 +1125,12 @@
       position: absolute;
       top: 8px;
       left: 10px;
-      font-family: "JetBrains Mono", monospace;
+      font-family: var(--mono);
       font-size: 0.62rem;
       font-weight: 700;
-      color: var(--moss);
+      color: var(--soft);
       opacity: 0.7;
+      letter-spacing: 0.06em;
     }
 
     .video-frame-hud::after {
@@ -1249,36 +1138,39 @@
       position: absolute;
       top: 8px;
       right: 10px;
-      font-family: "JetBrains Mono", monospace;
+      font-family: var(--mono);
       font-size: 0.62rem;
       font-weight: 700;
-      color: var(--amber);
+      color: var(--green);
       opacity: 0.7;
+      letter-spacing: 0.06em;
     }
 
-    .story-panel h3 { margin: 18px 6px 8px; font-size: clamp(1.35rem, 3vw, 2.1rem); line-height: 1; }
+    .story-panel h3 { margin: 18px 6px 8px; font-family: var(--headline); font-size: clamp(1.35rem, 3vw, 2.1rem); line-height: 1; }
     .story-panel p { margin: 0 6px 8px; color: var(--muted); }
 
+    /* =============================================
+       FOOTER
+       ============================================= */
     .footer {
       padding: 42px 0 56px;
-      color: var(--quiet);
+      color: var(--soft);
     }
 
     .footer-inner {
       display: flex;
       justify-content: space-between;
       gap: 18px;
-      border-top: 1px solid rgba(245, 240, 230, 0.12);
+      border-top: 1px solid var(--line-soft);
       padding-top: 22px;
     }
 
-
-
+    /* =============================================
+       RESPONSIVE
+       ============================================= */
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
-      .reveal,
-      .reveal.is-visible,
-      .story-panel {
+      .reveal, .reveal.is-visible, .story-panel {
         opacity: 1;
         transform: none !important;
         transition: none;
@@ -1291,92 +1183,33 @@
         border-radius: 24px;
         flex-wrap: wrap;
       }
-
-      .nav-links {
-        order: 3;
-        width: 100%;
-        justify-content: flex-start;
-        overflow-x: auto;
-        padding-bottom: 2px;
-      }
-
-      .hero {
-        padding-top: 142px;
-      }
-
-      .hero-strip,
-      .flow-grid,
-      .pipeline-split,
-      .docs-grid,
-      .work-grid,
-      .terminal-layout,
-      .story-shell,
-      .section-head {
+      .nav-links { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; padding-bottom: 2px; }
+      .hero { padding-top: 142px; }
+      .hero-strip, .flow-grid, .pipeline-split, .docs-grid, .work-grid, .terminal-layout, .story-shell, .section-head {
         grid-template-columns: 1fr;
       }
-
-      .story-copy {
-        position: relative;
-        top: auto;
-        min-height: auto;
-      }
-
-      .work-card,
-      .work-card.compact {
-        min-height: 340px;
-      }
+      .story-copy { position: relative; top: auto; min-height: auto; }
+      .work-card, .work-card.compact { min-height: 340px; }
     }
 
     @media (max-width: 560px) {
-      .wrap {
-        width: min(100% - 24px, 1180px);
-      }
-
-      .site-nav {
-        top: 10px;
-        width: calc(100% - 16px);
-        padding: 9px;
-      }
-
-      .brand {
-        letter-spacing: 0.08em;
-      }
-
-      .nav-action {
-        padding: 9px 11px;
-      }
-
-      .hero {
-        padding-top: 172px;
-      }
-
-      .hero-card {
-        padding: 30px 18px;
-      }
-
-      h1 {
-        font-size: clamp(2.55rem, 16vw, 4rem);
-      }
-
-      section {
-        padding: 58px 0;
-      }
-
-      .actions,
-      .footer-inner {
-        flex-direction: column;
-      }
-
-      .button {
-        width: 100%;
-      }
+      .wrap { width: min(100% - 24px, 1180px); }
+      .site-nav { top: 10px; width: calc(100% - 16px); padding: 9px; }
+      .brand { letter-spacing: 0.08em; }
+      .nav-action { padding: 9px 11px; }
+      .hero { padding-top: 172px; }
+      .hero-card { padding: 30px 18px; }
+      h1 { font-size: clamp(2.55rem, 16vw, 4rem); }
+      section { padding: 58px 0; }
+      .actions, .footer-inner { flex-direction: column; }
+      .button { width: 100%; }
     }
   </style>
 </head>
 <body>
   <nav class="site-nav" aria-label="Primary navigation">
     <a class="brand" href="#top" aria-label="STASIS home">
-      <img class="brand-logo" src="assets/stasis-logo.png" alt="STASIS Logo" width="32" height="32">
+      <img class="brand-logo" src="assets/stasis-logo.png" alt="STASIS Logo" width="32" height="32" />
       <span>STASIS</span>
     </a>
     <div class="nav-links" aria-label="Documentation">
@@ -1387,24 +1220,17 @@
       <a href="#setup">Setup</a>
       <a href="#docs">Docs</a>
     </div>
-    <div style="display: flex; align-items: center; gap: 8px;">
-      <a class="nav-action" href="https://github.com/Catkartikwastaken/Stasis">GitHub</a>
-      <button class="theme-toggle" id="theme-toggle" aria-label="Toggle theme" title="Toggle visual profile">
-        <svg class="toggle-icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-        <svg class="toggle-icon moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-      </button>
-    </div>
+    <a class="nav-action" href="https://github.com/Catkartikwastaken/Stasis">
+      GitHub
+    </a>
   </nav>
 
   <main id="top">
     <header class="hero">
       <div class="wrap hero-grid">
         <div class="hero-card">
-          <div class="hero-card-ticks"></div>
-          <h1 class="reveal-lines reveal">
-            <span class="line-wrapper"><span>Build field intelligence</span></span>
-            <span class="line-wrapper"><span>with <span class="serif">STASIS.</span></span></span>
-          </h1>
+          <span class="sub">Field Intelligence Platform</span>
+          <h1>Build field<br />intelligence.</h1>
           <p>A competition-grade Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
           <div class="actions">
             <a class="button primary" href="README_ROVER_SYSTEM.html">Read Rover Guide</a>
@@ -1416,7 +1242,7 @@
         <div class="hero-strip" aria-label="Competition project capabilities">
           <div class="hero-stat">
             <strong>Competition Entry</strong>
-            <span>Field robotics & AI monitoring showcase.</span>
+            <span>Field robotics &amp; AI monitoring showcase.</span>
           </div>
           <div class="hero-stat">
             <strong>Local AI</strong>
@@ -1437,7 +1263,7 @@
     <section id="system">
       <div class="wrap">
         <div class="section-head reveal">
-          <h2><span class="serif">Selected</span> system work.</h2>
+          <h2>Selected <span class="accent">system work.</span></h2>
           <p>The site keeps the original docs and project purpose, but presents it like a real field platform: grounded, inspectable, and ready for the next build stage.</p>
         </div>
 
@@ -1452,9 +1278,8 @@
             <span class="caption">Tactile field terminal</span>
             <h3>Local decision loop</h3>
             <p>STASIS processes camera feeds and sensors dynamically. Use the console below to simulate real-time sensor streams and trigger local model reasoning loops.</p>
-            
+
             <div class="field-console">
-              <!-- HUD screen FPV wireframe camera simulation -->
               <div class="hud-screen">
                 <div class="hud-grid-overlay"></div>
                 <div class="hud-scanline"></div>
@@ -1462,11 +1287,9 @@
                   <span class="hud-status blink" id="hud-status">FEED STABLE</span>
                   <span id="hud-timer">00:00:00</span>
                 </div>
-                
-                <!-- Viewfinder and simulated detection boxes -->
+
                 <div class="hud-viewfinder">
                   <div class="viewfinder-cross"></div>
-                  
                   <div class="hud-bounding-box" id="hud-box-1" style="display:none">
                     <span class="box-label">HUMAN [91% CONFIDENCE]</span>
                   </div>
@@ -1478,23 +1301,21 @@
                   </div>
                 </div>
 
-                <!-- Sonar radar sweep overlay -->
                 <div class="hud-radar">
                   <svg viewBox="0 0 100 100" class="radar-svg">
-                    <circle cx="50" cy="50" r="45" stroke="var(--moss)" stroke-width="0.75" fill="none" opacity="0.3"/>
-                    <circle cx="50" cy="50" r="30" stroke="var(--moss)" stroke-width="0.5" fill="none" opacity="0.2"/>
-                    <circle cx="50" cy="50" r="15" stroke="var(--moss)" stroke-width="0.5" fill="none" opacity="0.1"/>
-                    <line x1="50" y1="5" x2="50" y2="95" stroke="var(--moss)" stroke-width="0.5" opacity="0.15"/>
-                    <line x1="5" y1="50" x2="95" y2="50" stroke="var(--moss)" stroke-width="0.5" opacity="0.15"/>
-                    <line x1="50" y1="50" x2="50" y2="5" stroke="var(--moss)" stroke-width="1.5" class="radar-beam" opacity="0.6"/>
+                    <circle cx="50" cy="50" r="45" stroke="var(--soft)" stroke-width="0.75" fill="none" opacity="0.3"/>
+                    <circle cx="50" cy="50" r="30" stroke="var(--soft)" stroke-width="0.5" fill="none" opacity="0.2"/>
+                    <circle cx="50" cy="50" r="15" stroke="var(--soft)" stroke-width="0.5" fill="none" opacity="0.1"/>
+                    <line x1="50" y1="5" x2="50" y2="95" stroke="var(--soft)" stroke-width="0.5" opacity="0.15"/>
+                    <line x1="5" y1="50" x2="95" y2="50" stroke="var(--soft)" stroke-width="0.5" opacity="0.15"/>
+                    <line x1="50" y1="50" x2="50" y2="5" stroke="var(--cyan)" stroke-width="1.5" class="radar-beam" opacity="0.6"/>
                     <circle cx="65" cy="30" r="3.5" fill="var(--amber)" class="radar-blip" id="radar-blip-1" style="display:none; filter: drop-shadow(0 0 4px var(--amber));"/>
-                    <circle cx="35" cy="72" r="3.5" fill="var(--moss)" class="radar-blip" id="radar-blip-2" style="display:none; filter: drop-shadow(0 0 4px var(--moss));"/>
-                    <circle cx="75" cy="65" r="4" fill="var(--clay)" class="radar-blip" id="radar-blip-3" style="display:none; filter: drop-shadow(0 0 4px var(--clay));"/>
+                    <circle cx="35" cy="72" r="3.5" fill="var(--green)" class="radar-blip" id="radar-blip-2" style="display:none; filter: drop-shadow(0 0 4px var(--green));"/>
+                    <circle cx="75" cy="65" r="4" fill="var(--red)" class="radar-blip" id="radar-blip-3" style="display:none; filter: drop-shadow(0 0 4px var(--red));"/>
                   </svg>
                 </div>
               </div>
 
-              <!-- Lower telemetry interaction console -->
               <div class="console-controls">
                 <button class="console-btn" id="btn-detect">DETECTION ON</button>
                 <button class="console-btn" id="btn-ping">PING ROVER</button>
@@ -1504,7 +1325,7 @@
 
               <div class="console-log">
                 <div class="log-title">[STASIS FIELD LOG CONSOLE]</div>
-                <pre id="console-output">SYSTEM INITALIZED. WAITING FOR OPERATOR ACTION...</pre>
+                <pre id="console-output">SYSTEM INITIALIZED. WAITING FOR OPERATOR ACTION...</pre>
               </div>
             </div>
           </article>
@@ -1515,16 +1336,15 @@
     <section id="pipeline">
       <div class="wrap">
         <div class="section-head reveal">
-          <h2>How the <span class="serif">pipeline</span> moves.</h2>
+          <h2>How the <span class="accent">pipeline</span> moves.</h2>
           <p>A simple split: the Pi handles capture and rover-side telemetry; the laptop handles heavier inference, the dashboard, and local model workflows.</p>
         </div>
 
         <div class="pipeline-split">
-          <!-- Left side: Interactive text cards -->
           <div class="pipeline-cards">
             <article class="pipeline-card reveal is-active" data-step="0">
               <span class="flow-number">01</span>
-              <h3>Capture (Pi & Camera)</h3>
+              <h3>Capture (Pi &amp; Camera)</h3>
               <p>Raspberry Pi gathers 1080p camera frames and IMU/GPS status telemetry directly at the edge.</p>
               <div class="step-details">
                 <code>Format: RAW MJPEG / 30fps</code>
@@ -1540,7 +1360,7 @@
             </article>
             <article class="pipeline-card reveal" style="--reveal-delay: 160ms" data-step="2">
               <span class="flow-number">03</span>
-              <h3>Infer (YOLO & ONNX)</h3>
+              <h3>Infer (YOLO &amp; ONNX)</h3>
               <p>Windows receiver runs object identification models, overlays tracking boxes, and generates detections.</p>
               <div class="step-details">
                 <code>Latency: ~12ms (RTX TensorRT)</code>
@@ -1548,7 +1368,7 @@
             </article>
             <article class="pipeline-card reveal" style="--reveal-delay: 240ms" data-step="3">
               <span class="flow-number">04</span>
-              <h3>Act (Local LLM & Dashboard)</h3>
+              <h3>Act (Local LLM &amp; Dashboard)</h3>
               <p>Dashboard records warnings, alerts operators, and pings Qwen/Ollama for automated text observations.</p>
               <div class="step-details">
                 <code>Reasoning: local qwen2.5-coder</code>
@@ -1556,62 +1376,54 @@
             </article>
           </div>
 
-          <!-- Right side: Breathtaking SVG Pipeline schematic -->
           <div class="pipeline-schematic reveal" style="--reveal-delay: 120ms">
             <svg id="pipeline-svg" viewBox="0 0 400 450" fill="none" xmlns="http://www.w3.org/2000/svg">
               <defs>
                 <linearGradient id="path-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stop-color="var(--moss)"/>
-                  <stop offset="50%" stop-color="var(--amber)"/>
-                  <stop offset="100%" stop-color="var(--clay)"/>
+                  <stop offset="0%" stop-color="var(--cyan)"/>
+                  <stop offset="50%" stop-color="var(--green)"/>
+                  <stop offset="100%" stop-color="var(--violet)"/>
                 </linearGradient>
               </defs>
 
-              <!-- Connection lines (paths) -->
               <path class="flow-path" id="path-0" d="M 200,60 L 200,160" stroke="var(--line)" stroke-width="2" stroke-dasharray="6,4"/>
               <path class="flow-path" id="path-1" d="M 200,160 L 200,260" stroke="var(--line)" stroke-width="2" stroke-dasharray="6,4"/>
               <path class="flow-path" id="path-2" d="M 200,260 L 200,360" stroke="var(--line)" stroke-width="2" stroke-dasharray="6,4"/>
 
-              <!-- Flowing data packets (animated dashes/circles) -->
-              <path class="flow-packet" id="packet-0" d="M 200,60 L 200,160" stroke="var(--moss)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
-              <path class="flow-packet" id="packet-1" d="M 200,160 L 200,260" stroke="var(--amber)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
-              <path class="flow-packet" id="packet-2" d="M 200,260 L 200,360" stroke="var(--clay)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
+              <path class="flow-packet" id="packet-0" d="M 200,60 L 200,160" stroke="var(--cyan)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
+              <path class="flow-packet" id="packet-1" d="M 200,160 L 200,260" stroke="var(--green)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
+              <path class="flow-packet" id="packet-2" d="M 200,260 L 200,360" stroke="var(--violet)" stroke-width="3" stroke-linecap="round" stroke-dasharray="10 120" stroke-dashoffset="0"/>
 
-              <!-- Node 1: Capture -->
               <g class="svg-node is-active" id="node-0" data-step="0">
                 <circle cx="200" cy="60" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
-                <circle cx="200" cy="60" r="22" fill="none" stroke="var(--moss)" stroke-width="1.5" stroke-dasharray="4,2"/>
-                <circle cx="200" cy="60" r="6" fill="var(--moss)"/>
-                <text x="200" y="105" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">PI CAPTURE</text>
+                <circle cx="200" cy="60" r="22" fill="none" stroke="var(--cyan)" stroke-width="1.5" stroke-dasharray="4,2"/>
+                <circle cx="200" cy="60" r="6" fill="var(--cyan)"/>
+                <text x="200" y="105" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono" font-size="11" font-weight="700">PI CAPTURE</text>
               </g>
 
-              <!-- Node 2: Transmit -->
               <g class="svg-node" id="node-1" data-step="1">
                 <circle cx="200" cy="160" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
-                <path d="M190 164 L210 164 L200 152 Z" fill="none" stroke="var(--amber)" stroke-width="1.5"/>
+                <path d="M190 164 L210 164 L200 152 Z" fill="none" stroke="var(--text)" stroke-width="1.5"/>
                 <circle cx="200" cy="160" r="22" fill="none" stroke="var(--line)" stroke-width="1"/>
-                <text x="200" y="205" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">WEBSOCKET</text>
+                <text x="200" y="205" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono" font-size="11" font-weight="700">WEBSOCKET</text>
               </g>
 
-              <!-- Node 3: Infer -->
               <g class="svg-node" id="node-2" data-step="2">
                 <circle cx="200" cy="260" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
-                <rect x="189" y="249" width="22" height="22" fill="none" stroke="var(--clay)" stroke-width="1.5" stroke-dasharray="3,2"/>
-                <rect x="194" y="254" width="12" height="12" fill="var(--clay)" opacity="0.8"/>
+                <rect x="189" y="249" width="22" height="22" fill="none" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="3,2"/>
+                <rect x="194" y="254" width="12" height="12" fill="var(--green)" opacity="0.8"/>
                 <circle cx="200" cy="260" r="22" fill="none" stroke="var(--line)" stroke-width="1"/>
-                <text x="200" y="305" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">AI INFERENCE</text>
+                <text x="200" y="305" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono" font-size="11" font-weight="700">AI INFERENCE</text>
               </g>
 
-              <!-- Node 4: Act -->
               <g class="svg-node" id="node-3" data-step="3">
                 <circle cx="200" cy="360" r="28" fill="var(--panel)" stroke="var(--line)" stroke-width="1.5"/>
-                <circle cx="200" cy="360" r="22" fill="none" stroke="var(--steel)" stroke-width="1.5"/>
-                <path d="M194 360 L198 364 L208 354" stroke="var(--steel)" stroke-width="2" stroke-linecap="round" fill="none"/>
-                <text x="200" y="405" text-anchor="middle" fill="var(--ink)" font-family="JetBrains Mono" font-size="11" font-weight="700">ACTION LOG</text>
+                <circle cx="200" cy="360" r="22" fill="none" stroke="var(--violet)" stroke-width="1.5"/>
+                <path d="M194 360 L198 364 L208 354" stroke="var(--violet)" stroke-width="2" stroke-linecap="round" fill="none"/>
+                <text x="200" y="405" text-anchor="middle" fill="var(--text)" font-family="JetBrains Mono" font-size="11" font-weight="700">ACTION LOG</text>
               </g>
             </svg>
 
-            <!-- Technical Schema Details -->
             <div class="schematic-panel">
               <span class="schematic-header" id="schematic-header">[NODE TELEMETRY // STASIS-PI]</span>
               <pre class="schematic-data" id="schematic-data">URL: http://192.168.1.45:8000/stream.mjpg
@@ -1628,8 +1440,8 @@ Heartbeat rate: 1.0Hz</pre>
       <div class="wrap story-shell">
         <aside class="story-copy reveal">
           <span class="caption">Scroll mission reel</span>
-          <h2>Watch the <span class="serif">rover loop</span> unfold.</h2>
-          <p>Drop generated MP4 files into <code>docs/assets/</code> with the names below and this section will play them as users scroll. Until then, the panels show placeholders with the exact clip names.</p>
+          <h2>Watch the rover loop unfold.</h2>
+          <p>Drop generated MP4 files into <code style="font-family:var(--mono);color:var(--cyan);">docs/assets/</code> with the names below and this section will play them as users scroll. Until then, the panels show placeholders with the exact clip names.</p>
           <div class="story-progress" aria-label="Scroll story progress">
             <span class="story-dot is-active" data-story-dot="0">Patrol</span>
             <span class="story-dot" data-story-dot="1">Detect</span>
@@ -1677,41 +1489,38 @@ Heartbeat rate: 1.0Hz</pre>
       </div>
     </section>
 
-
     <section id="hardware">
       <div class="wrap">
         <div class="section-head reveal">
-          <h2>Hardware <span class="serif">connections</span>.</h2>
+          <h2>Hardware <span class="accent">connections.</span></h2>
           <p>Complete pin mapping and wiring guide for every component in the STASIS rover platform. All pins use BCM GPIO numbering on the Raspberry Pi 2B 40-pin header.</p>
         </div>
 
         <div class="terminal-layout reveal">
-          <!-- Left: Pin Map -->
           <div class="terminal" aria-label="Raspberry Pi pin map" style="padding:0; height:fit-content;">
             <div class="terminal-bar" aria-hidden="true"><span></span><span></span><span></span></div>
             <div style="padding:18px;">
               <span class="caption" style="margin-bottom:12px;">Raspberry Pi 2B Pin Map</span>
-              <table style="width:100%; border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:0.78rem; color:var(--muted);">
-                <thead><tr style="color:var(--amber);text-align:left;border-bottom:1px solid var(--line);"><th style="padding:8px 10px;">Function</th><th style="padding:8px 10px;">GPIO</th><th style="padding:8px 10px;">Pin</th></tr></thead>
-                <tbody style="color:var(--ink);">
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Left motor forward</td><td>GPIO5</td><td>29</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Left motor reverse</td><td>GPIO6</td><td>31</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Right motor forward</td><td>GPIO13</td><td>33</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Right motor reverse</td><td>GPIO19</td><td>35</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Ultrasonic trigger</td><td>GPIO23</td><td>16</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Ultrasonic echo</td><td>GPIO24</td><td>18</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">Scanner servo</td><td>GPIO18</td><td>12</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">I2C SDA</td><td>GPIO2</td><td>3</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">I2C SCL</td><td>GPIO3</td><td>5</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">3.3V sensor power</td><td>3V3</td><td>1 or 17</td></tr>
-                  <tr><td style="padding:6px 10px;border-bottom:1px solid rgba(245,240,230,0.06);">5V power</td><td>5V</td><td>2 or 4</td></tr>
-                  <tr><td style="padding:6px 10px;">Ground</td><td>GND</td><td>6,9,14,20,25,30,34,39</td></tr>
+              <table>
+                <thead><tr><th style="padding:8px 10px;">Function</th><th style="padding:8px 10px;">GPIO</th><th style="padding:8px 10px;">Pin</th></tr></thead>
+                <tbody>
+                  <tr><td>Left motor forward</td><td>GPIO5</td><td>29</td></tr>
+                  <tr><td>Left motor reverse</td><td>GPIO6</td><td>31</td></tr>
+                  <tr><td>Right motor forward</td><td>GPIO13</td><td>33</td></tr>
+                  <tr><td>Right motor reverse</td><td>GPIO19</td><td>35</td></tr>
+                  <tr><td>Ultrasonic trigger</td><td>GPIO23</td><td>16</td></tr>
+                  <tr><td>Ultrasonic echo</td><td>GPIO24</td><td>18</td></tr>
+                  <tr><td>Scanner servo</td><td>GPIO18</td><td>12</td></tr>
+                  <tr><td>I2C SDA</td><td>GPIO2</td><td>3</td></tr>
+                  <tr><td>I2C SCL</td><td>GPIO3</td><td>5</td></tr>
+                  <tr><td>3.3V sensor power</td><td>3V3</td><td>1 or 17</td></tr>
+                  <tr><td>5V power</td><td>5V</td><td>2 or 4</td></tr>
+                  <tr><td>Ground</td><td>GND</td><td>6,9,14,20,25,30,34,39</td></tr>
                 </tbody>
               </table>
             </div>
           </div>
 
-          <!-- Right: Wiring Info -->
           <article class="terminal-card">
             <span class="caption">Quick Start Wiring</span>
             <h3>Minimal Demo Setup</h3>
@@ -1741,11 +1550,10 @@ Heartbeat rate: 1.0Hz</pre>
           </article>
         </div>
 
-        <!-- Full wiring tables in two columns -->
         <div class="work-grid reveal" style="--reveal-delay: 120ms; margin-top:14px;">
           <article class="terminal-card">
             <span class="caption">Sensors (I2C)</span>
-            <h3>MPU6050 IMU & HMC5883L Compass</h3>
+            <h3>MPU6050 IMU &amp; HMC5883L Compass</h3>
             <p>Both share the I2C bus on GPIO2 (SDA) and GPIO3 (SCL). Connect VCC to 3.3V, GND to Pi GND.</p>
             <div class="signal-list">
               <div class="signal">
@@ -1800,7 +1608,6 @@ Heartbeat rate: 1.0Hz</pre>
       </div>
     </section>
 
-
     <section id="setup">
       <div class="wrap">
         <div class="terminal-layout reveal">
@@ -1833,7 +1640,7 @@ ollama run qwen2.5
     <section id="docs">
       <div class="wrap">
         <div class="section-head reveal">
-          <h2>Project <span class="serif">docs</span>.</h2>
+          <h2>Project <span class="accent">docs.</span></h2>
           <p>Everything useful from the original Pages index is still here, now organized as a clean field manual for the rover and detection stack.</p>
         </div>
 
@@ -1938,22 +1745,6 @@ ollama run qwen2.5
     window.addEventListener('resize', updateStory);
     updateStory();
 
-    // Theme Switcher Click Handler
-    const themeToggle = document.getElementById('theme-toggle');
-    if (themeToggle) {
-      themeToggle.addEventListener('click', () => {
-        const isLight = document.documentElement.classList.toggle('light-theme');
-        localStorage.setItem('theme', isLight ? 'light' : 'dark');
-      });
-    }
-
-    // Parallax Scroll for Forest Background Image
-    function updateParallax() {
-      document.body.style.setProperty('--scroll-y', (window.pageYOffset * 0.35) + 'px');
-    }
-    window.addEventListener('scroll', updateParallax, { passive: true });
-    updateParallax();
-
     // Pipeline Interactive Diagram Logic
     const nodeDetails = [
       {
@@ -1982,7 +1773,7 @@ ollama run qwen2.5
     function selectPipelineStep(index) {
       pipelineCards.forEach((c, idx) => c.classList.toggle('is-active', idx === index));
       svgNodes.forEach((n, idx) => n.classList.toggle('is-active', idx === index));
-      
+
       if (nodeDetails[index]) {
         schemHeader.textContent = nodeDetails[index].header;
         schemData.textContent = nodeDetails[index].data;
@@ -2006,7 +1797,7 @@ ollama run qwen2.5
       }, 1000);
     }
 
-    // Telemetry Console Widget Buttons Logic
+    // Telemetry Console Widget Buttons
     const btnDetect = document.getElementById('btn-detect');
     const btnPing = document.getElementById('btn-ping');
     const btnFault = document.getElementById('btn-fault');
@@ -2034,7 +1825,7 @@ ollama run qwen2.5
 
     function resetHUD() {
       hudStatus.textContent = "FEED STABLE";
-      hudStatus.style.color = "var(--moss)";
+      hudStatus.style.color = "var(--green)";
       hudBoxes.forEach(box => { if (box) box.style.display = 'none'; });
       radarBlips.forEach(blip => { if (blip) blip.style.display = 'none'; });
     }
@@ -2048,23 +1839,22 @@ ollama run qwen2.5
         if (detectionToggle) {
           hudStatus.textContent = "SCAN ACTIVE";
           hudStatus.style.color = "var(--amber)";
-          
-          // Randomly trigger box 1 or box 2
+
           const target = Math.random() > 0.5 ? 0 : 1;
           const box = hudBoxes[target];
           const blip = radarBlips[target];
-          
+
           if (box) box.style.display = 'block';
           if (blip) blip.style.display = 'block';
-          
+
           const targetClass = target === 0 ? "human" : "animal";
           const conf = target === 0 ? "0.91" : "0.86";
-          
+
           writeConsoleLog(`[AI] YOLO: {"class": "${targetClass}", "confidence": ${conf}, "status": "tracking"}`);
           setTimeout(() => {
             writeConsoleLog(`[LLM] Observed: ${target === 0 ? "A person is identified within the coordinate boundaries. Threat level normal." : "Wildlife spotted inside field area. Compiling status report."}`);
           }, 450);
-          
+
           btnDetect.textContent = "DETECTION OFF";
         } else {
           writeConsoleLog("[SYS] Stream scan paused by operator.");
@@ -2078,7 +1868,7 @@ ollama run qwen2.5
         writeConsoleLog("[SYS] WS Handshake -> ws://192.168.1.45:8765...");
         const blip = radarBlips[1];
         if (blip) blip.style.display = 'block';
-        
+
         setTimeout(() => {
           writeConsoleLog("[SYS] Handshake OK. Battery: 87% // Signal: -45dBm");
           if (!detectionToggle && blip) blip.style.display = 'none';
@@ -2092,13 +1882,13 @@ ollama run qwen2.5
         detectionToggle = false;
         if (btnDetect) btnDetect.textContent = "DETECTION ON";
         hudStatus.textContent = "ALERT FAULT";
-        hudStatus.style.color = "var(--clay)";
-        
+        hudStatus.style.color = "var(--red)";
+
         const box = hudBoxes[2];
         const blip = radarBlips[2];
         if (box) box.style.display = 'block';
         if (blip) blip.style.display = 'block';
-        
+
         writeConsoleLog("[ERR] SENSOR ERROR: IMU report. Surface angle tilt threshold breached.");
         setTimeout(() => {
           writeConsoleLog("[LLM] CRITICAL SUMMARY: Rover tilt threshold breached (pitch: 34deg). Drive motors locked.");
@@ -2115,6 +1905,5 @@ ollama run qwen2.5
       });
     }
   </script>
-
 </body>
 </html>
