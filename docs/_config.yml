@@ -1,5 +1,5 @@
 title: STASIS
-description: Raspberry Pi rover platform for forest-style monitoring.
+description: Raspberry Pi rover platform for field monitoring and object detection.
 baseurl: /Stasis
 markdown: kramdown
 highlighter: rouge
