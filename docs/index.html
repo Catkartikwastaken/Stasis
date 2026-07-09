@@ -1228,6 +1228,81 @@
       filter: drop-shadow(0 0 8px currentColor);
     }
 
+    /* === CREATIVE EFFECTS === */
+
+    /* Animated border glow on hero card */
+    .hero-card {
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 20px;
+      padding: 1px;
+      background: conic-gradient(from var(--angle, 0deg),
+        transparent 0%,
+        rgba(139, 214, 255, 0.25) 25%,
+        rgba(140, 255, 189, 0.15) 50%,
+        rgba(139, 214, 255, 0.25) 75%,
+        transparent 100%
+      );
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+      z-index: 1;
+      animation: border-spin 4s linear infinite;
+    }
+    @keyframes border-spin {
+      to { --angle: 360deg; }
+    }
+    @property --angle {
+      syntax: '<angle>';
+      initial-value: 0deg;
+      inherits: false;
+    }
+
+    /* Pulsing glow on hero card shadow */
+    .hero-card {
+      animation: hero-glow 3s ease-in-out infinite;
+    }
+    @keyframes hero-glow {
+      0%, 100% { box-shadow: 0 26px 80px rgba(0,0,0,0.55), 0 0 40px rgba(139,214,255,0.03); }
+      50% { box-shadow: 0 26px 80px rgba(0,0,0,0.55), 0 0 80px rgba(139,214,255,0.08); }
+    }
+
+    /* Breathing glow on brand logo */
+    .brand-logo {
+      transition: box-shadow 300ms ease, transform 300ms ease;
+    }
+    .brand-logo:hover {
+      box-shadow: 0 0 20px rgba(139, 214, 255, 0.4);
+      transform: scale(1.08);
+    }
+    @keyframes logo-breathe {
+      0%, 100% { box-shadow: 0 0 0px rgba(139, 214, 255, 0); }
+      50% { box-shadow: 0 0 18px rgba(139, 214, 255, 0.15); }
+    }
+    .brand-logo {
+      animation: logo-breathe 4s ease-in-out infinite;
+    }
+
+    /* Animated subtitle gradient */
+    .hero-card .sub {
+      background: linear-gradient(90deg, var(--cyan), var(--green), var(--amber), var(--cyan));
+      background-size: 300% 100%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: sub-shimmer 5s ease-in-out infinite;
+    }
+    @keyframes sub-shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
     /* === Creative Cursor Effects (desktop only) === */
     @media (hover: hover) and (pointer: fine) {
       .cursor-spotlight {
@@ -1351,6 +1426,10 @@
         transition: none;
       }
       .hero { animation: none; }
+      .hero-card { animation: none; }
+      .hero-card::before { animation: none; display: none; }
+      .hero-card .sub { animation: none; -webkit-text-fill-color: var(--cyan); color: var(--cyan); }
+      .brand-logo { animation: none; }
       .video-fallback span { animation: none; }
     }
 
@@ -2349,7 +2428,7 @@ ollama run qwen2.5
       toggleBackTop();
     }
 
-    // === HUD Auto-Demo Mode ===
+    // === HUD Auto-Demo Mode — starts automatically ===
     let autoDemoTimer = null;
     let autoDemoActive = false;
     let autoDemoStep = 0;
@@ -2409,6 +2488,15 @@ ollama run qwen2.5
         }
       });
     }
+
+    // Auto-start the demo after 4 seconds
+    setTimeout(() => {
+      if (!autoDemoActive && btnDetect) {
+        startAutoDemo();
+        btnDetect.textContent = "DEMO RUNNING";
+        writeConsoleLog("[DEMO] Auto-started. Double-click DETECTION to stop.");
+      }
+    }, 4000);
 
     // Stop demo on any other console interaction
     [btnPing, btnFault, btnReset].forEach(btn => {
