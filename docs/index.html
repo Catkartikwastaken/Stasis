@@ -1334,7 +1334,7 @@
 
     .hero { position: relative; }
 
-    /* Hero card — solid background to read over rain */
+    /* Hero card — slightly transparent to show rain through */
     .hero-card {
       background: rgba(8, 8, 8, 0.88) !important;
       backdrop-filter: blur(6px);
@@ -1477,7 +1477,7 @@
 
       /* Hero adjustments */
       .hero { padding-top: 120px; }
-      .hero-card { padding: 26px 20px; }
+      .hero-card { padding: 26px 20px; background: rgba(8, 8, 8, 0.78) !important; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
       .hero-card h1 { font-size: clamp(2.4rem, 10vw, 4rem); }
       .hero-card p { font-size: 1rem; }
       .hero-strip {
@@ -1575,7 +1575,7 @@
 
       /* Hero */
       .hero { padding-top: 100px; padding-bottom: 40px; }
-      .hero-card { padding: 22px 14px; border-radius: 16px; }
+      .hero-card { padding: 22px 14px; border-radius: 16px; background: rgba(8, 8, 8, 0.72) !important; backdrop-filter: blur(4px); }
       .hero-card .sub { font-size: 0.7rem; margin-bottom: 8px; }
       .hero-card h1 { font-size: clamp(2rem, 14vw, 3rem); }
       .hero-card p { font-size: 0.92rem; }
@@ -2508,16 +2508,19 @@ ollama run qwen2.5
     const matrixCanvas = document.getElementById('matrix-rain');
     if (matrixCanvas) {
       const ctx = matrixCanvas.getContext('2d');
-      let W, H, columns, drops, fontSize = 14;
+      let W, H, columns, drops, fontSize, trailLen, isMobile;
 
       function resizeMatrix() {
         const parent = matrixCanvas.parentElement;
         W = parent.clientWidth || window.innerWidth;
         H = parent.clientHeight || window.innerHeight;
+        isMobile = W < 600;
+        fontSize = isMobile ? 8 : 14;
+        trailLen = isMobile ? 3 : 8;
         matrixCanvas.width = W;
         matrixCanvas.height = H;
-        columns = Math.floor(W / fontSize);
-        drops = Array(columns).fill(1).map(() => Math.random() * -100);
+        columns = Math.floor(W / (fontSize * 0.9));
+        drops = Array(columns).fill(1).map(() => Math.random() * -50);
       }
 
       // Minecraft Enchanting Table runes (Standard Galactic Alphabet style)
