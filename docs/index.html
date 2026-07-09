@@ -25,16 +25,16 @@
        ============================================= */
     :root {
       color-scheme: dark;
-      --bg: #000000;
-      --bg-soft: #0e0e0e;
-      --panel: #0e0e0e;
-      --panel-strong: #141313;
-      --surface: #201f1f;
-      --line: #444748;
-      --line-soft: rgba(68, 71, 72, 0.45);
+      --bg: #0c0c0c;
+      --bg-soft: #161616;
+      --panel: #1a1a1a;
+      --panel-strong: #1e1e1e;
+      --surface: #2a2a2a;
+      --line: #5a5d5e;
+      --line-soft: rgba(90, 93, 94, 0.45);
       --text: #ffffff;
-      --muted: #c4c7c8;
-      --soft: #8e9192;
+      --muted: #d8dbdc;
+      --soft: #a8abac;
       --white: #ffffff;
       --green: #8cffbd;
       --cyan: #8bd6ff;
@@ -1329,7 +1329,7 @@
       height: 100%;
       pointer-events: none;
       z-index: 0;
-      opacity: 0.45;
+      opacity: 0.55;
     }
 
     .hero { position: relative; }
@@ -2520,8 +2520,8 @@ ollama run qwen2.5
         drops = Array(columns).fill(1).map(() => Math.random() * -100);
       }
 
-      // Katakana + ASCII characters for the rain
-      const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF<>/{}[]|&^%$#@!';
+      // Minecraft Enchanting Table runes (Standard Galactic Alphabet style)
+      const chars = 'ᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯᚰᚱᚲᚳᚴᚵᚶᚷᚸᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ᛫᛬᛭ᛮᛯᛰᛱᛲᛳᛴᛵᛶᛷᛸ';
 
       function drawMatrix() {
         // Semi-transparent black to create fade trail
