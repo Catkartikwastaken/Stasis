@@ -1299,32 +1299,267 @@
       .video-fallback span { animation: none; }
     }
 
-    @media (max-width: 920px) {
-      .site-nav {
-        align-items: flex-start;
-        border-radius: 24px;
-        flex-wrap: wrap;
-      }
-      .nav-links { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; padding-bottom: 2px; }
-      .hero { padding-top: 142px; }
-      .hero-strip, .flow-grid, .pipeline-split, .docs-grid, .work-grid, .terminal-layout, .story-shell, .section-head {
-        grid-template-columns: 1fr;
-      }
-      .story-copy { position: relative; top: auto; min-height: auto; }
-      .work-card, .work-card.compact { min-height: 340px; }
+    /* --- Tablet landscape / small laptop (≤1024px) --- */
+    @media (max-width: 1024px) {
+      .wrap { width: min(100% - 32px, 1180px); }
+      .hero-card { padding: clamp(28px, 5vw, 50px); }
+      .hero-card h1 { font-size: clamp(2.8rem, 7vw, 5.5rem); }
+      .section-head { gap: 20px; }
+      .docs-grid { grid-template-columns: repeat(2, 1fr); }
+      .story-panel { min-height: 400px; }
+      .video-frame { min-height: 280px; }
     }
 
-    @media (max-width: 560px) {
-      .wrap { width: min(100% - 24px, 1180px); }
-      .site-nav { top: 10px; width: calc(100% - 16px); padding: 9px; }
+    /* --- Tablet portrait / small screens (≤820px) --- */
+    @media (max-width: 820px) {
+      /* Nav — full-width stack, bigger touch targets */
+      .site-nav {
+        top: 10px;
+        width: calc(100% - 16px);
+        min-height: unset;
+        border-radius: 20px;
+        padding: 10px 12px;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
       .brand { letter-spacing: 0.08em; }
-      .nav-action { padding: 9px 11px; }
-      .hero { padding-top: 172px; }
-      .hero-card { padding: 30px 18px; }
-      h1 { font-size: clamp(2.55rem, 16vw, 4rem); }
-      section { padding: 58px 0; }
-      .actions, .footer-inner { flex-direction: column; }
-      .button { width: 100%; }
+      .brand-logo { width: 36px; height: 36px; }
+      .nav-links {
+        order: 3;
+        width: 100%;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 2px;
+        padding: 2px 0;
+      }
+      .nav-links::-webkit-scrollbar { display: none; }
+      .nav-links a {
+        padding: 10px 14px;
+        font-size: 0.82rem;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .nav-action {
+        padding: 8px 14px;
+        font-size: 0.8rem;
+      }
+
+      /* Hero adjustments */
+      .hero { padding-top: 120px; }
+      .hero-card { padding: 26px 20px; }
+      .hero-card h1 { font-size: clamp(2.4rem, 10vw, 4rem); }
+      .hero-card p { font-size: 1rem; }
+      .hero-strip {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1px;
+      }
+
+      /* Sections */
+      section { padding: 54px 0; }
+
+      /* Single-column layouts */
+      .hero-strip, .flow-grid, .pipeline-split, .docs-grid,
+      .work-grid, .terminal-layout, .story-shell, .section-head {
+        grid-template-columns: 1fr;
+      }
+      .docs-grid { grid-template-columns: 1fr; }
+      .section-head { gap: 10px; margin-bottom: 20px; }
+      .section-head h2 { font-size: clamp(1.8rem, 6vw, 3rem); }
+      .section-head p { font-size: 0.95rem; }
+
+      /* Cards — no fixed heights, better spacing */
+      .work-card, .work-card.compact {
+        min-height: auto;
+        padding: 20px;
+      }
+      .pipeline-card { padding: 18px; }
+      .doc-card { min-height: auto; padding: 18px; }
+
+      /* Story section */
+      .story-copy {
+        position: relative;
+        top: auto;
+        min-height: auto;
+        padding: 22px;
+      }
+      .story-panel { min-height: auto; padding: 12px; }
+      .story-panel h3 { font-size: clamp(1.2rem, 4vw, 1.6rem); }
+      .video-frame { min-height: 220px; }
+      .video-frame-hud::before { font-size: 0.55rem; }
+      .video-frame-hud::after { font-size: 0.55rem; }
+
+      /* Pipeline schematic */
+      .pipeline-schematic { min-height: auto; padding: 16px; }
+      #pipeline-svg { max-height: 260px; }
+
+      /* Terminal layout */
+      .terminal { overflow-x: auto; }
+      .terminal pre { padding: 14px; font-size: 0.78rem; }
+      .terminal-card { padding: 20px; }
+
+      /* HUD console — better touch targets */
+      .console-controls { grid-template-columns: repeat(2, 1fr); }
+      .console-btn {
+        min-height: 48px;
+        padding: 12px 8px;
+        font-size: 0.72rem;
+      }
+      .console-log { height: 80px; }
+      .hud-screen { height: 180px; }
+
+      /* Hero stats */
+      .hero-stat { min-height: 80px; padding: 14px; }
+
+      /* Footer */
+      .footer { padding: 32px 0 40px; }
+      .footer-inner {
+        flex-direction: column;
+        gap: 12px;
+        text-align: center;
+      }
+      .footer-inner > div { text-align: center; }
+      .footer-inner > div:last-child { text-align: center; }
+    }
+
+    /* --- Phone (≤500px) --- */
+    @media (max-width: 500px) {
+      .wrap { width: calc(100% - 16px); }
+
+      /* Nav — compact */
+      .site-nav {
+        padding: 8px 10px;
+        border-radius: 16px;
+        gap: 4px;
+      }
+      .brand { font-size: 0.82rem; letter-spacing: 0.06em; }
+      .brand-logo { width: 30px; height: 30px; }
+      .nav-links a {
+        padding: 8px 10px;
+        font-size: 0.75rem;
+      }
+      .nav-action {
+        padding: 6px 10px;
+        font-size: 0.72rem;
+      }
+
+      /* Hero */
+      .hero { padding-top: 100px; padding-bottom: 40px; }
+      .hero-card { padding: 22px 14px; border-radius: 16px; }
+      .hero-card .sub { font-size: 0.7rem; margin-bottom: 8px; }
+      .hero-card h1 { font-size: clamp(2rem, 14vw, 3rem); }
+      .hero-card p { font-size: 0.92rem; }
+      .hero-strip { grid-template-columns: repeat(2, 1fr); }
+      .hero-stat { min-height: 70px; padding: 10px; }
+      .hero-stat strong { font-size: 0.65rem; }
+      .hero-stat span { font-size: 0.78rem; }
+
+      /* Buttons — full width stack */
+      .actions { flex-direction: column; }
+      .button {
+        width: 100%;
+        min-height: 48px;
+        font-size: 0.88rem;
+      }
+
+      /* Sections */
+      section { padding: 40px 0; }
+
+      /* Cards */
+      .work-card, .work-card.compact { padding: 16px; border-radius: 16px; }
+      .pipeline-card { padding: 14px; border-radius: 16px; }
+      .doc-card { padding: 14px; border-radius: 16px; }
+      .terminal-card { padding: 14px; border-radius: 16px; }
+      .pipeline-schematic { padding: 12px; border-radius: 16px; }
+      .schematic-panel { padding: 10px; font-size: 0.7rem; }
+
+      .work-card h3, .flow-card h3, .doc-card h3, .terminal-card h3 {
+        font-size: 1.2rem;
+      }
+      .work-card p, .flow-card p, .doc-card p, .terminal-card p {
+        font-size: 0.88rem;
+      }
+
+      /* Pipeline */
+      .pipeline-card .flow-number {
+        width: 28px;
+        height: 28px;
+        font-size: 0.68rem;
+        margin-bottom: 8px;
+      }
+      #pipeline-svg { max-height: 200px; }
+
+      /* Icons */
+      .card-icon { font-size: 1.3rem; margin-right: 6px; }
+
+      /* HUD */
+      .hud-screen { height: 160px; }
+      .hud-header { font-size: 0.6rem; top: 6px; left: 8px; right: 8px; }
+      .hud-radar { width: 42px; height: 42px; bottom: 6px; right: 6px; }
+      .console-controls { grid-template-columns: repeat(2, 1fr); }
+      .console-btn {
+        min-height: 44px;
+        padding: 10px 6px;
+        font-size: 0.65rem;
+      }
+      .console-log {
+        height: 70px;
+        padding: 8px;
+        font-size: 0.62rem;
+      }
+
+      /* Signal list */
+      .signal { gap: 8px; padding-top: 8px; }
+      .signal code { font-size: 0.7rem; }
+      .signal span { font-size: 0.82rem; }
+
+      /* Story */
+      .story-panel { padding: 10px; }
+      .video-frame { min-height: 180px; }
+      .story-copy { padding: 16px; }
+      .story-copy h2 { font-size: clamp(1.4rem, 6vw, 2.2rem); }
+
+      /* Docs */
+      .docs-grid { gap: 10px; }
+      .doc-card span { font-size: 0.65rem; }
+
+      /* Terminal */
+      .terminal pre { padding: 10px; font-size: 0.72rem; }
+      .terminal th { padding: 6px; font-size: 0.72rem; }
+      .terminal td { padding: 4px 6px; font-size: 0.72rem; }
+
+      /* Tables — horizontal scroll */
+      .terminal { overflow-x: auto; }
+
+      /* Footer */
+      .footer { padding: 24px 0 32px; }
+      .footer-inner { font-size: 0.82rem; gap: 10px; }
+      .footer-inner a { font-size: 0.78rem; }
+
+      /* Back to top — lower and smaller */
+      .back-top {
+        bottom: 16px;
+        right: 16px;
+        width: 38px;
+        height: 38px;
+      }
+      .back-top .material-symbols-outlined { font-size: 1rem !important; }
+
+      /* Scrollbar thinner on mobile */
+      ::-webkit-scrollbar { width: 2px; height: 2px; }
+    }
+
+    /* --- Tiny phones (≤360px) --- */
+    @media (max-width: 360px) {
+      .hero-card h1 { font-size: 1.6rem; }
+      .brand { font-size: 0.72rem; }
+      .brand-logo { width: 26px; height: 26px; }
+      .nav-links { gap: 0; }
+      .nav-links a { padding: 6px 8px; font-size: 0.68rem; }
+      .hero-strip { grid-template-columns: 1fr; }
+      .hero-stat { min-height: 60px; }
+      section { padding: 30px 0; }
     }
   </style>
 </head>
