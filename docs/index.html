@@ -1321,38 +1321,40 @@
       50% { opacity: 0.6; transform: translateX(-50%) scaleX(1); }
     }
 
-    /* Floating particle dots in hero */
-    .hero-particles {
+    /* Matrix rain canvas — covers hero area */
+    #matrix-rain {
       position: absolute;
-      inset: 0;
-      overflow: hidden;
+      top: 0; left: 0;
+      width: 100%;
+      height: 100%;
       pointer-events: none;
       z-index: 0;
+      opacity: 0.45;
     }
-    .hero-particle {
+
+    .hero { position: relative; }
+
+    /* Hero card — solid background to read over rain */
+    .hero-card {
+      background: rgba(8, 8, 8, 0.88) !important;
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+    }
+
+    /* Scanline overlay on hero card */
+    .hero-card .scanlines {
       position: absolute;
-      width: 3px;
-      height: 3px;
-      background: var(--cyan);
-      border-radius: 50%;
-      opacity: 0;
-      animation: particle-float 10s ease-in-out infinite;
-    }
-    .hero-particle:nth-child(1) { left: 8%; top: 60%; animation-delay: 0s; animation-duration: 9s; width: 2px; height: 2px; }
-    .hero-particle:nth-child(2) { left: 18%; top: 40%; animation-delay: 1.5s; animation-duration: 11s; }
-    .hero-particle:nth-child(3) { left: 28%; top: 70%; animation-delay: 3s; animation-duration: 8s; width: 2px; height: 2px; background: var(--green); }
-    .hero-particle:nth-child(4) { left: 42%; top: 30%; animation-delay: 0.8s; animation-duration: 10s; }
-    .hero-particle:nth-child(5) { left: 55%; top: 65%; animation-delay: 2.2s; animation-duration: 12s; width: 2px; height: 2px; background: var(--amber); }
-    .hero-particle:nth-child(6) { left: 65%; top: 45%; animation-delay: 4s; animation-duration: 9s; }
-    .hero-particle:nth-child(7) { left: 78%; top: 55%; animation-delay: 1s; animation-duration: 10s; width: 2px; height: 2px; background: var(--green); }
-    .hero-particle:nth-child(8) { left: 88%; top: 35%; animation-delay: 3.5s; animation-duration: 8s; }
-    .hero-particle:nth-child(9) { left: 95%; top: 75%; animation-delay: 5s; animation-duration: 11s; width: 3px; height: 3px; }
-    .hero-particle:nth-child(10) { left: 50%; top: 80%; animation-delay: 2s; animation-duration: 7s; width: 3px; height: 3px; background: var(--amber); }
-    @keyframes particle-float {
-      0% { opacity: 0; transform: translateY(0) scale(0.5); }
-      20% { opacity: 0.8; }
-      80% { opacity: 0.6; }
-      100% { opacity: 0; transform: translateY(-180px) scale(1.2); }
+      inset: 0;
+      border-radius: 20px;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 255, 0, 0.025) 2px,
+        rgba(0, 255, 0, 0.025) 4px
+      );
+      pointer-events: none;
+      z-index: 2;
     }
 
     /* Card hover — clean lift without tilt */
@@ -1422,7 +1424,7 @@
       .hero-card::after { animation: none; display: none; }
       .hero-card .sub { animation: none; -webkit-text-fill-color: var(--cyan); color: var(--cyan); }
       .hero-card h1 { animation: none; -webkit-text-fill-color: var(--text); color: var(--text); }
-      .hero-particle { animation: none; display: none; }
+      #matrix-rain { display: none; }
       .video-fallback span { animation: none; }
     }
 
@@ -1691,19 +1693,6 @@
   </style>
 </head>
 <body>
-  <!-- Floating particles in hero -->
-  <div class="hero-particles" aria-hidden="true">
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-    <span class="hero-particle"></span>
-  </div>
   <nav class="site-nav" aria-label="Primary navigation">
     <a class="brand" href="#top" aria-label="STASIS home">
       <img class="brand-logo" src="assets/stasis-logo.gif" alt="STASIS Logo" width="32" height="32" />
@@ -1724,8 +1713,11 @@
 
   <main id="top">
     <header class="hero">
+      <!-- Matrix rain canvas -->
+      <canvas id="matrix-rain" aria-hidden="true"></canvas>
       <div class="wrap hero-grid">
         <div class="hero-card">
+          <div class="scanlines" aria-hidden="true"></div>
           <span class="sub">Field Intelligence Platform</span>
           <h1>Build field<br />intelligence.</h1>
           <p>A competition-grade Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
@@ -2511,6 +2503,74 @@ ollama run qwen2.5
         });
       }
     });
+
+    // === MATRIX RAIN ===
+    const matrixCanvas = document.getElementById('matrix-rain');
+    if (matrixCanvas) {
+      const ctx = matrixCanvas.getContext('2d');
+      let W, H, columns, drops, fontSize = 14;
+
+      function resizeMatrix() {
+        const parent = matrixCanvas.parentElement;
+        W = parent.clientWidth || window.innerWidth;
+        H = parent.clientHeight || window.innerHeight;
+        matrixCanvas.width = W;
+        matrixCanvas.height = H;
+        columns = Math.floor(W / fontSize);
+        drops = Array(columns).fill(1).map(() => Math.random() * -100);
+      }
+
+      // Katakana + ASCII characters for the rain
+      const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF<>/{}[]|&^%$#@!';
+
+      function drawMatrix() {
+        // Semi-transparent black to create fade trail
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.06)';
+        ctx.fillRect(0, 0, W, H);
+
+        // Green glow on leading characters
+        for (let i = 0; i < drops.length; i++) {
+          const x = i * fontSize;
+          const y = drops[i] * fontSize;
+
+          // Leading character — bright green + glow
+          ctx.shadowColor = 'rgba(140, 255, 189, 0.6)';
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = 'rgba(140, 255, 189, 0.9)';
+          ctx.font = `bold ${fontSize}px "JetBrains Mono", monospace`;
+          const char = chars[Math.floor(Math.random() * chars.length)];
+          ctx.fillText(char, x, y);
+
+          // Dim trailing characters above
+          ctx.shadowBlur = 4;
+          for (let trail = 1; trail <= 8; trail++) {
+            const ty = y - trail * fontSize;
+            if (ty < 0) break;
+            const alpha = 0.4 - trail * 0.04;
+            if (alpha <= 0) break;
+            ctx.fillStyle = `rgba(140, 255, 189, ${alpha})`;
+            ctx.font = `${fontSize}px "JetBrains Mono", monospace`;
+            const tChar = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillText(tChar, x, ty);
+          }
+
+          ctx.shadowBlur = 0;
+
+          // Reset drop when it goes off screen
+          if (y > H + 100) {
+            drops[i] = Math.random() * -30;
+          } else if (Math.random() > 0.995) {
+            // Randomly start a new drop
+            drops[i] = Math.random() * -50;
+          }
+          drops[i] += 0.8 + Math.random() * 0.4;
+        }
+      }
+
+      window.addEventListener('resize', resizeMatrix);
+      resizeMatrix();
+      setInterval(drawMatrix, 40);
+    }
 
     // Welcome hint
     writeConsoleLog("[HINT] Double-click DETECTION ON to start auto-demo.");
