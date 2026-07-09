@@ -1228,29 +1228,84 @@
       filter: drop-shadow(0 0 8px currentColor);
     }
 
-    /* Enhanced card hover effects */
-    .work-card,
-    .pipeline-card,
-    .doc-card,
-    .terminal-card {
-      transition: transform 280ms cubic-bezier(.2,.8,.2,1), border-color 280ms ease, box-shadow 280ms ease !important;
+    /* === Creative Cursor Effects (desktop only) === */
+    @media (hover: hover) and (pointer: fine) {
+      .cursor-spotlight {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: radial-gradient(800px circle at var(--mx, -999px) var(--my, -999px),
+          rgba(139, 214, 255, 0.06) 0%,
+          rgba(140, 255, 189, 0.02) 30%,
+          transparent 50%);
+        pointer-events: none;
+        z-index: 999;
+        transition: background 300ms ease;
+      }
+      .cursor-spotlight.is-intense {
+        background: radial-gradient(800px circle at var(--mx, -999px) var(--my, -999px),
+          rgba(139, 214, 255, 0.1) 0%,
+          rgba(140, 255, 189, 0.04) 30%,
+          transparent 50%);
+      }
+
+      /* 3D Card Tilt */
+      .work-card, .doc-card, .pipeline-card, .terminal-card,
+      .pipeline-schematic, .story-copy, .story-panel {
+        transition: transform 380ms cubic-bezier(.15,.85,.3,1), border-color 280ms ease, box-shadow 280ms ease !important;
+        will-change: transform;
+      }
+      .work-card:hover {
+        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px) !important;
+        border-color: rgba(139, 214, 255, 0.4) !important;
+        box-shadow: 0 0 40px rgba(139, 214, 255, 0.1), var(--shadow) !important;
+      }
+      .doc-card:hover {
+        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-5px) !important;
+        border-color: rgba(184, 161, 255, 0.4) !important;
+        box-shadow: 0 0 40px rgba(184, 161, 255, 0.1), var(--shadow) !important;
+      }
+      .pipeline-card:hover {
+        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) !important;
+        border-color: rgba(139, 214, 255, 0.35) !important;
+      }
+      .terminal-card:hover {
+        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px) !important;
+        border-color: rgba(139, 214, 255, 0.4) !important;
+        box-shadow: 0 0 40px rgba(139, 214, 255, 0.1), var(--shadow) !important;
+      }
+      .pipeline-schematic:hover {
+        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) !important;
+      }
+      .work-card.compact:hover {
+        border-color: rgba(255, 211, 109, 0.4) !important;
+      }
+
+      /* Magnetic button attraction */
+      .button, .nav-action {
+        transition: transform 180ms cubic-bezier(.15,.85,.3,1), background 180ms ease, border-color 180ms ease, color 180ms ease !important;
+        will-change: transform;
+      }
     }
-    .work-card:hover,
-    .terminal-card:hover {
-      transform: translateY(-3px) !important;
-      border-color: rgba(139, 214, 255, 0.35) !important;
-      box-shadow: 0 0 30px rgba(139, 214, 255, 0.08), var(--shadow) !important;
-    }
-    .doc-card:hover {
-      transform: translateY(-4px) !important;
-      border-color: rgba(184, 161, 255, 0.35) !important;
-      box-shadow: 0 0 30px rgba(184, 161, 255, 0.08), var(--shadow) !important;
-    }
-    .pipeline-card:hover {
-      border-color: rgba(139, 214, 255, 0.3) !important;
-    }
-    .work-card.compact:hover {
-      border-color: rgba(255, 211, 109, 0.35) !important;
+    /* Touch devices — lift without 3D */
+    @media (hover: none) {
+      .work-card:hover, .terminal-card:hover {
+        transform: translateY(-3px) !important;
+        border-color: rgba(139, 214, 255, 0.35) !important;
+        box-shadow: 0 0 30px rgba(139, 214, 255, 0.08), var(--shadow) !important;
+      }
+      .doc-card:hover {
+        transform: translateY(-4px) !important;
+        border-color: rgba(184, 161, 255, 0.35) !important;
+        box-shadow: 0 0 30px rgba(184, 161, 255, 0.08), var(--shadow) !important;
+      }
+      .pipeline-card:hover {
+        border-color: rgba(139, 214, 255, 0.3) !important;
+      }
+      .work-card.compact:hover {
+        border-color: rgba(255, 211, 109, 0.35) !important;
+      }
     }
 
     /* Back-to-top button */
@@ -1564,6 +1619,8 @@
   </style>
 </head>
 <body>
+  <!-- Cursor spotlight glow (desktop only, hidden on mobile) -->
+  <div class="cursor-spotlight" aria-hidden="true" style="display:none;"></div>
   <nav class="site-nav" aria-label="Primary navigation">
     <a class="brand" href="#top" aria-label="STASIS home">
       <img class="brand-logo" src="assets/stasis-logo.gif" alt="STASIS Logo" width="32" height="32" />
@@ -2362,6 +2419,62 @@ ollama run qwen2.5
         });
       }
     });
+
+    // === Creative Mouse Effects (desktop only) ===
+    const spotlight = document.querySelector('.cursor-spotlight');
+    const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+
+    if (spotlight && isDesktop) {
+      spotlight.style.display = 'block';
+
+      // Track mouse for spotlight glow
+      const handleMouse = (e) => {
+        const x = e.clientX;
+        const y = e.clientY;
+        document.documentElement.style.setProperty('--mx', `${x}px`);
+        document.documentElement.style.setProperty('--my', `${y}px`);
+      };
+      document.addEventListener('mousemove', handleMouse, { passive: true });
+
+      // Intensify spotlight over interactive areas
+      const hotZones = document.querySelectorAll('.button, .work-card, .doc-card, .pipeline-card, .terminal-card, .nav-action');
+      hotZones.forEach(el => {
+        el.addEventListener('mouseenter', () => spotlight.classList.add('is-intense'));
+        el.addEventListener('mouseleave', () => spotlight.classList.remove('is-intense'));
+      });
+
+      // === 3D Card Tilt ===
+      const tiltCards = document.querySelectorAll('.work-card, .doc-card, .pipeline-card, .terminal-card, .pipeline-schematic');
+      tiltCards.forEach(card => {
+        card.addEventListener('mousemove', (e) => {
+          const rect = card.getBoundingClientRect();
+          const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;  // -1 to 1
+          const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2; // -1 to 1
+          card.style.setProperty('--rx', `${-y * 5}deg`);
+          card.style.setProperty('--ry', `${x * 5}deg`);
+        });
+        card.addEventListener('mouseleave', () => {
+          card.style.setProperty('--rx', '0deg');
+          card.style.setProperty('--ry', '0deg');
+        });
+      });
+
+      // === Magnetic Buttons ===
+      const magneticBtns = document.querySelectorAll('.button, .nav-action');
+      magneticBtns.forEach(btn => {
+        btn.addEventListener('mousemove', (e) => {
+          const rect = btn.getBoundingClientRect();
+          const x = (e.clientX - rect.left - rect.width / 2) * 0.3;
+          const y = (e.clientY - rect.top - rect.height / 2) * 0.3;
+          btn.style.transform = `translate(${x}px, ${y}px)`;
+          btn.style.setProperty('--mx-offset', `${x}px`);
+          btn.style.setProperty('--my-offset', `${y}px`);
+        });
+        btn.addEventListener('mouseleave', () => {
+          btn.style.transform = '';
+        });
+      });
+    }
 
     // Welcome hint
     writeConsoleLog("[HINT] Double-click DETECTION ON to start auto-demo.");
