@@ -1228,9 +1228,9 @@
       filter: drop-shadow(0 0 8px currentColor);
     }
 
-    /* === CREATIVE EFFECTS === */
+    /* === HERO BEAUTY EFFECTS === */
 
-    /* Animated border glow on hero card */
+    /* Animated gradient border on hero card */
     .hero-card {
       position: relative;
       overflow: hidden;
@@ -1273,23 +1273,7 @@
       50% { box-shadow: 0 26px 80px rgba(0,0,0,0.55), 0 0 80px rgba(139,214,255,0.08); }
     }
 
-    /* Breathing glow on brand logo */
-    .brand-logo {
-      transition: box-shadow 300ms ease, transform 300ms ease;
-    }
-    .brand-logo:hover {
-      box-shadow: 0 0 20px rgba(139, 214, 255, 0.4);
-      transform: scale(1.08);
-    }
-    @keyframes logo-breathe {
-      0%, 100% { box-shadow: 0 0 0px rgba(139, 214, 255, 0); }
-      50% { box-shadow: 0 0 18px rgba(139, 214, 255, 0.15); }
-    }
-    .brand-logo {
-      animation: logo-breathe 4s ease-in-out infinite;
-    }
-
-    /* Animated subtitle gradient */
+    /* Shimmering gradient subtitle */
     .hero-card .sub {
       background: linear-gradient(90deg, var(--cyan), var(--green), var(--amber), var(--cyan));
       background-size: 300% 100%;
@@ -1303,84 +1287,91 @@
       50% { background-position: 100% 50%; }
     }
 
-    /* === Creative Cursor Effects (desktop only) === */
-    @media (hover: hover) and (pointer: fine) {
-      .cursor-spotlight {
-        position: fixed;
-        top: 0; left: 0;
-        width: 100vw;
-        height: 100vh;
-        background: radial-gradient(800px circle at var(--mx, -999px) var(--my, -999px),
-          rgba(139, 214, 255, 0.06) 0%,
-          rgba(140, 255, 189, 0.02) 30%,
-          transparent 50%);
-        pointer-events: none;
-        z-index: 999;
-        transition: background 300ms ease;
-      }
-      .cursor-spotlight.is-intense {
-        background: radial-gradient(800px circle at var(--mx, -999px) var(--my, -999px),
-          rgba(139, 214, 255, 0.1) 0%,
-          rgba(140, 255, 189, 0.04) 30%,
-          transparent 50%);
-      }
-
-      /* 3D Card Tilt */
-      .work-card, .doc-card, .pipeline-card, .terminal-card,
-      .pipeline-schematic, .story-copy, .story-panel {
-        transition: transform 380ms cubic-bezier(.15,.85,.3,1), border-color 280ms ease, box-shadow 280ms ease !important;
-        will-change: transform;
-      }
-      .work-card:hover {
-        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px) !important;
-        border-color: rgba(139, 214, 255, 0.4) !important;
-        box-shadow: 0 0 40px rgba(139, 214, 255, 0.1), var(--shadow) !important;
-      }
-      .doc-card:hover {
-        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-5px) !important;
-        border-color: rgba(184, 161, 255, 0.4) !important;
-        box-shadow: 0 0 40px rgba(184, 161, 255, 0.1), var(--shadow) !important;
-      }
-      .pipeline-card:hover {
-        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) !important;
-        border-color: rgba(139, 214, 255, 0.35) !important;
-      }
-      .terminal-card:hover {
-        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-4px) !important;
-        border-color: rgba(139, 214, 255, 0.4) !important;
-        box-shadow: 0 0 40px rgba(139, 214, 255, 0.1), var(--shadow) !important;
-      }
-      .pipeline-schematic:hover {
-        transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) !important;
-      }
-      .work-card.compact:hover {
-        border-color: rgba(255, 211, 109, 0.4) !important;
-      }
-
-      /* Magnetic button attraction */
-      .button, .nav-action {
-        transition: transform 180ms cubic-bezier(.15,.85,.3,1), background 180ms ease, border-color 180ms ease, color 180ms ease !important;
-        will-change: transform;
-      }
+    /* Gradient shimmer on hero heading */
+    .hero-card h1 {
+      background: linear-gradient(135deg, rgba(255,255,255,0.6) 0%, #ffffff 25%, var(--cyan) 50%, #ffffff 75%, rgba(255,255,255,0.6) 100%);
+      background-size: 300% 300%;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: h1-shimmer 7s ease-in-out infinite;
     }
-    /* Touch devices — lift without 3D */
-    @media (hover: none) {
-      .work-card:hover, .terminal-card:hover {
-        transform: translateY(-3px) !important;
-        border-color: rgba(139, 214, 255, 0.35) !important;
-        box-shadow: 0 0 30px rgba(139, 214, 255, 0.08), var(--shadow) !important;
-      }
-      .doc-card:hover {
-        transform: translateY(-4px) !important;
-        border-color: rgba(184, 161, 255, 0.35) !important;
-        box-shadow: 0 0 30px rgba(184, 161, 255, 0.08), var(--shadow) !important;
-      }
-      .pipeline-card:hover {
-        border-color: rgba(139, 214, 255, 0.3) !important;
-      }
-      .work-card.compact:hover {
-        border-color: rgba(255, 211, 109, 0.35) !important;
-      }
+    @keyframes h1-shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+
+    /* Glowing underline decoration on hero card */
+    .hero-card::after {
+      content: '';
+      position: absolute;
+      bottom: 46px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 55%;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0.4;
+      animation: hero-line 3s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 1;
+    }
+    @keyframes hero-line {
+      0%, 100% { opacity: 0.2; transform: translateX(-50%) scaleX(0.85); }
+      50% { opacity: 0.6; transform: translateX(-50%) scaleX(1); }
+    }
+
+    /* Floating particle dots in hero */
+    .hero-particles {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .hero-particle {
+      position: absolute;
+      width: 3px;
+      height: 3px;
+      background: var(--cyan);
+      border-radius: 50%;
+      opacity: 0;
+      animation: particle-float 10s ease-in-out infinite;
+    }
+    .hero-particle:nth-child(1) { left: 8%; top: 60%; animation-delay: 0s; animation-duration: 9s; width: 2px; height: 2px; }
+    .hero-particle:nth-child(2) { left: 18%; top: 40%; animation-delay: 1.5s; animation-duration: 11s; }
+    .hero-particle:nth-child(3) { left: 28%; top: 70%; animation-delay: 3s; animation-duration: 8s; width: 2px; height: 2px; background: var(--green); }
+    .hero-particle:nth-child(4) { left: 42%; top: 30%; animation-delay: 0.8s; animation-duration: 10s; }
+    .hero-particle:nth-child(5) { left: 55%; top: 65%; animation-delay: 2.2s; animation-duration: 12s; width: 2px; height: 2px; background: var(--amber); }
+    .hero-particle:nth-child(6) { left: 65%; top: 45%; animation-delay: 4s; animation-duration: 9s; }
+    .hero-particle:nth-child(7) { left: 78%; top: 55%; animation-delay: 1s; animation-duration: 10s; width: 2px; height: 2px; background: var(--green); }
+    .hero-particle:nth-child(8) { left: 88%; top: 35%; animation-delay: 3.5s; animation-duration: 8s; }
+    .hero-particle:nth-child(9) { left: 95%; top: 75%; animation-delay: 5s; animation-duration: 11s; width: 3px; height: 3px; }
+    .hero-particle:nth-child(10) { left: 50%; top: 80%; animation-delay: 2s; animation-duration: 7s; width: 3px; height: 3px; background: var(--amber); }
+    @keyframes particle-float {
+      0% { opacity: 0; transform: translateY(0) scale(0.5); }
+      20% { opacity: 0.8; }
+      80% { opacity: 0.6; }
+      100% { opacity: 0; transform: translateY(-180px) scale(1.2); }
+    }
+
+    /* Card hover — clean lift without tilt */
+    .work-card:hover,
+    .terminal-card:hover {
+      transform: translateY(-3px) !important;
+      border-color: rgba(139, 214, 255, 0.35) !important;
+      box-shadow: 0 0 30px rgba(139, 214, 255, 0.08), var(--shadow) !important;
+    }
+    .doc-card:hover {
+      transform: translateY(-4px) !important;
+      border-color: rgba(184, 161, 255, 0.35) !important;
+      box-shadow: 0 0 30px rgba(184, 161, 255, 0.08), var(--shadow) !important;
+    }
+    .pipeline-card:hover {
+      border-color: rgba(139, 214, 255, 0.3) !important;
+    }
+    .work-card.compact:hover {
+      border-color: rgba(255, 211, 109, 0.35) !important;
     }
 
     /* Back-to-top button */
@@ -1428,8 +1419,10 @@
       .hero { animation: none; }
       .hero-card { animation: none; }
       .hero-card::before { animation: none; display: none; }
+      .hero-card::after { animation: none; display: none; }
       .hero-card .sub { animation: none; -webkit-text-fill-color: var(--cyan); color: var(--cyan); }
-      .brand-logo { animation: none; }
+      .hero-card h1 { animation: none; -webkit-text-fill-color: var(--text); color: var(--text); }
+      .hero-particle { animation: none; display: none; }
       .video-fallback span { animation: none; }
     }
 
@@ -1698,8 +1691,19 @@
   </style>
 </head>
 <body>
-  <!-- Cursor spotlight glow (desktop only, hidden on mobile) -->
-  <div class="cursor-spotlight" aria-hidden="true" style="display:none;"></div>
+  <!-- Floating particles in hero -->
+  <div class="hero-particles" aria-hidden="true">
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+    <span class="hero-particle"></span>
+  </div>
   <nav class="site-nav" aria-label="Primary navigation">
     <a class="brand" href="#top" aria-label="STASIS home">
       <img class="brand-logo" src="assets/stasis-logo.gif" alt="STASIS Logo" width="32" height="32" />
@@ -2507,62 +2511,6 @@ ollama run qwen2.5
         });
       }
     });
-
-    // === Creative Mouse Effects (desktop only) ===
-    const spotlight = document.querySelector('.cursor-spotlight');
-    const isDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-
-    if (spotlight && isDesktop) {
-      spotlight.style.display = 'block';
-
-      // Track mouse for spotlight glow
-      const handleMouse = (e) => {
-        const x = e.clientX;
-        const y = e.clientY;
-        document.documentElement.style.setProperty('--mx', `${x}px`);
-        document.documentElement.style.setProperty('--my', `${y}px`);
-      };
-      document.addEventListener('mousemove', handleMouse, { passive: true });
-
-      // Intensify spotlight over interactive areas
-      const hotZones = document.querySelectorAll('.button, .work-card, .doc-card, .pipeline-card, .terminal-card, .nav-action');
-      hotZones.forEach(el => {
-        el.addEventListener('mouseenter', () => spotlight.classList.add('is-intense'));
-        el.addEventListener('mouseleave', () => spotlight.classList.remove('is-intense'));
-      });
-
-      // === 3D Card Tilt ===
-      const tiltCards = document.querySelectorAll('.work-card, .doc-card, .pipeline-card, .terminal-card, .pipeline-schematic');
-      tiltCards.forEach(card => {
-        card.addEventListener('mousemove', (e) => {
-          const rect = card.getBoundingClientRect();
-          const x = ((e.clientX - rect.left) / rect.width - 0.5) * 2;  // -1 to 1
-          const y = ((e.clientY - rect.top) / rect.height - 0.5) * 2; // -1 to 1
-          card.style.setProperty('--rx', `${-y * 5}deg`);
-          card.style.setProperty('--ry', `${x * 5}deg`);
-        });
-        card.addEventListener('mouseleave', () => {
-          card.style.setProperty('--rx', '0deg');
-          card.style.setProperty('--ry', '0deg');
-        });
-      });
-
-      // === Magnetic Buttons ===
-      const magneticBtns = document.querySelectorAll('.button, .nav-action');
-      magneticBtns.forEach(btn => {
-        btn.addEventListener('mousemove', (e) => {
-          const rect = btn.getBoundingClientRect();
-          const x = (e.clientX - rect.left - rect.width / 2) * 0.3;
-          const y = (e.clientY - rect.top - rect.height / 2) * 0.3;
-          btn.style.transform = `translate(${x}px, ${y}px)`;
-          btn.style.setProperty('--mx-offset', `${x}px`);
-          btn.style.setProperty('--my-offset', `${y}px`);
-        });
-        btn.addEventListener('mouseleave', () => {
-          btn.style.transform = '';
-        });
-      });
-    }
 
     // Welcome hint
     writeConsoleLog("[HINT] Double-click DETECTION ON to start auto-demo.");
