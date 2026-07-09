@@ -20,6 +20,7 @@
   --violet: #b8a1ff;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
   --body: "Inter", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --headline: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --shadow: 0 26px 80px rgba(0, 0, 0, 0.55);
 }
 
@@ -77,7 +78,7 @@ a:hover { color: var(--cyan); }
   align-items: center;
   gap: 10px;
   color: var(--text);
-  font-family: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--headline);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -189,7 +190,7 @@ a:hover { color: var(--cyan); }
 
 .doc-content h1 {
   margin-top: 0;
-  font-family: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--headline);
   font-size: clamp(2.35rem, 5vw, 4rem);
   line-height: 0.95;
   letter-spacing: 0;
@@ -200,18 +201,19 @@ a:hover { color: var(--cyan); }
   padding-top: 0.8em;
   border-top: 1px solid var(--line);
   color: var(--cyan);
-  font-family: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--headline);
 }
 
 .doc-content h3 {
   color: var(--text);
-  font-family: "Space Grotesk", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--headline);
 }
 
 .doc-content p,
 .doc-content li {
   color: var(--muted);
   line-height: 1.7;
+  max-width: 68ch;
 }
 
 .doc-content table {

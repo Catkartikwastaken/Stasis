@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>STASIS — Field Robotics Platform</title>
   <meta name="description" content="STASIS is a competition-grade Raspberry Pi rover for field monitoring, real-time YOLO object detection, local AI reasoning, and operator-guided alert response." />
+  <!-- Social / OG metadata -->
+  <meta property="og:title" content="STASIS — Field Robotics Platform" />
+  <meta property="og:description" content="A competition-grade Raspberry Pi rover for field monitoring, real-time YOLO detection, local AI reasoning, and operator-guided alert response." />
+  <meta property="og:url" content="https://catkartikwastaken.github.io/Stasis/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://catkartikwastaken.github.io/Stasis/assets/stasis-logo.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="STASIS — Field Robotics Platform" />
+  <meta name="twitter:description" content="Raspberry Pi rover for field monitoring, YOLO detection, and local AI reasoning." />
+  <!-- Inline SVG favicon (no external file needed) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230e0e0e' stroke='%238bd6ff' stroke-width='2'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='%23ffffff' font-family='monospace' font-size='14' font-weight='700'%3ES%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;600;700&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
@@ -351,6 +362,7 @@
       margin-bottom: 0;
       color: var(--muted);
       font-size: 1.05rem;
+      max-width: 65ch;
     }
 
     .section-sub {
@@ -436,6 +448,7 @@
     .terminal-card p {
       margin-bottom: 0;
       color: var(--muted);
+      max-width: 65ch;
     }
 
     /* =============================================
@@ -1167,6 +1180,82 @@
     }
 
     /* =============================================
+       ANIMATIONS & MICRO-INTERACTIONS
+       ============================================= */
+    @keyframes hero-aura {
+      0%, 100% { background-position: 50% 30%, 0% 0%, 0% 0%, 0% 0%; }
+      33% { background-position: 40% 25%, 0% 0%, 0% 0%, 0% 0%; }
+      66% { background-position: 60% 35%, 0% 0%, 0% 0%, 0% 0%; }
+    }
+    .hero {
+      animation: hero-aura 12s ease-in-out infinite;
+      background-attachment: fixed;
+    }
+
+    @keyframes fallback-pulse {
+      0%, 100% { opacity: 0.6; box-shadow: 0 0 0 rgba(139, 214, 255, 0); }
+      50% { opacity: 1; box-shadow: 0 0 28px rgba(139, 214, 255, 0.12); }
+    }
+    .video-fallback span {
+      animation: fallback-pulse 2.5s ease-in-out infinite;
+    }
+
+    /* Pipeline SVG glow on hover */
+    .svg-node:hover ~ .flow-path,
+    .svg-node:hover + .flow-path {
+      stroke: var(--cyan) !important;
+      stroke-width: 3 !important;
+      filter: drop-shadow(0 0 6px rgba(139, 214, 255, 0.4));
+      transition: all 250ms ease;
+    }
+    .flow-path {
+      transition: stroke 250ms ease, stroke-width 250ms ease;
+    }
+
+    /* Material Symbol icon helper */
+    .card-icon {
+      font-size: 1.3rem;
+      vertical-align: -0.22em;
+      margin-right: 6px;
+      color: var(--cyan);
+    }
+    .card-icon.amber { color: var(--amber); }
+    .card-icon.green { color: var(--green); }
+    .card-icon.violet { color: var(--violet); }
+
+    /* Back-to-top button */
+    .back-top {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      z-index: 99;
+      width: 44px;
+      height: 44px;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: rgba(14, 14, 14, 0.88);
+      backdrop-filter: blur(12px);
+      color: var(--soft);
+      font-size: 1.2rem;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 280ms ease, transform 280ms ease, border-color 180ms ease, color 180ms ease;
+      pointer-events: none;
+    }
+    .back-top.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .back-top:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* =============================================
        RESPONSIVE
        ============================================= */
     @media (prefers-reduced-motion: reduce) {
@@ -1176,6 +1265,8 @@
         transform: none !important;
         transition: none;
       }
+      .hero { animation: none; }
+      .video-fallback span { animation: none; }
     }
 
     @media (max-width: 920px) {
@@ -1271,13 +1362,13 @@
         <div class="work-grid">
           <article class="work-card reveal">
             <span class="caption">Field operation</span>
-            <h3>Rover vision for real terrain</h3>
+            <h3><span class="material-symbols-outlined card-icon" aria-hidden="true">videocam</span>Rover vision for real terrain</h3>
             <p>The rover side captures camera frames and status data, then sends them to the Windows server for display, detection, and alert routing.</p>
           </article>
 
           <article class="work-card compact reveal" style="--reveal-delay: 120ms">
             <span class="caption">Tactile field terminal</span>
-            <h3>Local decision loop</h3>
+            <h3><span class="material-symbols-outlined card-icon amber" aria-hidden="true">settings_remote</span>Local decision loop</h3>
             <p>STASIS processes camera feeds and sensors dynamically. Use the console below to simulate real-time sensor streams and trigger local model reasoning loops.</p>
 
             <div class="field-console">
@@ -1345,7 +1436,7 @@
           <div class="pipeline-cards">
             <article class="pipeline-card reveal is-active" data-step="0">
               <span class="flow-number">01</span>
-              <h3>Capture (Pi &amp; Camera)</h3>
+              <h3><span class="material-symbols-outlined card-icon" aria-hidden="true">photo_camera</span>Capture (Pi &amp; Camera)</h3>
               <p>Raspberry Pi gathers 1080p camera frames and IMU/GPS status telemetry directly at the edge.</p>
               <div class="step-details">
                 <code>Format: RAW MJPEG / 30fps</code>
@@ -1353,7 +1444,7 @@
             </article>
             <article class="pipeline-card reveal" style="--reveal-delay: 80ms" data-step="1">
               <span class="flow-number">02</span>
-              <h3>Transmit (WebSocket)</h3>
+              <h3><span class="material-symbols-outlined card-icon amber" aria-hidden="true">wifi</span>Transmit (WebSocket)</h3>
               <p>A low-latency WebSocket connection pipes raw streams and status strings continuously to the receiver.</p>
               <div class="step-details">
                 <code>Protocol: ws:// (TCP Port 8765)</code>
@@ -1361,7 +1452,7 @@
             </article>
             <article class="pipeline-card reveal" style="--reveal-delay: 160ms" data-step="2">
               <span class="flow-number">03</span>
-              <h3>Infer (YOLO &amp; ONNX)</h3>
+              <h3><span class="material-symbols-outlined card-icon green" aria-hidden="true">neurology</span>Infer (YOLO &amp; ONNX)</h3>
               <p>Windows receiver runs object identification models, overlays tracking boxes, and generates detections.</p>
               <div class="step-details">
                 <code>Latency: ~12ms (RTX TensorRT)</code>
@@ -1369,7 +1460,7 @@
             </article>
             <article class="pipeline-card reveal" style="--reveal-delay: 240ms" data-step="3">
               <span class="flow-number">04</span>
-              <h3>Act (Local LLM &amp; Dashboard)</h3>
+              <h3><span class="material-symbols-outlined card-icon violet" aria-hidden="true">smart_toy</span>Act (Local LLM &amp; Dashboard)</h3>
               <p>Dashboard records warnings, alerts operators, and pings Qwen/Ollama for automated text observations.</p>
               <div class="step-details">
                 <code>Reasoning: local qwen2.5-coder</code>
@@ -1695,10 +1786,28 @@ ollama run qwen2.5
 
   <footer class="footer">
     <div class="wrap footer-inner">
-      <span>STASIS &mdash; Competition field monitoring rover platform.</span>
-      <a href="https://github.com/Catkartikwastaken/Stasis">Catkartikwastaken/Stasis</a>
+      <div>
+        <span>STASIS &mdash; Competition field monitoring rover platform.</span>
+        <div style="margin-top:6px;display:flex;gap:14px;flex-wrap:wrap;font-size:0.82rem;">
+          <a href="#system" style="color:var(--cyan);">System</a>
+          <a href="#pipeline" style="color:var(--cyan);">Pipeline</a>
+          <a href="#hardware" style="color:var(--cyan);">Hardware</a>
+          <a href="#setup" style="color:var(--cyan);">Setup</a>
+          <a href="#docs" style="color:var(--cyan);">Docs</a>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <a href="https://github.com/Catkartikwastaken/Stasis" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);">
+          <span class="material-symbols-outlined" style="font-size:1rem;">open_in_new</span>Catkartikwastaken/Stasis
+        </a>
+      </div>
     </div>
   </footer>
+
+  <!-- Back-to-top button -->
+  <button class="back-top" id="back-top" aria-label="Back to top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+    <span class="material-symbols-outlined" style="font-size:1.2rem;">arrow_upward</span>
+  </button>
 
   <script>
     const revealObserver = new IntersectionObserver((entries) => {
@@ -1905,6 +2014,90 @@ ollama run qwen2.5
         consoleOutput.textContent = "CONSOLE LOG RESET. WAITING FOR TRIGGER...";
       });
     }
+
+    // === Back-to-top button visibility ===
+    const backTop = document.getElementById('back-top');
+    if (backTop) {
+      const toggleBackTop = () => {
+        backTop.classList.toggle('is-visible', window.scrollY > 600);
+      };
+      window.addEventListener('scroll', toggleBackTop, { passive: true });
+      toggleBackTop();
+    }
+
+    // === HUD Auto-Demo Mode ===
+    let autoDemoTimer = null;
+    let autoDemoActive = false;
+    let autoDemoStep = 0;
+
+    function startAutoDemo() {
+      if (autoDemoActive) return;
+      autoDemoActive = true;
+      autoDemoStep = 0;
+      writeConsoleLog("[DEMO] Auto-demo started. Cycling through detection states...");
+
+      function runAutoStep() {
+        if (!autoDemoActive) return;
+        autoDemoStep = (autoDemoStep + 1) % 4;
+
+        if (autoDemoStep === 1) {
+          // Detection ON
+          if (btnDetect) btnDetect.click();
+          setTimeout(runAutoStep, 3500);
+        } else if (autoDemoStep === 2) {
+          // Ping rover
+          if (btnPing) btnPing.click();
+          setTimeout(runAutoStep, 2500);
+        } else if (autoDemoStep === 3) {
+          // Clear and pause
+          if (btnReset) btnReset.click();
+          writeConsoleLog("[DEMO] Cycle complete. Restarting...");
+          setTimeout(runAutoStep, 2000);
+        } else {
+          // Wait, then restart detection
+          if (detectionToggle && btnDetect) btnDetect.click();
+          setTimeout(runAutoStep, 2000);
+        }
+      }
+
+      // Start first detection after a brief pause
+      autoDemoTimer = setTimeout(runAutoStep, 1500);
+    }
+
+    function stopAutoDemo() {
+      autoDemoActive = false;
+      if (autoDemoTimer) {
+        clearTimeout(autoDemoTimer);
+        autoDemoTimer = null;
+      }
+      writeConsoleLog("[DEMO] Auto-demo stopped.");
+    }
+
+    // Toggle auto-demo on DETECTION button double-click
+    if (btnDetect) {
+      btnDetect.addEventListener('dblclick', () => {
+        if (autoDemoActive) {
+          stopAutoDemo();
+          btnDetect.textContent = detectionToggle ? "DETECTION OFF" : "DETECTION ON";
+        } else {
+          startAutoDemo();
+          btnDetect.textContent = "DEMO RUNNING";
+        }
+      });
+    }
+
+    // Stop demo on any other console interaction
+    [btnPing, btnFault, btnReset].forEach(btn => {
+      if (btn) {
+        btn.addEventListener('click', () => {
+          if (autoDemoActive) stopAutoDemo();
+          if (btnDetect && !detectionToggle) btnDetect.textContent = "DETECTION ON";
+        });
+      }
+    });
+
+    // Welcome hint
+    writeConsoleLog("[HINT] Double-click DETECTION ON to start auto-demo.");
   </script>
 </body>
 </html>
