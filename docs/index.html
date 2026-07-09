@@ -1200,28 +1200,58 @@
       animation: fallback-pulse 2.5s ease-in-out infinite;
     }
 
-    /* Pipeline SVG glow on hover */
-    .svg-node:hover ~ .flow-path,
-    .svg-node:hover + .flow-path {
+    /* Pipeline SVG hover glow — controlled by JS is-active */
+    .flow-path {
+      transition: stroke 250ms ease, stroke-width 250ms ease, filter 250ms ease;
+    }
+    .flow-path.is-active {
       stroke: var(--cyan) !important;
       stroke-width: 3 !important;
       filter: drop-shadow(0 0 6px rgba(139, 214, 255, 0.4));
-      transition: all 250ms ease;
-    }
-    .flow-path {
-      transition: stroke 250ms ease, stroke-width 250ms ease;
     }
 
     /* Material Symbol icon helper */
     .card-icon {
-      font-size: 1.3rem;
-      vertical-align: -0.22em;
-      margin-right: 6px;
+      font-size: 1.5rem;
+      vertical-align: -0.28em;
+      margin-right: 8px;
       color: var(--cyan);
+      filter: drop-shadow(0 0 4px rgba(139, 214, 255, 0.3));
+      transition: transform 200ms ease, filter 200ms ease;
     }
-    .card-icon.amber { color: var(--amber); }
-    .card-icon.green { color: var(--green); }
-    .card-icon.violet { color: var(--violet); }
+    .card-icon.amber { color: var(--amber); filter: drop-shadow(0 0 4px rgba(255, 211, 109, 0.3)); }
+    .card-icon.green { color: var(--green); filter: drop-shadow(0 0 4px rgba(140, 255, 189, 0.3)); }
+    .card-icon.violet { color: var(--violet); filter: drop-shadow(0 0 4px rgba(184, 161, 255, 0.3)); }
+    .work-card:hover .card-icon,
+    .pipeline-card:hover .card-icon {
+      transform: scale(1.25);
+      filter: drop-shadow(0 0 8px currentColor);
+    }
+
+    /* Enhanced card hover effects */
+    .work-card,
+    .pipeline-card,
+    .doc-card,
+    .terminal-card {
+      transition: transform 280ms cubic-bezier(.2,.8,.2,1), border-color 280ms ease, box-shadow 280ms ease !important;
+    }
+    .work-card:hover,
+    .terminal-card:hover {
+      transform: translateY(-3px) !important;
+      border-color: rgba(139, 214, 255, 0.35) !important;
+      box-shadow: 0 0 30px rgba(139, 214, 255, 0.08), var(--shadow) !important;
+    }
+    .doc-card:hover {
+      transform: translateY(-4px) !important;
+      border-color: rgba(184, 161, 255, 0.35) !important;
+      box-shadow: 0 0 30px rgba(184, 161, 255, 0.08), var(--shadow) !important;
+    }
+    .pipeline-card:hover {
+      border-color: rgba(139, 214, 255, 0.3) !important;
+    }
+    .work-card.compact:hover {
+      border-color: rgba(255, 211, 109, 0.35) !important;
+    }
 
     /* Back-to-top button */
     .back-top {
@@ -1877,12 +1907,14 @@ ollama run qwen2.5
 
     const pipelineCards = document.querySelectorAll('.pipeline-card');
     const svgNodes = document.querySelectorAll('.svg-node');
+    const flowPaths = document.querySelectorAll('.flow-path');
     const schemHeader = document.getElementById('schematic-header');
     const schemData = document.getElementById('schematic-data');
 
     function selectPipelineStep(index) {
       pipelineCards.forEach((c, idx) => c.classList.toggle('is-active', idx === index));
       svgNodes.forEach((n, idx) => n.classList.toggle('is-active', idx === index));
+      flowPaths.forEach((p, idx) => p.classList.toggle('is-active', idx === index));
 
       if (nodeDetails[index]) {
         schemHeader.textContent = nodeDetails[index].header;
