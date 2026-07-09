@@ -1341,27 +1341,16 @@
 
     .hero { position: relative; }
 
-    /* Hero card — slightly transparent to show rain through */
+    /* Hero card — fully transparent over matrix rain */
     .hero-card {
-      background: rgba(8, 8, 8, 0.88) !important;
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
+      background: transparent !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
     }
-
-    /* Scanline overlay on hero card */
-    .hero-card .scanlines {
-      position: absolute;
-      inset: 0;
-      border-radius: 20px;
-      background: repeating-linear-gradient(
-        0deg,
-        transparent,
-        transparent 2px,
-        rgba(0, 255, 0, 0.025) 2px,
-        rgba(0, 255, 0, 0.025) 4px
-      );
-      pointer-events: none;
-      z-index: 2;
+    .hero-card .sub,
+    .hero-card h1,
+    .hero-card p {
+      text-shadow: 0 0 30px rgba(0,0,0,0.9), 0 0 60px rgba(0,0,0,0.6);
     }
 
     /* Card hover — clean lift without tilt */
@@ -1484,13 +1473,10 @@
 
       /* Hero adjustments */
       .hero { padding-top: 120px; }
-      .hero-card { padding: 26px 20px; background: rgba(8, 8, 8, 0.78) !important; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+      .hero-card { padding: 26px 20px; }
       .hero-card h1 { font-size: clamp(2.4rem, 10vw, 4rem); }
       .hero-card p { font-size: 1rem; }
-      .hero-strip {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1px;
-      }
+      .hero-stat { display: none; }
 
       /* Sections */
       section { padding: 54px 0; }
@@ -1582,14 +1568,11 @@
 
       /* Hero */
       .hero { padding-top: 100px; padding-bottom: 40px; }
-      .hero-card { padding: 20px 14px 16px; border-radius: 16px; background: rgba(8, 8, 8, 0.45) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+      .hero-card { padding: 20px 14px 16px; border-radius: 16px; }
       .hero-card .sub { font-size: 0.7rem; margin-bottom: 6px; }
       .hero-card h1 { font-size: clamp(1.8rem, 12vw, 2.6rem); }
       .hero-card p { display: none; }
-      .hero-strip { grid-template-columns: repeat(2, 1fr); gap: 2px; }
-      .hero-stat { min-height: 60px; padding: 8px; background: rgba(14, 14, 14, 0.5) !important; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-      .hero-stat strong { font-size: 0.6rem; }
-      .hero-stat span { font-size: 0.7rem; }
+      .hero-stat { display: none; }
 
       /* Buttons — full width stack */
       .actions { flex-direction: column; }
@@ -1724,7 +1707,6 @@
     <header class="hero">
       <div class="wrap hero-grid">
         <div class="hero-card">
-          <div class="scanlines" aria-hidden="true"></div>
           <span class="sub">Field Intelligence Platform</span>
           <h1>Build field<br />intelligence.</h1>
           <p>A competition-grade Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
@@ -1732,25 +1714,6 @@
             <a class="button primary" href="README_ROVER_SYSTEM.html">Read Rover Guide</a>
             <a class="button" href="#setup">Start Setup</a>
             <a class="button" href="PROJECT_BRIEF.html">Project Brief</a>
-          </div>
-        </div>
-
-        <div class="hero-strip" aria-label="Competition project capabilities">
-          <div class="hero-stat">
-            <strong>Competition Entry</strong>
-            <span>Field robotics &amp; AI monitoring showcase.</span>
-          </div>
-          <div class="hero-stat">
-            <strong>Local AI</strong>
-            <span>ONNX, YOLO, Ollama, or LM Studio.</span>
-          </div>
-          <div class="hero-stat">
-            <strong>Telemetry</strong>
-            <span>Status, heading, distance, and heartbeat.</span>
-          </div>
-          <div class="hero-stat">
-            <strong>Alerts</strong>
-            <span>Human, animal, track, fire, and marker events.</span>
           </div>
         </div>
       </div>
