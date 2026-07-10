@@ -119,6 +119,15 @@
         filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.18));
       }
 
+      .brand-logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        object-fit: cover;
+        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.18));
+      }
+
       .brand-caption {
         display: grid;
         gap: 2px;
@@ -1252,6 +1261,151 @@
         color: var(--text);
       }
 
+      /* Detection Feed (Live Tab) */
+      .detection-feed {
+        display: grid;
+        gap: 6px;
+        padding: 12px;
+        max-height: 320px;
+        overflow-y: auto;
+      }
+
+      .detection-empty {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        text-align: center;
+        padding: 24px 12px;
+        border: 1px dashed var(--line-soft);
+        border-radius: 12px;
+      }
+
+      .detection-card {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 10px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 10px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 42%), rgba(0,0,0,0.25);
+        transition: border-color 180ms ease, background 180ms ease;
+        animation: detect-slide 240ms ease-out;
+      }
+
+      @keyframes detect-slide {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .detection-card.cat-human {
+        border-left: 3px solid var(--red);
+      }
+      .detection-card.cat-animal {
+        border-left: 3px solid var(--amber);
+      }
+      .detection-card.cat-object {
+        border-left: 3px solid var(--cyan);
+      }
+      .detection-card.cat-marker {
+        border-left: 3px solid var(--green);
+      }
+      .detection-card.cat-fire {
+        border-left: 3px solid var(--red);
+      }
+      .detection-card.cat-track {
+        border-left: 3px solid var(--violet);
+      }
+
+      .detection-card:hover {
+        border-color: rgba(255,255,255,0.25);
+        background: linear-gradient(135deg, rgba(255,255,255,0.07), transparent 42%), rgba(0,0,0,0.3);
+      }
+
+      .detection-thumb {
+        width: 56px;
+        height: 56px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        object-fit: cover;
+        background: var(--bg);
+      }
+
+      .detection-body {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+      }
+
+      .detection-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .detection-cat-tag {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.06);
+        color: var(--soft);
+      }
+
+      .detection-card.cat-human .detection-cat-tag {
+        background: rgba(255, 180, 171, 0.15);
+        color: var(--red);
+      }
+      .detection-card.cat-animal .detection-cat-tag {
+        background: rgba(255, 211, 109, 0.15);
+        color: var(--amber);
+      }
+      .detection-card.cat-object .detection-cat-tag {
+        background: rgba(139, 214, 255, 0.15);
+        color: var(--cyan);
+      }
+      .detection-card.cat-marker .detection-cat-tag {
+        background: rgba(140, 255, 189, 0.15);
+        color: var(--green);
+      }
+
+      .detection-msg {
+        color: var(--muted);
+        font-size: 0.82rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .detection-action {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--cyan);
+      }
+
+      .detection-action .material-symbols-outlined {
+        font-size: 0.9rem;
+      }
+
+      .detection-action.human {
+        color: var(--red);
+      }
+
+      .detection-time {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        margin-left: auto;
+      }
+
       /* Scan results */
       .scan-panel table {
         width: 100%;
@@ -1346,6 +1500,57 @@
 
         .dashboard-grid { padding: 12px; }
       }
+
+      /* =============================================
+         ROUTE PLANNER
+         ============================================= */
+      .route-layout { display: grid; gap: 12px; padding: 14px; }
+      .route-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .route-btn {
+        font-family: var(--mono); font-size: 0.72rem; padding: 5px 10px;
+        border: 1px solid var(--line); border-radius: 8px;
+        background: var(--surface); color: var(--muted); cursor: pointer;
+        transition: all 120ms ease;
+      }
+      .route-btn:hover { border-color: var(--cyan); color: var(--text); }
+      .route-btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(139,214,255,0.08); }
+      .route-btn.primary { border-color: var(--cyan); color: var(--cyan); }
+      .route-btn.primary:hover { background: rgba(139,214,255,0.12); }
+      .route-btn.go { border-color: var(--green); color: var(--green); }
+      .route-btn.go:hover { background: rgba(140,255,189,0.12); }
+      .route-btn.danger { border-color: rgba(255,100,100,0.3); color: #ff6666; }
+      .route-sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; display: inline-block; }
+      .route-count { font-family: var(--mono); font-size: 0.72rem; color: var(--soft); }
+      .route-canvas-wrap { position: relative; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      #routeCanvas { display: block; width: 100%; height: auto; cursor: crosshair; background: #0a0a0a; }
+      .route-legend { position: absolute; bottom: 8px; right: 10px; display: flex; gap: 10px; font-size: 0.68rem; font-family: var(--mono); color: var(--soft); background: rgba(0,0,0,0.7); padding: 4px 10px; border-radius: 8px; }
+      .route-legend .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
+      .dot-blue { background: #4da6ff; }
+      .dot-amber { background: #ffb347; }
+      .dot-red { background: #ff6b6b; }
+      .route-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+      .route-input {
+        font-family: var(--mono); font-size: 0.78rem; padding: 5px 10px;
+        border: 1px solid var(--line); border-radius: 8px;
+        background: var(--surface); color: var(--text); flex: 1; min-width: 140px;
+      }
+      .route-input::placeholder { color: var(--soft); }
+      .route-select {
+        font-family: var(--mono); font-size: 0.72rem; padding: 5px 8px;
+        border: 1px solid var(--line); border-radius: 8px;
+        background: var(--surface); color: var(--muted); cursor: pointer;
+      }
+      .route-reports { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+      .route-reports-header {
+        font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+        padding: 8px 12px; background: var(--surface); color: var(--soft); border-bottom: 1px solid var(--line);
+      }
+      .route-report-log { max-height: 140px; overflow-y: auto; padding: 6px 10px; display: grid; gap: 3px; }
+      .route-report-entry {
+        font-family: var(--mono); font-size: 0.7rem; color: var(--muted);
+        padding: 3px 6px; border-radius: 4px; display: flex; gap: 6px; align-items: center;
+      }
+      .route-report-entry .route-stop-type { font-size: 0.85rem; }
     </style>
   </head>
   <body>
@@ -1355,9 +1560,9 @@
            ========================================== -->
       <aside class="sidebar" aria-label="Mission navigation">
         <div class="brand-mark">
-          <span class="brand-icon" aria-label="Mission Control Unit">satellite_alt</span>
+          <img class="brand-logo" src="/static/stasis-logo.gif" alt="STASIS" width="44" height="44" />
           <div class="brand-caption">
-            <strong>CONTROL</strong>
+            <strong>STASIS</strong>
             <span>V-0.9.4</span>
           </div>
         </div>
@@ -1371,6 +1576,9 @@
           </button>
           <button class="nav-pill" type="button" data-tab="alerts">
             <span class="icon">analytics</span>LOG
+          </button>
+          <button class="nav-pill" type="button" data-tab="route">
+            <span class="icon">map</span>ROUTE
           </button>
         </div>
 
@@ -1499,6 +1707,22 @@
                     <span class="metric-label">Heading</span>
                     <div class="metric-value"><span id="headingVal">0</span>°</div>
                   </div>
+                </div>
+              </section>
+
+              <!-- Detection Feed Panel -->
+              <section class="panel" aria-label="Detection feed">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Perception</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">radar</span>
+                      Detection Feed
+                    </h2>
+                  </div>
+                </div>
+                <div id="detectionFeed" class="detection-feed">
+                  <div class="detection-empty">Waiting for detections...</div>
                 </div>
               </section>
 
@@ -1694,6 +1918,68 @@
             </section>
           </div>
         </div>
+
+        <!-- ========================================
+             TAB: ROUTE (Route Planner)
+             ======================================== -->
+        <div id="routeTab" class="tab-panel">
+          <div class="expanded-grid">
+            <section class="expanded-col">
+              <section class="panel" aria-label="Route planner">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Navigation</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">map</span>
+                      Route Planner
+                    </h2>
+                  </div>
+                </div>
+                <div class="route-layout">
+                  <!-- Toolbar -->
+                  <div class="route-toolbar">
+                    <button id="routeModeToggle" class="route-btn active" title="Toggle drawing mode">🖊 Freehand</button>
+                    <span class="route-sep"></span>
+                    <button class="route-btn active" data-mode="waypoint" title="Click to place waypoints">✏️ Draw</button>
+                    <button class="route-btn" data-mode="short_stop" title="Short pause (5s)">⏸ Short</button>
+                    <button class="route-btn" data-mode="long_stop" title="Long pause (30s)">⏹ Long</button>
+                    <span class="route-sep"></span>
+                    <button id="routeUndo" class="route-btn" title="Remove last waypoint">↩ Undo</button>
+                    <button id="routeClear" class="route-btn" title="Clear all waypoints">🗑 Clear</button>
+                    <span class="route-sep"></span>
+                    <span id="routeWpCount" class="route-count">0 WP</span>
+                  </div>
+                  <!-- Canvas -->
+                  <div class="route-canvas-wrap">
+                    <canvas id="routeCanvas" width="800" height="600"></canvas>
+                    <div class="route-legend">
+                      <span><span class="dot dot-blue"></span> waypoint</span>
+                      <span><span class="dot dot-amber"></span> short stop</span>
+                      <span><span class="dot dot-red"></span> long stop</span>
+                    </div>
+                  </div>
+                  <!-- Actions -->
+                  <div class="route-actions">
+                    <input id="routeName" class="route-input" placeholder="Route name..." />
+                    <button id="routeSave" class="route-btn primary">💾 Save</button>
+                    <button id="routeExecute" class="route-btn primary go">▶ Execute</button>
+                    <span class="route-sep"></span>
+                    <select id="routeLoadList" class="route-select">
+                      <option value="">— Load saved —</option>
+                    </select>
+                    <button id="routeLoad" class="route-btn">📂 Load</button>
+                    <button id="routeDelete" class="route-btn danger">🗑</button>
+                  </div>
+                  <!-- Stop Reports -->
+                  <div class="route-reports">
+                    <div class="route-reports-header">Stop Reports</div>
+                    <div id="routeReport" class="route-report-log"></div>
+                  </div>
+                </div>
+              </section>
+            </section>
+          </div>
+        </div>
       </main>
     </div>
 
@@ -1707,9 +1993,27 @@
       const WINDOWS_LAPTOP_IP = "<WINDOWS_LAPTOP_IP>";
       const isStandalone = window.location.protocol === "file:";
       const serverBase = isStandalone ? `http://${WINDOWS_LAPTOP_IP}:5000` : "";
-      const socket = isStandalone && !WINDOWS_LAPTOP_IP.includes("<")
-        ? io(`${serverBase}`)
-        : io();
+
+      // Socket.IO might not be available if CDN is blocked — create dummy
+      let socket;
+      if (typeof io !== "undefined") {
+        try {
+          socket = isStandalone && !WINDOWS_LAPTOP_IP.includes("<")
+            ? io(`${serverBase}`)
+            : io();
+        } catch (_) {
+          socket = null;
+        }
+      }
+      if (!socket) {
+        socket = {
+          emit: () => false,
+          on: () => {},
+          connect: () => {},
+          connected: false,
+        };
+        console.warn("Socket.IO unavailable — running in offline UI mode");
+      }
 
       /* =============================================
          DOM REFERENCES
@@ -1719,6 +2023,7 @@
         live: document.getElementById("liveTab"),
         map: document.getElementById("mapTab"),
         alerts: document.getElementById("alertsTab"),
+        route: document.getElementById("routeTab"),
       };
 
       const statusEl = document.getElementById("status");
@@ -1762,13 +2067,43 @@
       const mapAlertDots = [];
 
       /* =============================================
-         CAMERA FEED
+         CAMERA FEED — Socket.IO Binary (low latency)
          ============================================= */
-      const cameraUrl = isStandalone
-        ? `${serverBase}/camera.mjpg`
-        : "/camera.mjpg";
-      if (!WINDOWS_LAPTOP_IP.includes("<") || !isStandalone) {
-        cameraFeed.src = cameraUrl;
+      let cameraFrameTimer = null;
+      let cameraFrameCount = 0;
+      const USE_SOCKET_STREAM = true;
+
+      // Socket.IO binary frame handler — lower latency than MJPEG
+      if (USE_SOCKET_STREAM) {
+        socket.on("camera_frame", (blob) => {
+          if (!blob || !blob.byteLength) return;
+          cameraFrameCount++;
+          const url = URL.createObjectURL(new Blob([blob], { type: "image/jpeg" }));
+          cameraFeed.src = url;
+          setTimeout(() => URL.revokeObjectURL(url), 200);
+          if (cameraFrameTimer) {
+            clearTimeout(cameraFrameTimer);
+            cameraFrameTimer = null;
+          }
+        });
+
+        // Fallback to MJPEG if no binary frame arrives within 5 seconds
+        cameraFrameTimer = setTimeout(() => {
+          if (cameraFrameCount === 0) {
+            const fallbackUrl = isStandalone
+              ? `${serverBase}/camera.mjpg`
+              : "/camera.mjpg";
+            console.warn("No Socket.IO frames received — falling back to MJPEG");
+            cameraFeed.src = fallbackUrl;
+          }
+        }, 5000);
+      } else {
+        const fallbackUrl = isStandalone
+          ? `${serverBase}/camera.mjpg`
+          : "/camera.mjpg";
+        if (!WINDOWS_LAPTOP_IP.includes("<") || !isStandalone) {
+          cameraFeed.src = fallbackUrl;
+        }
       }
 
       /* =============================================
@@ -2043,6 +2378,89 @@
       }
 
       /* =============================================
+         LIVE DETECTION FEED
+         ============================================= */
+      function renderDetectionFeed(alert) {
+        const feed = document.getElementById("detectionFeed");
+        if (!feed) return;
+
+        // Clear empty state
+        const empty = feed.querySelector(".detection-empty");
+        if (empty) empty.remove();
+
+        const cat = (alert.category || "event").toLowerCase();
+        const guidance = alert.guidance || {};
+
+        const card = document.createElement("div");
+        card.className = `detection-card cat-${cat.replace(/[^a-z0-9]/g, "") || "event"}`;
+
+        // Thumbnail
+        const thumb = document.createElement("img");
+        thumb.className = "detection-thumb";
+        thumb.src = isStandalone
+          ? (alert.image_path && alert.image_path.startsWith("http") ? alert.image_path : `${serverBase}/${alert.image_path || ""}`)
+          : `/${alert.image_path || ""}`;
+        thumb.alt = "Detection snapshot";
+        thumb.loading = "lazy";
+
+        // Body
+        const body = document.createElement("div");
+        body.className = "detection-body";
+
+        const head = document.createElement("div");
+        head.className = "detection-head";
+
+        const tag = document.createElement("span");
+        tag.className = "detection-cat-tag";
+        tag.textContent = cat;
+        head.append(tag);
+
+        // Only add label if it's different from category
+        if (alert.label && alert.label.toLowerCase() !== cat) {
+          const labelSpan = document.createElement("span");
+          labelSpan.style.cssText = "color:var(--muted);font-size:0.78rem;font-weight:600;";
+          labelSpan.textContent = alert.label;
+          head.append(labelSpan);
+        }
+
+        const time = document.createElement("span");
+        time.className = "detection-time";
+        time.textContent = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        head.append(time);
+
+        body.append(head);
+
+        // Message
+        if (alert.message) {
+          const msg = document.createElement("div");
+          msg.className = "detection-msg";
+          msg.textContent = alert.message;
+          body.append(msg);
+        }
+
+        // Action/Guidance
+        const action = document.createElement("div");
+        action.className = `detection-action${cat === "human" ? " human" : ""}`;
+        if (guidance.direction) {
+          action.innerHTML = `<span class="material-symbols-outlined">near_me</span> ${guidance.direction}`;
+        } else if (cat === "human") {
+          const label = alert.label || "person";
+          action.innerHTML = `<span class="material-symbols-outlined">warning</span> STOP — ${label} detected, choose action`;
+        } else if (alert.message) {
+          action.innerHTML = `<span class="material-symbols-outlined">chevron_right</span> logged`;
+        }
+        body.append(action);
+
+        card.append(thumb, body);
+        feed.prepend(card);
+
+        // Keep at most 8
+        while (feed.children.length > 8) {
+          feed.lastChild.remove();
+        }
+      }
+
+      /* =============================================
          SOCKET.IO EVENT HANDLERS
          ============================================= */
       socket.on("connect", () => {
@@ -2181,6 +2599,9 @@
       });
 
       socket.on("new_alert", (alert) => {
+        // === Live Detection Feed (main page) ===
+        renderDetectionFeed(alert);
+
         // === Full Alert Card (Alerts Tab) ===
         const item = document.createElement("article");
         item.className = "alert-card";
@@ -2324,6 +2745,250 @@
           second: "2-digit",
         });
       }
+
+      // =============================================
+      // ROUTE PLANNER
+      // =============================================
+      const routeWaypoints = [];
+      let routeDrawMode = 'waypoint';
+      let routeDrawStyle = 'freehand'; // 'freehand' or 'point'
+      const routeCanvas = document.getElementById('routeCanvas');
+      const routeCtx = routeCanvas ? routeCanvas.getContext('2d') : null;
+
+      // Drawing mode toggle
+      const modeToggle = document.getElementById('routeModeToggle');
+      if (modeToggle) modeToggle.addEventListener('click', () => {
+        routeDrawStyle = routeDrawStyle === 'freehand' ? 'point' : 'freehand';
+        modeToggle.textContent = routeDrawStyle === 'freehand' ? '🖊 Freehand' : '✏️ Point';
+        routeCanvas.style.cursor = routeDrawStyle === 'freehand' ? 'crosshair' : 'cell';
+      });
+
+      // Tool buttons
+      document.querySelectorAll('.route-btn[data-mode]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.route-btn[data-mode]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          routeDrawMode = btn.dataset.mode;
+        });
+      });
+
+      // Canvas variables for freehand drawing
+      let routeDrawing = false;
+
+      if (routeCanvas) {
+        routeCanvas.addEventListener('mousedown', (e) => {
+          const rect = routeCanvas.getBoundingClientRect();
+          const scaleX = routeCanvas.width / rect.width;
+          const scaleY = routeCanvas.height / rect.height;
+          const x = Math.round((e.clientX - rect.left) * scaleX);
+          const y = Math.round((e.clientY - rect.top) * scaleY);
+
+          if (routeDrawStyle === 'point') {
+            // Point mode — single click places one waypoint
+            const wp = { x, y, type: routeDrawMode, duration_seconds: routeDrawMode === 'short_stop' ? 5 : routeDrawMode === 'long_stop' ? 30 : 0 };
+            routeWaypoints.push(wp);
+            redrawRouteCanvas();
+            return;
+          }
+
+          // Freehand mode — start drawing
+          routeDrawing = true;
+          const wp = { x, y, type: routeDrawMode, duration_seconds: routeDrawMode === 'short_stop' ? 5 : routeDrawMode === 'long_stop' ? 30 : 0 };
+          routeWaypoints.push(wp);
+          redrawRouteCanvas();
+        });
+
+        routeCanvas.addEventListener('mousemove', (e) => {
+          if (!routeDrawing || routeDrawStyle === 'point') return;
+          const rect = routeCanvas.getBoundingClientRect();
+          const scaleX = routeCanvas.width / rect.width;
+          const scaleY = routeCanvas.height / rect.height;
+          const x = Math.round((e.clientX - rect.left) * scaleX);
+          const y = Math.round((e.clientY - rect.top) * scaleY);
+          const last = routeWaypoints[routeWaypoints.length - 1];
+          if (!last || Math.hypot(x - last.x, y - last.y) >= 8) {
+            const wp = { x, y, type: 'normal', duration_seconds: 0 };
+            routeWaypoints.push(wp);
+            redrawRouteCanvas();
+          }
+        });
+
+        const endDraw = () => {
+          if (!routeDrawing) return;
+          routeDrawing = false;
+          if (routeWaypoints.length > 0 && routeDrawMode !== 'waypoint') {
+            const last = routeWaypoints[routeWaypoints.length - 1];
+            last.type = routeDrawMode;
+            last.duration_seconds = routeDrawMode === 'short_stop' ? 5 : 30;
+          }
+          redrawRouteCanvas();
+        };
+        routeCanvas.addEventListener('mouseup', endDraw);
+        routeCanvas.addEventListener('mouseleave', endDraw);
+      }
+
+      function redrawRouteCanvas() {
+        if (!routeCtx) return;
+        const cw = routeCanvas.width, ch = routeCanvas.height;
+        routeCtx.clearRect(0, 0, cw, ch);
+
+        // Grid
+        routeCtx.strokeStyle = 'rgba(255,255,255,0.04)';
+        routeCtx.lineWidth = 1;
+        for (let x = 0; x <= cw; x += 30) {
+          routeCtx.beginPath(); routeCtx.moveTo(x, 0); routeCtx.lineTo(x, ch); routeCtx.stroke();
+        }
+        for (let y = 0; y <= ch; y += 30) {
+          routeCtx.beginPath(); routeCtx.moveTo(0, y); routeCtx.lineTo(cw, y); routeCtx.stroke();
+        }
+
+        // Smooth path using quadratic bezier
+        if (routeWaypoints.length > 1) {
+          routeCtx.strokeStyle = 'rgba(77, 166, 255, 0.6)';
+          routeCtx.lineWidth = 3;
+          routeCtx.beginPath();
+          routeCtx.moveTo(routeWaypoints[0].x, routeWaypoints[0].y);
+          for (let i = 1; i < routeWaypoints.length - 1; i++) {
+            const mx = (routeWaypoints[i].x + routeWaypoints[i + 1].x) / 2;
+            const my = (routeWaypoints[i].y + routeWaypoints[i + 1].y) / 2;
+            routeCtx.quadraticCurveTo(routeWaypoints[i].x, routeWaypoints[i].y, mx, my);
+          }
+          const last = routeWaypoints[routeWaypoints.length - 1];
+          routeCtx.lineTo(last.x, last.y);
+          routeCtx.stroke();
+        }
+
+        // Waypoints (show every ~20th to reduce clutter, but always show first+last)
+        const step = Math.max(1, Math.floor(routeWaypoints.length / 20));
+        routeWaypoints.forEach((wp, i) => {
+          if (i > 0 && i < routeWaypoints.length - 1 && i % step !== 0 && wp.type === 'normal') return;
+          const color = wp.type === 'short_stop' ? '#ffb347' : wp.type === 'long_stop' ? '#ff6b6b' : '#4da6ff';
+          const r = wp.type === 'long_stop' ? 10 : 6;
+          routeCtx.beginPath();
+          routeCtx.arc(wp.x, wp.y, r, 0, Math.PI * 2);
+          routeCtx.fillStyle = color;
+          routeCtx.fill();
+          routeCtx.strokeStyle = 'rgba(0,0,0,0.5)';
+          routeCtx.lineWidth = 1.5;
+          routeCtx.stroke();
+          if (i === 0 || i === routeWaypoints.length - 1 || wp.type !== 'normal') {
+            routeCtx.fillStyle = '#fff';
+            routeCtx.font = '10px JetBrains Mono, monospace';
+            routeCtx.textAlign = 'center';
+            routeCtx.fillText(i + 1, wp.x, wp.y - r - 4);
+          }
+          if (wp.type === 'short_stop') {
+            routeCtx.fillStyle = 'rgba(255,179,71,0.15)';
+            routeCtx.beginPath(); routeCtx.arc(wp.x, wp.y, 16, 0, Math.PI * 2); routeCtx.fill();
+          } else if (wp.type === 'long_stop') {
+            routeCtx.fillStyle = 'rgba(255,107,107,0.15)';
+            routeCtx.beginPath(); routeCtx.arc(wp.x, wp.y, 20, 0, Math.PI * 2); routeCtx.fill();
+          }
+        });
+
+        // Count
+        const countEl = document.getElementById('routeWpCount');
+        if (countEl) countEl.textContent = routeWaypoints.length + ' pts';
+      }
+
+      // Undo
+      const undoBtn = document.getElementById('routeUndo');
+      if (undoBtn) undoBtn.addEventListener('click', () => { routeWaypoints.pop(); redrawRouteCanvas(); });
+
+      // Clear
+      const clearBtn = document.getElementById('routeClear');
+      if (clearBtn) clearBtn.addEventListener('click', () => { routeWaypoints.length = 0; redrawRouteCanvas(); });
+
+      // Save
+      const saveBtn = document.getElementById('routeSave');
+      const nameInput = document.getElementById('routeName');
+      if (saveBtn) saveBtn.addEventListener('click', () => {
+        const name = (nameInput ? nameInput.value : '').trim();
+        if (!name || routeWaypoints.length === 0) return;
+        socket.emit('save_route', { name, waypoints: routeWaypoints });
+      });
+      socket.on('route_saved', (data) => {
+        addLogEntry('ROUTE SAVED: ' + data.name + ' (' + data.count + ' WP)');
+        refreshRouteList();
+      });
+
+      // Load list
+      function refreshRouteList() {
+        socket.emit('list_routes');
+      }
+      socket.on('route_list', (data) => {
+        const sel = document.getElementById('routeLoadList');
+        if (!sel) return;
+        sel.innerHTML = '<option value="">— Load saved —</option>';
+        (data.routes || []).forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r; opt.textContent = r;
+          sel.appendChild(opt);
+        });
+      });
+
+      // Load selected
+      const loadBtn = document.getElementById('routeLoad');
+      const loadSel = document.getElementById('routeLoadList');
+      if (loadBtn) loadBtn.addEventListener('click', () => {
+        const name = loadSel ? loadSel.value : '';
+        if (!name) return;
+        socket.emit('load_route', { name });
+      });
+      socket.on('route_loaded', (data) => {
+        routeWaypoints.length = 0;
+        (data.waypoints || []).forEach(wp => routeWaypoints.push(wp));
+        redrawRouteCanvas();
+        const name = data.name || '';
+        if (nameInput) nameInput.value = name.replace(/_/g, ' ');
+        addLogEntry('ROUTE LOADED: ' + name);
+      });
+
+      // Delete
+      const delBtn = document.getElementById('routeDelete');
+      if (delBtn) delBtn.addEventListener('click', () => {
+        const name = loadSel ? loadSel.value : '';
+        if (!name) return;
+        socket.emit('delete_route', { name });
+      });
+      socket.on('route_deleted', (data) => {
+        addLogEntry('ROUTE DELETED: ' + data.name);
+        refreshRouteList();
+      });
+
+      // Execute
+      const execBtn = document.getElementById('routeExecute');
+      if (execBtn) execBtn.addEventListener('click', () => {
+        const name = (nameInput ? nameInput.value : '').trim() || 'quick_route';
+        if (routeWaypoints.length === 0) return;
+        socket.emit('execute_route', { name, waypoints: routeWaypoints.slice() });
+      });
+      socket.on('route_executing', (data) => {
+        addLogEntry('ROUTE EXECUTING: ' + data.name + ' (' + data.waypoints + ' WP)');
+      });
+      socket.on('route_error', (data) => {
+        addLogEntry('ROUTE ERROR: ' + (data.message || ''));
+      });
+
+      // Stop reports from Pi
+      socket.on('route_stop_update', (data) => {
+        const log = document.getElementById('routeReport');
+        if (!log) return;
+        const entry = document.createElement('div');
+        entry.className = 'route-report-entry';
+        entry.innerHTML = '<span class="route-stop-type">' + (data.stop_type === 'long' ? '⏹' : '⏸') + '</span>' +
+          '<span>WP#' + data.waypoint_index + ': ' + data.stop_type + ' stop' +
+          (data.front_distance_cm ? ' — ' + data.front_distance_cm + ' cm' : '') + '</span>';
+        log.prepend(entry);
+      });
+      socket.on('route_complete', (data) => {
+        addLogEntry('ROUTE COMPLETE: ' + data.waypoints_completed + ' waypoints');
+      });
+
+      // Refresh list on connect
+      socket.on('connect', () => {
+        refreshRouteList();
+      });
 
       setInterval(updateClock, 1000);
       updateClock();

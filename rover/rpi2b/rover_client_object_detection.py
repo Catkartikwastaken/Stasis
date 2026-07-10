@@ -843,7 +843,7 @@ class ObjectDetectionRoverClient(base.RoverClient):
             return
 
         while not self.stop_requested.is_set():
-            cap = cv2.VideoCapture(camera.index)
+            cap = cv2.VideoCapture(camera.index, cv2.CAP_V4L2)
             if not cap.isOpened():
                 logging.warning(
                     "Could not open Raspberry Pi webcam index %s; retrying.",
@@ -851,6 +851,7 @@ class ObjectDetectionRoverClient(base.RoverClient):
                 )
                 time.sleep(3)
                 continue
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera.width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
             cap.set(cv2.CAP_PROP_FPS, camera.fps)

@@ -166,12 +166,21 @@ def postprocess_detections(detections: List[Any], frame_width: int, frame_height
 
     return valid_detections
 
+# Socket.IO streaming configuration (using os.getenv directly since env_int helpers are below)
+STREAM_JPEG_QUALITY: int = int(os.getenv("STASIS_STREAM_JPEG_QUALITY", "50"))
+STREAM_FPS: int = int(os.getenv("STASIS_STREAM_FPS", "20"))
+STREAM_FRAME_SKIP: int = max(1, int(os.getenv("STASIS_STREAM_FRAME_SKIP", "1")))
+
+# Frame counter for Socket.IO binary stream throttling
+_frame_counter: int = 0
+
 # ==========================================
 # FILE PATHS & WORKSPACE DEFINITIONS
 # ==========================================
 BASE_DIR: Path = Path(__file__).resolve().parent
 ALERTS_DIR: Path = BASE_DIR / "alerts"
 VISION_CONFIG_PATH: Path = Path(os.getenv("STASIS_VISION_CONFIG", BASE_DIR / "vision_config.json"))
+ROUTES_DIR: Path = BASE_DIR / "routes"
 
 # ==========================================
 # ENV LOADING HELPERS (With safe fallbacks)
@@ -545,9 +554,15 @@ def load_vision_model() -> None:
 def webcam_capture_loop() -> None:
     """
     Background worker loop continuously capturing frames from the configured video camera.
+    Emits frames via Socket.IO binary for low-latency streaming to dashboards.
     """
-    global latest_frame, latest_frame_jpeg
+    global latest_frame, latest_frame_jpeg, _frame_counter
     import cv2
+
+    # JPEG quality for the streaming Socket.IO frames (lower = faster)
+    stream_jpeg_quality: int = STREAM_JPEG_QUALITY
+    # Throttle Socket.IO emits: emit every Nth frame
+    frame_skip: int = STREAM_FRAME_SKIP
 
     while True:
         try:
@@ -573,9 +588,19 @@ def webcam_capture_loop() -> None:
                         logging.warning("Webcam capture read cycle returned empty frame.")
                         break
                     latest_frame = frame.copy()
-                    ok_enc, encoded = cv2.imencode(".jpg", latest_frame)
+
+                    # Encode at reduced quality for streaming speed
+                    _frame_counter += 1
+                    ok_enc, encoded = cv2.imencode(".jpg", latest_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 55])
                     if ok_enc:
                         latest_frame_jpeg = encoded.tobytes()
+
+                        # Emit via Socket.IO binary (throttled) — low-latency path for modern dashboards
+                        if _frame_counter % frame_skip == 0:
+                            try:
+                                socketio.emit("camera_frame", latest_frame_jpeg, binary=True)
+                            except Exception as emit_err:
+                                logging.debug("Socket.IO frame emit failed: %s", emit_err)
                 except Exception as read_err:
                     logging.error("Exception during live camera buffer read: %s", read_err)
                     break
@@ -1114,20 +1139,23 @@ def save_alert_frame(frame: Any) -> str:
 def camera_mjpeg_stream() -> Generator[bytes, None, None]:
     """
     Generates Motion-JPEG multipart camera feeds for web client streaming.
+    Uses timestamp-based rate limiting instead of blind sleep to minimize latency.
     """
+    last_sent_at: float = 0.0
+    min_frame_interval: float = 1.0 / max(1, STREAM_FPS)
     while True:
         jpeg_bytes = latest_frame_jpeg
         if jpeg_bytes is None:
-            time.sleep(0.05)
+            time.sleep(0.02)
             continue
 
-        yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n"
-            + jpeg_bytes
-            + b"\r\n"
-        )
-        time.sleep(1.0 / max(1, CAMERA_FPS))
+        now = time.time()
+        if now - last_sent_at < min_frame_interval:
+            time.sleep(0.005)
+            continue
+
+        last_sent_at = now
+        yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + jpeg_bytes + b"\r\n"
 
 
 def handle_camera_frame(payload: Dict[str, Any]) -> None:
@@ -1142,16 +1170,24 @@ def handle_camera_frame(payload: Dict[str, Any]) -> None:
 
     try:
         raw = base64.b64decode(str(payload["image_b64"]))
-        if DETECTOR_BACKEND != "none":
-            import cv2
-            import numpy as np
-            image_array = np.frombuffer(raw, dtype=np.uint8)
-            frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-            if frame is None:
-                logging.warning("Decoded rover camera frame was empty.")
-                return
-            latest_frame = frame
-        latest_frame_jpeg = raw
+        # Store a resized/lower-quality JPEG for the MJPEG stream to reduce bandwidth
+        import cv2
+        import numpy as np
+        image_array = np.frombuffer(raw, dtype=np.uint8)
+        frame = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        if frame is None:
+            logging.warning("Decoded rover camera frame was empty.")
+            return
+        latest_frame = frame
+        # Resize to 320x240 for streaming to save bandwidth
+        h, w = frame.shape[:2]
+        if w > 320 or h > 240:
+            display = cv2.resize(frame, (320, 240), interpolation=cv2.INTER_LINEAR)
+        else:
+            display = frame
+        _ret, jpeg = cv2.imencode(".jpg", display, [int(cv2.IMWRITE_JPEG_QUALITY), 50])
+        if _ret:
+            latest_frame_jpeg = jpeg.tobytes()
     except Exception as exc:
         logging.warning("Could not decode rover camera frame: %s", exc)
         return
@@ -1521,6 +1557,11 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
         for label in os.getenv("STASIS_PI_IGNORE_LABELS", "").split(",")
         if label.strip()
     }
+    allowed_labels = {
+        label.strip().lower()
+        for label in os.getenv("STASIS_PI_ALLOW_LABELS", "").split(",")
+        if label.strip()
+    }
     min_custom_confidence = float(os.getenv("STASIS_PI_MIN_OBJECT_CONFIDENCE", "0.55"))
     min_animal_confidence = float(os.getenv("STASIS_PI_MIN_ANIMAL_CONFIDENCE", "0.68"))
     min_common_object_confidence = float(os.getenv("STASIS_PI_MIN_COMMON_OBJECT_CONFIDENCE", "0.55"))
@@ -1548,6 +1589,10 @@ def handle_object_detection_report(payload: Dict[str, Any]) -> None:
         if label in ignored_demo_labels:
             logging.info("Filtered ignored Pi detection label=%s confidence=%.2f.", label, confidence)
             record_detection_event(item, False, "ignored_label")
+            continue
+        if allowed_labels and label not in allowed_labels:
+            logging.info("Filtered by allow-list Pi detection label=%s confidence=%.2f.", label, confidence)
+            record_detection_event(item, False, "disallowed_label")
             continue
         if category == "object" and (
             box_area_ratio > max_box_area_ratio
@@ -1659,6 +1704,42 @@ def handle_rover_report(payload: Any) -> None:
         handle_object_detection_report(payload)
         return
 
+    if payload.get("type") == "distance_report":
+        distance = payload.get("distance_cm")
+        if distance is not None:
+            logging.info("Ultrasonic distance report from rover: %.1f cm", distance)
+            socketio.emit("ultrasonic_distance", {"distance_cm": distance})
+        return
+
+    if payload.get("type") == "route_stop_report":
+        socketio.emit("route_stop_update", payload)
+        socketio.emit("new_alert", {
+            "category": "route",
+            "message": payload.get("message", f"Stop at waypoint {payload.get('waypoint_index', 0)}"),
+            "action": "route_notification",
+        })
+        return
+
+    if payload.get("type") == "route_complete":
+        socketio.emit("route_complete", payload)
+        socketio.emit("new_alert", {
+            "category": "route",
+            "message": f"Route complete — {payload.get('waypoints_completed', 0)} waypoints",
+            "action": "route_notification",
+        })
+        return
+
+    if payload.get("type") == "route_from_patrol":
+        name = str(payload.get("name", f"patrol_{int(time.time())}")).replace(" ", "_")
+        waypoints = payload.get("waypoints", [])
+        if waypoints:
+            ROUTES_DIR.mkdir(parents=True, exist_ok=True)
+            route = {"name": name, "source": "patrol", "created": datetime.now().isoformat(), "waypoints": waypoints}
+            (ROUTES_DIR / f"{name}.json").write_text(json.dumps(route, indent=2))
+            logging.info("Patrol route saved: %s (%d waypoints)", name, len(waypoints))
+            socketio.emit("route_saved", {"name": name, "count": len(waypoints), "source": "patrol"})
+        return
+
     # Parse telemetry updates
     if "heading" in payload and "distance_traveled" in payload:
         handle_rover_telemetry(payload)
@@ -1721,18 +1802,24 @@ def rover_websocket() -> str:
     global rover_ws
 
     ws = Server.accept(request.environ)
+    logging.info("Rover WebSocket connection accepted from %s", request.remote_addr)
     client_id = request.args.get("id") or request.args.get("client_id")
     initial_payload = None
 
     if client_id is None:
         try:
-            initial_payload = json.loads(ws.receive())
+            raw = ws.receive()
+            logging.info("Rover WebSocket received initial payload: %r", raw[:200] if raw else raw)
+            initial_payload = json.loads(raw)
             client_id = initial_payload.get("id")
-        except (ConnectionClosed, json.JSONDecodeError, AttributeError, TypeError):
+            logging.info("Rover WebSocket client_id from payload: %s", client_id)
+        except (ConnectionClosed, json.JSONDecodeError, AttributeError, TypeError) as exc:
+            logging.warning("Rover WebSocket initial receive failed: %s", exc)
             ws.close()
             return ""
 
     if not is_rover_client(client_id):
+        logging.warning("Rover WebSocket rejected unknown client_id: %s", client_id)
         ws.send(json.dumps({"error": "unknown_client"}))
         ws.close()
         return ""
@@ -1976,6 +2063,74 @@ def on_message(payload: Any) -> None:
 
 
 # ==========================================
+# ROUTE PLANNER — Save / Load / List / Execute
+# ==========================================
+
+
+@socketio.on("save_route")
+def on_save_route(data: Dict[str, Any]) -> None:
+    name = str(data.get("name", "")).strip().replace(" ", "_").replace("/", "").replace("\\", "")
+    waypoints = data.get("waypoints", [])
+    if not name or not waypoints:
+        emit("route_error", {"message": "Route name and waypoints are required."})
+        return
+    ROUTES_DIR.mkdir(parents=True, exist_ok=True)
+    route = {"name": name, "created": datetime.now().isoformat(), "waypoints": waypoints}
+    path = ROUTES_DIR / f"{name}.json"
+    path.write_text(json.dumps(route, indent=2))
+    emit("route_saved", {"name": name, "count": len(waypoints)})
+    logging.info("Route saved: %s (%d waypoints)", name, len(waypoints))
+
+
+@socketio.on("list_routes")
+def on_list_routes() -> None:
+    ROUTES_DIR.mkdir(parents=True, exist_ok=True)
+    routes = sorted(f.stem for f in ROUTES_DIR.glob("*.json"))
+    emit("route_list", {"routes": routes})
+
+
+@socketio.on("load_route")
+def on_load_route(data: Dict[str, Any]) -> None:
+    name = str(data.get("name", "")).strip()
+    path = ROUTES_DIR / f"{name}.json"
+    if not path.exists():
+        emit("route_error", {"message": f"Route '{name}' not found."})
+        return
+    route = json.loads(path.read_text())
+    emit("route_loaded", route)
+
+
+@socketio.on("delete_route")
+def on_delete_route(data: Dict[str, Any]) -> None:
+    name = str(data.get("name", "")).strip()
+    path = ROUTES_DIR / f"{name}.json"
+    if path.exists():
+        path.unlink()
+        emit("route_deleted", {"name": name})
+        logging.info("Route deleted: %s", name)
+    else:
+        emit("route_error", {"message": f"Route '{name}' not found."})
+
+
+@socketio.on("execute_route")
+def on_execute_route(data: Dict[str, Any]) -> None:
+    name = str(data.get("name", "")).strip()
+    waypoints = data.get("waypoints", [])
+    if not waypoints:
+        # Try loading from saved route
+        path = ROUTES_DIR / f"{name}.json"
+        if path.exists():
+            route = json.loads(path.read_text())
+            waypoints = route.get("waypoints", [])
+    if not waypoints:
+        emit("route_error", {"message": "No waypoints to execute."})
+        return
+    sent = send_rover_command({"cmd": "execute_route", "waypoints": waypoints})
+    emit("route_executing", {"name": name, "waypoints": len(waypoints), "sent": sent})
+    logging.info("Route executing: %s (%d waypoints)", name, len(waypoints))
+
+
+# ==========================================
 # CUSTOM DETECTOR LOOP
 # ==========================================
 def custom_detector_loop() -> None:
@@ -2025,24 +2180,32 @@ def custom_detector_loop() -> None:
 # ==========================================
 # SYSTEM RUNENTRY HANDLER
 # ==========================================
+class FlushStreamHandler(logging.StreamHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    handler = FlushStreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
 
     # Assert destination structures exist
     ALERTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Load neural models if enabled
+    # Always start local webcam capture if the source is local (independent of vision)
+    if CAMERA_SOURCE == "local":
+        socketio.start_background_task(webcam_capture_loop)
+    else:
+        logging.info("Waiting for Raspberry Pi webcam frames over the rover WebSocket.")
+
+    # Load neural models and start vision analysis if enabled
     if VISION_ENABLED:
         load_vision_model()
-
-        # Start camera and vision processing. Default camera source is the Raspberry Pi rover.
-        if CAMERA_SOURCE == "local":
-            socketio.start_background_task(webcam_capture_loop)
-        else:
-            logging.info("Waiting for Raspberry Pi webcam frames over the rover WebSocket.")
         socketio.start_background_task(vision_analysis_loop)
     else:
-        logging.info("Vision backend disabled; not starting capture/analysis loops.")
+        logging.info("Vision backend disabled; not starting VLM analysis loop.")
+        # (Camera capture is still active for dashboard streaming)
 
     # Start laptop-side custom background task
     if DETECTOR_BACKEND == "custom":

@@ -191,6 +191,7 @@ ULTRALYTICS_TARGET_CLASSES = [
 ]
 ULTRALYTICS_DEVICE = os.getenv("STASIS_ULTRALYTICS_DEVICE", "cuda:0").strip()
 ULTRALYTICS_IMGSZ = int(os.getenv("STASIS_ULTRALYTICS_IMGSZ", "640"))
+ULTRALYTICS_VPE_PATH = os.getenv("STASIS_ULTRALYTICS_VPE_PATH", "").strip()
 REQUIRE_CUDA = os.getenv("STASIS_REQUIRE_CUDA", "false").strip().lower() not in {
     "0",
     "false",
@@ -324,7 +325,7 @@ class YoloOnnxDetector:
                 "onnxruntime is required on Windows. Install with: python -m pip install onnxruntime"
             )
             return False
-        providers = ["CPUExecutionProvider"]
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         self.session = ort.InferenceSession(str(self.model_path), providers=providers)
         self.input_name = self.session.get_inputs()[0].name
         self.output_names = [output.name for output in self.session.get_outputs()]
@@ -482,6 +483,7 @@ class UltralyticsDetector:
         model_name: str,
         target_classes: list[str],
         confidence: float,
+        vpe_path: str = "",
     ) -> None:
         self.model_name = model_name
         self.target_classes = [label_key(item) for item in target_classes if item]
@@ -490,6 +492,8 @@ class UltralyticsDetector:
         self.model: Any = None
         self.name = "ultralytics"
         self.device = ULTRALYTICS_DEVICE
+        self.vpe_path = vpe_path
+        self.vpe_class_names: list[str] = []
 
     def setup(self) -> bool:
         try:
@@ -541,9 +545,50 @@ class UltralyticsDetector:
                     "Using CUDA device for ultralytics detection: %s", gpu_name
                 )
 
-        if is_yoloe and self.target_classes and hasattr(self.model, "set_classes"):
-            self.model.set_classes(self.target_classes)
-            logging.info("Configured YOLOE classes: %s", self.target_classes)
+        if is_yoloe and hasattr(self.model, "set_classes"):
+            # --- Try loading visual-prompt embeddings (VPE) if configured ---
+            vpe_loaded = False
+            if self.vpe_path:
+                vpe_path_obj = Path(self.vpe_path)
+                if vpe_path_obj.exists():
+                    try:
+                        saved = torch.load(
+                            str(vpe_path_obj), map_location=self.device, weights_only=False
+                        )
+                        combined_names = saved.get("combined_names")
+                        combined_pe = saved.get("combined_pe")
+                        if combined_names and combined_pe is not None:
+                            self.model.model.set_classes(combined_names, combined_pe.to(self.device))
+                            self.vpe_class_names = list(saved.get("vpe_class_names", []))
+                            # Merge VPE class names into allowed labels & target classes
+                            for vpe_name in self.vpe_class_names:
+                                self.allowed_labels.add(label_key(vpe_name))
+                                if label_key(vpe_name) not in [label_key(t) for t in self.target_classes]:
+                                    self.target_classes.append(vpe_name)
+                            logging.info(
+                                "Loaded YOLOE visual-prompt embeddings from %s "
+                                "(%d total classes, %d from VPE)",
+                                self.vpe_path, len(combined_names), len(self.vpe_class_names),
+                            )
+                            vpe_loaded = True
+                        else:
+                            logging.warning(
+                                "VPE file %s missing required keys; falling back to text-only.",
+                                self.vpe_path,
+                            )
+                    except Exception as exc:
+                        logging.warning(
+                            "Failed to load VPE from %s: %s; falling back to text-only.",
+                            self.vpe_path, exc,
+                        )
+                else:
+                    logging.warning(
+                        "VPE path %s does not exist; falling back to text-only classes.",
+                        self.vpe_path,
+                    )
+            if not vpe_loaded and self.target_classes:
+                self.model.set_classes(self.target_classes)
+                logging.info("Configured YOLOE text-only classes: %s", self.target_classes)
 
         logging.info(
             "Windows ultralytics detector loaded: model=%s runtime=%s",
@@ -797,12 +842,6 @@ def estimate_detection_guidance(
     center_y = box_y + box_h / 2.0
 
     horizontal_ratio = (center_x - width / 2.0) / max(1.0, width / 2.0)
-    vertical_ratio = 1.0 - (center_y / max(1.0, height))
-    object_ratio = box_h / max(1.0, height)
-    estimated_forward_cm = int(max(30, min(500, 170 / max(0.08, object_ratio))))
-    estimated_side_cm = int(
-        max(0, min(300, abs(horizontal_ratio) * estimated_forward_cm * 0.75))
-    )
     side = (
         "right"
         if horizontal_ratio > 0.18
@@ -810,25 +849,23 @@ def estimate_detection_guidance(
         if horizontal_ratio < -0.18
         else "center"
     )
-    if estimated_forward_cm <= 60:
-        direction = "nearby"
-    elif side == "center":
-        direction = f"forward {estimated_forward_cm} cm"
-    else:
-        direction = f"forward {estimated_forward_cm} cm, {side} {estimated_side_cm} cm"
     return {
-        "direction": direction,
-        "forward_cm": estimated_forward_cm,
+        "direction": side,
+        "forward_cm": -1,
         "side": side,
-        "side_cm": estimated_side_cm,
+        "side_cm": 0,
+        "distance_source": "pending_ultrasonic",
         "image_x": round(center_x, 1),
         "image_y": round(center_y, 1),
-        "image_vertical_ratio": round(vertical_ratio, 3),
+        "image_horizontal_ratio": round(horizontal_ratio, 3),
     }
 
 
 def estimate_map_position(guidance: Dict[str, Any]) -> Dict[str, float]:
     forward_cm = float(guidance.get("forward_cm", 0) or 0)
+    if forward_cm < 0:
+        # Distance not yet confirmed by ultrasonic — return current position
+        return dict(base.rover_pose)
     side_cm = float(guidance.get("side_cm", 0) or 0)
     if str(guidance.get("side", "")).lower() == "left":
         side_cm *= -1.0
@@ -871,7 +908,7 @@ def fallback_detection_result(payload: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 "detected": True,
                 "category": category_name,
-                "message": f"{category_name}: detected {object_phrase} at {confidence} confidence; {guidance['direction']}.",
+                "message": f"{category_name}: detected {object_phrase} at {confidence} confidence; seen to the {guidance['direction']}, distance pending.",
                 "guidance": guidance,
                 "label": label,
             }
@@ -971,9 +1008,7 @@ def emit_dashboard_alert(result: Dict[str, Any]) -> None:
         "category": result.get("category", "event"),
         "message": result.get("message", "Activity detected."),
         "image_path": result.get("image_path", ""),
-        "action": "stop_and_alert"
-        if result.get("category") in {"human", "fire"}
-        else "alert",
+        "action": "alert",
         "x": result.get("x", base.rover_pose["x"]),
         "y": result.get("y", base.rover_pose["y"]),
         "heading": result.get("heading", base.rover_pose["heading"]),
@@ -1020,6 +1055,17 @@ def process_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> N
                 analysis[key] = fallback_details[key]
 
     image_path = save_alert_frame(frame)
+
+    # Find best detection's bounding box for Pi-side follow steering
+    best_box = None
+    cat = analysis.get("category", "")
+    for det in detections:
+        if det.get("category_hint") == cat and det.get("box"):
+            best_box = det["box"]
+            break
+    if not best_box and detections:
+        best_box = detections[0].get("box")
+
     map_position = (
         estimate_map_position(analysis.get("guidance", {}))
         if analysis.get("guidance")
@@ -1035,7 +1081,11 @@ def process_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> N
         "y": map_position["y"],
         "heading": base.rover_pose["heading"],
         "source": "windows_yolo_onnx",
+        "frame_width": int(frame.shape[1]),
+        "frame_height": int(frame.shape[0]),
     }
+    if best_box:
+        result["box"] = best_box
     if analysis.get("guidance"):
         result["guidance"] = analysis["guidance"]
     if analysis.get("label"):
@@ -1043,6 +1093,13 @@ def process_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> N
     logging.info("Windows YOLO reviewed as STASIS event: %s", result)
     emit_dashboard_alert(result)
     base.send_rover_command(result)
+
+    # Auto-follow: when human detected, immediately send follow command
+    # so the rover switches to follow mode instead of staying stopped
+    if result.get("category") == "human":
+        cat = result.get("category", "event")
+        logging.info("Auto-follow triggered for %s detection", cat)
+        base.send_rover_command({"cmd": "follow"})
 
 
 def windows_object_detection_loop() -> None:
@@ -1054,9 +1111,18 @@ def windows_object_detection_loop() -> None:
             ULTRALYTICS_MODEL_NAME,
             ULTRALYTICS_TARGET_CLASSES,
             ONNX_CONFIDENCE,
+            vpe_path=ULTRALYTICS_VPE_PATH,
         )
         if ultralytics_detector.setup():
             detectors.append(ultralytics_detector)
+            # VPE class names from toy reference images get "animal" (wildlife) category
+            for vpe_name in ultralytics_detector.vpe_class_names:
+                ANIMAL_LABELS.add(label_key(vpe_name))
+            if ultralytics_detector.vpe_class_names:
+                logging.info(
+                    "Registered VPE wildlife detection classes: %s",
+                    ultralytics_detector.vpe_class_names,
+                )
     else:
         common_detector = YoloOnnxDetector(
             ONNX_MODEL_PATH, ONNX_INPUT_SIZE, COCO_LABELS, "coco", COMMON_ALLOWED_LABELS
@@ -1086,7 +1152,9 @@ def windows_object_detection_loop() -> None:
         time.sleep(max(0.2, OBJECT_ANALYSIS_INTERVAL))
         frame = base.latest_frame
         if frame is None:
+            logging.debug("Detection loop: latest_frame is None, DETECTOR_BACKEND=%s", base.DETECTOR_BACKEND)
             continue
+        logging.info("Detection loop: got frame %sx%s, running %d detector(s)", frame.shape[1], frame.shape[0], len(detectors))
         try:
             working_frame = frame.copy()
             detections: list[dict[str, Any]] = []
@@ -1161,10 +1229,15 @@ def handle_rover_report(payload: Any) -> None:
     original_handle_rover_report(payload)
 
 
+class FlushStreamHandler(logging.StreamHandler):
+    def emit(self, record):
+        super().emit(record)
+        self.flush()
+
 def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
-    )
+    handler = FlushStreamHandler()
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logging.basicConfig(level=logging.INFO, handlers=[handler])
     base.ALERTS_DIR.mkdir(parents=True, exist_ok=True)
     base.handle_rover_report = handle_rover_report
     if base.CAMERA_SOURCE == "local":

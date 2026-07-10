@@ -24,7 +24,6 @@ import logging
 import math
 import os
 import queue
-import random
 import signal
 import threading
 import time
@@ -1156,6 +1155,7 @@ class RoverClient:
         self.send_lock = threading.Lock()
         self.distance_traveled_cm = 0.0
         self.last_heading = 0.0
+        self.patrol_route_log: list[dict] = []
         self.mode = MODE_IDLE
         self.mode_lock = threading.Lock()
         self.latest_follow_target: dict[str, Any] | None = None
@@ -1245,7 +1245,7 @@ class RoverClient:
             return
 
         while not self.stop_requested.is_set():
-            cap = cv2.VideoCapture(camera.index)
+            cap = cv2.VideoCapture(camera.index, cv2.CAP_V4L2)
             if not cap.isOpened():
                 logging.warning(
                     "Could not open Raspberry Pi webcam index %s; retrying.",
@@ -1254,6 +1254,7 @@ class RoverClient:
                 time.sleep(3)
                 continue
 
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera.width)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
             cap.set(cv2.CAP_PROP_FPS, camera.fps)
@@ -1347,6 +1348,16 @@ class RoverClient:
             }
         )
 
+        # If server flagged distance as pending, read ultrasonic and report back
+        guidance = payload.get("guidance", {})
+        if guidance.get("distance_source") == "pending_ultrasonic":
+            distance = self.hardware.front_distance_cm()
+            if distance is not None and distance > 0:
+                self.send_json({
+                    "type": "distance_report",
+                    "distance_cm": round(distance, 1),
+                })
+
     def telemetry_loop(self) -> None:
         """
         Fires periodic state telemetry reports and keeps the connection active.
@@ -1429,6 +1440,13 @@ class RoverClient:
                     target=self.patrol_loop, name="patrol-loop", daemon=True
                 )
                 self.patrol_thread.start()
+        elif cmd == "execute_route":
+            self.set_mode(MODE_MANUAL, "Executing route")
+            self.exec_route_thread = threading.Thread(
+                target=self._execute_route, args=(command.get("waypoints", []),),
+                name="exec-route", daemon=True
+            )
+            self.exec_route_thread.start()
         else:
             logging.warning("Unrecognized routing target requested: %s", command)
 
@@ -1501,48 +1519,134 @@ class RoverClient:
             time.sleep(motion.follow_update_interval_seconds)
         self.hardware.stop_motors()
 
+    def _execute_route(self, waypoints: list[dict]) -> None:
+        """Navigate through waypoints, stopping at marked points to scan."""
+        logging.info("Route execution started: %d waypoints", len(waypoints))
+        for i, wp in enumerate(waypoints):
+            if self.stop_requested.is_set() or self.get_mode() != MODE_MANUAL:
+                break
+            wp_type = wp.get("type", "normal")
+            # Use handle_goto to navigate to waypoint (angle/distance from current pose)
+            angle = wp.get("angle", 0.0)
+            distance = wp.get("distance", 20.0)
+            self.handle_goto(angle, distance)
+
+            if wp_type in ("short_stop", "long_stop"):
+                duration = float(wp.get("duration_seconds", 5 if wp_type == "short_stop" else 30))
+                logging.info("Route: %s stop at WP#%d for %.0f s", wp_type, i, duration)
+                self.hardware.stop_motors()
+                time.sleep(duration)
+
+                # Scan surroundings
+                scan_data = self.hardware.scan() or []
+                front_cm = self.hardware.front_distance_cm()
+                self.send_json({
+                    "type": "route_stop_report",
+                    "waypoint_index": i,
+                    "stop_type": wp_type,
+                    "duration_seconds": duration,
+                    "scans": scan_data,
+                    "front_distance_cm": front_cm,
+                    "message": f"{wp_type} stop at WP#{i}: scanned {len(scan_data)} points",
+                })
+
+        self.hardware.stop_motors()
+        completed = i + 1 if waypoints else 0
+        self.send_json({
+            "type": "route_complete",
+            "waypoints_completed": completed,
+        })
+        logging.info("Route execution complete: %d/%d waypoints", completed, len(waypoints))
+
     def patrol_loop(self) -> None:
         motion = self.config.motion
-        logging.info("Autonomous patrol loop started.")
+        hw_cfg = self.config.hardware
+        logging.info("Autonomous patrol loop started (slow & steady).")
+
+        # Alternate turn direction each obstacle to avoid getting stuck
+        turn_direction = 1  # 1 = right, -1 = left
+
         while not self.stop_requested.is_set() and self.get_mode() == MODE_PATROL:
             front_distance = self.hardware.front_distance_cm()
+
+            # ── Obstacle ahead? ──────────────────────────────────
             if (
                 front_distance is not None
-                and front_distance <= self.config.hardware.obstacle_stop_distance_cm
+                and front_distance <= hw_cfg.obstacle_stop_distance_cm
             ):
                 logging.warning(
-                    "Patrol obstacle detected at %.1f cm! Executing random avoidance turn.",
+                    "Patrol obstacle at %.0f cm. Executing avoidance.",
                     front_distance,
                 )
                 self.hardware.stop_motors()
+                time.sleep(0.15)
 
-                turn_left = random.choice([True, False])
-                turn_speed = max(motion.turn_min_pwm, min(motion.turn_max_pwm, 55.0))
-                turn_degrees = random.uniform(35.0, 85.0)
-                turn_seconds = max(
-                    0.25,
-                    min(
-                        1.2,
-                        turn_degrees
-                        / max(
-                            1.0, self.config.hardware.open_loop_turn_degrees_per_second
-                        ),
-                    ),
-                )
-
-                if turn_left:
-                    self.hardware.set_motors(-turn_speed, turn_speed)
-                else:
-                    self.hardware.set_motors(turn_speed, -turn_speed)
-
-                time.sleep(turn_seconds)
+                # 1. Back up slightly
+                backup_pwm = motion.drive_pwm * 0.6
+                self.hardware.set_motors(-backup_pwm, -backup_pwm)
+                time.sleep(0.5)
                 self.hardware.stop_motors()
                 time.sleep(0.1)
+
+                # 2. Turn away from obstacle (alternate left/right each time)
+                turn_pwm = max(motion.turn_min_pwm, 35.0)
+                if turn_direction > 0:  # turn right
+                    self.hardware.set_motors(turn_pwm, -turn_pwm)
+                else:  # turn left
+                    self.hardware.set_motors(-turn_pwm, turn_pwm)
+                time.sleep(0.6)  # ~90° at 35 PWM
+                self.hardware.stop_motors()
+                time.sleep(0.1)
+
+                # 3. Drive forward a short distance to clear obstacle
+                self.hardware.set_motors(motion.drive_pwm, motion.drive_pwm)
+                time.sleep(0.8)
+                self.hardware.stop_motors()
+
+                # 4. Re-check forward clearance
+                clear_dist = self.hardware.front_distance_cm()
+                if clear_dist is not None and clear_dist < hw_cfg.obstacle_stop_distance_cm:
+                    # Still blocked — turn the other way next time
+                    turn_direction *= -1
+                    logging.info("Still blocked at %.0f cm, swapping turn direction.", clear_dist)
+                    continue
+
+                # Alternate direction for next obstacle
+                turn_direction *= -1
+
+                # Report patrol status
+                self.send_json({
+                    "status": "patrol_avoided",
+                    "message": f"Obstacle at {front_distance:.0f} cm avoided",
+                    "mode": MODE_PATROL,
+                })
                 continue
 
+            # ── Clear path — drive forward slow & steady ─────────
             self.hardware.set_motors(motion.drive_pwm, motion.drive_pwm)
-            time.sleep(0.1)
+            time.sleep(0.15)
+
+            # Log position for route history (every ~3 iterations)
+            if len(self.patrol_route_log) % 3 == 0:
+                heading = self.last_heading
+                # Compute approximate position from heading + distance
+                dist = self.distance_traveled_cm
+                self.patrol_route_log.append({
+                    "x": 400 + dist * 0.5, "y": 400 + dist * 0.3,
+                    "heading": heading, "type": "normal"
+                })
+
         self.hardware.stop_motors()
+
+        # Auto-save patrol path as a route if enough waypoints
+        if len(self.patrol_route_log) >= 5:
+            self.send_json({
+                "type": "route_from_patrol",
+                "name": f"patrol_{int(time.time())}",
+                "waypoints": self.patrol_route_log,
+            })
+        self.patrol_route_log = []
+        logging.info("Patrol loop ended.")
 
     def handle_goto(self, angle: float, distance_cm: float) -> None:
         """
@@ -1770,7 +1874,7 @@ class RoverClient:
                 on_message=self.on_message,
             )
             try:
-                self.ws.run_forever(ping_interval=15, ping_timeout=3)
+                self.ws.run_forever(ping_interval=30, ping_timeout=15)
             except Exception as e:
                 logging.error("WebSocket run_forever experienced an exception: %s", e)
 
