@@ -1897,9 +1897,9 @@ Heartbeat rate: 1.0Hz</pre>
     <section id="motion" class="scroll-story">
       <div class="wrap story-shell">
         <aside class="story-copy reveal">
-          <span class="caption">Scroll mission reel</span>
-          <h2>Watch the rover loop unfold.</h2>
-          <p>Drop generated MP4 files into <code style="font-family:var(--mono);color:var(--cyan);">docs/assets/</code> with the names below and this section will play them as users scroll. Until then, the panels show placeholders with the exact clip names.</p>
+          <span class="caption">Platform capabilities</span>
+          <h2>What STASIS does.</h2>
+          <p>The rover patrols, detects, and alerts — all from the browser dashboard.</p>
           <div class="story-progress" aria-label="Scroll story progress">
             <span class="story-dot is-active" data-story-dot="0">Patrol</span>
             <span class="story-dot" data-story-dot="1">Detect</span>
@@ -1909,39 +1909,27 @@ Heartbeat rate: 1.0Hz</pre>
 
         <div class="story-track">
           <article class="story-panel reveal" data-story-step="0">
-            <div class="video-frame" data-video-frame>
-              <div class="video-frame-hud"></div>
-              <video muted playsinline preload="metadata" data-scroll-video>
-                <source src="assets/stasis-patrol-scroll.mp4" type="video/mp4">
-              </video>
-              <div class="video-fallback"><span>assets/stasis-patrol-scroll.mp4</span></div>
+            <div class="video-frame" data-video-frame style="min-height:220px;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+              <span style="font-size:4rem;opacity:0.5">🗺️</span>
             </div>
-            <h3>Patrol through the demo forest.</h3>
-            <p>The rover moves through a marked indoor route while the page scrubs the clip forward with scroll.</p>
+            <h3>Patrol</h3>
+            <p>The rover moves through a marked indoor route with autonomous obstacle avoidance via ultrasonic sensor.</p>
           </article>
 
           <article class="story-panel reveal" data-story-step="1">
-            <div class="video-frame" data-video-frame>
-              <div class="video-frame-hud"></div>
-              <video muted playsinline preload="metadata" data-scroll-video>
-                <source src="assets/stasis-detect-scroll.mp4" type="video/mp4">
-              </video>
-              <div class="video-fallback"><span>assets/stasis-detect-scroll.mp4</span></div>
+            <div class="video-frame" data-video-frame style="min-height:220px;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+              <span style="font-size:4rem;opacity:0.5">👁️</span>
             </div>
-            <h3>Detection locks onto the scene.</h3>
-            <p>Cards, labels, and tracking markers reveal one by one instead of appearing as a static wall.</p>
+            <h3>Detect</h3>
+            <p>YOLOE text-prompted detection on the laptop GPU identifies persons and animals from the live Pi camera stream.</p>
           </article>
 
           <article class="story-panel reveal" data-story-step="2">
-            <div class="video-frame" data-video-frame>
-              <div class="video-frame-hud"></div>
-              <video muted playsinline preload="metadata" data-scroll-video>
-                <source src="assets/stasis-response-scroll.mp4" type="video/mp4">
-              </video>
-              <div class="video-fallback"><span>assets/stasis-response-scroll.mp4</span></div>
+            <div class="video-frame" data-video-frame style="min-height:220px;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+              <span style="font-size:4rem;opacity:0.5">⚡</span>
             </div>
-            <h3>Dashboard turns sight into action.</h3>
-            <p>The final clip can show the alert state, map marker, and command decision moving together.</p>
+            <h3>Respond</h3>
+            <p>Dashboard alerts operators with bounding-box overlays, map markers, and auto-follow or manual command options.</p>
           </article>
         </div>
       </div>
