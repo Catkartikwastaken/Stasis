@@ -389,10 +389,16 @@ class MotorDriver:
                     pwm.start(0)
                     self.pwm_by_pin[pin] = pwm
             else:
+                # L298N: direction-pin PWM for speed (jumper-compatible),
+                # ENA/ENB at 100% as safety net
+                for pin in direction_pins:
+                    pwm = self.gpio.PWM(pin, 1000)
+                    pwm.start(0)
+                    self.pwm_by_pin[pin] = pwm
                 for pin in enable_pins:
                     self.gpio.setup(pin, self.gpio.OUT)
                     pwm = self.gpio.PWM(pin, 1000)
-                    pwm.start(0)
+                    pwm.start(100)
                     self.pwm_by_pin[pin] = pwm
             self.stop()
             logging.info("Direct GPIO motor driver setup complete.")
@@ -433,19 +439,19 @@ class MotorDriver:
             self._set_pair(forward_pin, reverse_pin, speed)
             return
 
-        enable = self.pwm_by_pin[enable_pin]
+        # Direction-pin PWM for speed control (jumper-compatible).
+        # ENA/ENB are at 100% PWM from setup as safety net.
+        forward = self.pwm_by_pin[forward_pin]
+        reverse = self.pwm_by_pin[reverse_pin]
         if speed > 0:
-            self.gpio.output(forward_pin, self.gpio.HIGH)
-            self.gpio.output(reverse_pin, self.gpio.LOW)
-            enable.ChangeDutyCycle(speed)
+            forward.ChangeDutyCycle(speed)
+            reverse.ChangeDutyCycle(0)
         elif speed < 0:
-            self.gpio.output(forward_pin, self.gpio.LOW)
-            self.gpio.output(reverse_pin, self.gpio.HIGH)
-            enable.ChangeDutyCycle(abs(speed))
+            forward.ChangeDutyCycle(0)
+            reverse.ChangeDutyCycle(abs(speed))
         else:
-            enable.ChangeDutyCycle(0)
-            self.gpio.output(forward_pin, self.gpio.LOW)
-            self.gpio.output(reverse_pin, self.gpio.LOW)
+            forward.ChangeDutyCycle(0)
+            reverse.ChangeDutyCycle(0)
 
     def set_speeds(self, left_speed: float, right_speed: float) -> None:
         """
@@ -1041,6 +1047,9 @@ class RealRoverHardware(HardwareBase):
         )
         try:
             self.ultrasonic.setup()
+            logging.info("HC-SR04 ultrasonic rangefinder initialized on GPIO%d/GPIO%d.",
+                         self.config.pins.ultrasonic_trig,
+                         self.config.pins.ultrasonic_echo)
         except Exception:
             logging.exception("Failed to configure Ultrasonic rangefinder.")
             self.ultrasonic = None
@@ -1245,19 +1254,23 @@ class RoverClient:
             return
 
         while not self.stop_requested.is_set():
-            cap = cv2.VideoCapture(camera.index, cv2.CAP_V4L2)
+            cap = cv2.VideoCapture(camera.index)
             if not cap.isOpened():
-                logging.warning(
-                    "Could not open Raspberry Pi webcam index %s; retrying.",
-                    camera.index,
-                )
-                time.sleep(3)
+                # Don't release unopened cap — just discard and retry
+                del cap
+                logging.warning("Camera not available, retrying in 5s...")
+                time.sleep(5)
                 continue
 
-            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera.width)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
-            cap.set(cv2.CAP_PROP_FPS, camera.fps)
+            # Try setting camera properties; if they fail, the camera might
+            # not support the requested format — proceed anyway
+            try:
+                cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, camera.width)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera.height)
+                cap.set(cv2.CAP_PROP_FPS, camera.fps)
+            except Exception:
+                pass
             logging.info(
                 "Streaming Raspberry Pi webcam index %s to Windows server at %sx%s.",
                 camera.index,
@@ -1413,6 +1426,8 @@ class RoverClient:
         """
         cmd = command.get("cmd")
         if cmd == "goto":
+            self.movement_cancel.set()  # signal follow/patrol loops to stop
+            time.sleep(0.05)
             self.set_mode(MODE_MANUAL, "Manual map goal accepted")
             self.handle_goto(
                 float(command.get("angle", 0.0)), float(command.get("distance", 0.0))
@@ -1427,7 +1442,10 @@ class RoverClient:
             self.hardware.stop_motors()
             self.set_mode(MODE_EMERGENCY_STOP, "Stopped by dashboard")
         elif cmd == "follow":
-            self.start_follow_mode()
+            if self.get_mode() == MODE_PATROL:
+                logging.info("Ignoring follow command — rover is in patrol mode.")
+            else:
+                self.start_follow_mode()
         elif cmd == "stay_stopped":
             self.movement_cancel.set()
             self.hardware.stop_motors()
@@ -1447,6 +1465,18 @@ class RoverClient:
                 name="exec-route", daemon=True
             )
             self.exec_route_thread.start()
+        elif cmd == "direct_move":
+            self.movement_cancel.set()
+            time.sleep(0.05)
+            self.set_mode(MODE_MANUAL, "Direct motor command")
+            left = float(command.get("left", 0))
+            right = float(command.get("right", 0))
+            duration = float(command.get("duration", 0.5))
+            logging.info("Direct move: left=%s right=%s for %.1fs", left, right, duration)
+            self.hardware.set_motors(left, right)
+            time.sleep(duration)
+            self.hardware.stop_motors()
+            self.send_json({"status": "direct_move_done", "left": left, "right": right})
         else:
             logging.warning("Unrecognized routing target requested: %s", command)
 
@@ -1465,7 +1495,8 @@ class RoverClient:
 
     def follow_loop(self) -> None:
         motion = self.config.motion
-        while not self.stop_requested.is_set() and self.get_mode() == MODE_FOLLOW:
+        while not self.stop_requested.is_set() and self.get_mode() == MODE_FOLLOW \
+              and not self.movement_cancel.is_set():
             if (
                 time.monotonic() - self.last_follow_target_at
                 > motion.follow_lost_timeout_seconds
@@ -1517,19 +1548,29 @@ class RoverClient:
             )
             self.hardware.set_motors(left_speed, right_speed)
             time.sleep(motion.follow_update_interval_seconds)
-        self.hardware.stop_motors()
+        if not self.movement_cancel.is_set():
+            self.hardware.stop_motors()
 
     def _execute_route(self, waypoints: list[dict]) -> None:
-        """Navigate through waypoints, stopping at marked points to scan."""
+        """Navigate through waypoints using direct motor commands."""
         logging.info("Route execution started: %d waypoints", len(waypoints))
         for i, wp in enumerate(waypoints):
             if self.stop_requested.is_set() or self.get_mode() != MODE_MANUAL:
                 break
             wp_type = wp.get("type", "normal")
-            # Use handle_goto to navigate to waypoint (angle/distance from current pose)
             angle = wp.get("angle", 0.0)
             distance = wp.get("distance", 20.0)
-            self.handle_goto(angle, distance)
+
+            # Drive forward for the distance
+            if distance > 0:
+                self.hardware.set_motors(
+                    self.config.motion.drive_pwm,
+                    self.config.motion.drive_pwm
+                )
+                duration = distance * self.config.motion.drive_ms_per_cm / 1000.0
+                time.sleep(duration)
+                self.hardware.stop_motors()
+                time.sleep(0.1)
 
             if wp_type in ("short_stop", "long_stop"):
                 duration = float(wp.get("duration_seconds", 5 if wp_type == "short_stop" else 30))
@@ -1561,13 +1602,16 @@ class RoverClient:
     def patrol_loop(self) -> None:
         motion = self.config.motion
         hw_cfg = self.config.hardware
-        logging.info("Autonomous patrol loop started (slow & steady).")
+        logging.info("Autonomous patrol loop started.")
 
         # Alternate turn direction each obstacle to avoid getting stuck
         turn_direction = 1  # 1 = right, -1 = left
+        patrol_step = 0
 
-        while not self.stop_requested.is_set() and self.get_mode() == MODE_PATROL:
+        while not self.stop_requested.is_set() and self.get_mode() == MODE_PATROL \
+              and not self.movement_cancel.is_set():
             front_distance = self.hardware.front_distance_cm()
+            patrol_step += 1
 
             # ── Obstacle ahead? ──────────────────────────────────
             if (
@@ -1606,15 +1650,11 @@ class RoverClient:
                 # 4. Re-check forward clearance
                 clear_dist = self.hardware.front_distance_cm()
                 if clear_dist is not None and clear_dist < hw_cfg.obstacle_stop_distance_cm:
-                    # Still blocked — turn the other way next time
                     turn_direction *= -1
                     logging.info("Still blocked at %.0f cm, swapping turn direction.", clear_dist)
                     continue
 
-                # Alternate direction for next obstacle
                 turn_direction *= -1
-
-                # Report patrol status
                 self.send_json({
                     "status": "patrol_avoided",
                     "message": f"Obstacle at {front_distance:.0f} cm avoided",
@@ -1622,21 +1662,35 @@ class RoverClient:
                 })
                 continue
 
-            # ── Clear path — drive forward slow & steady ─────────
+            # ── Periodic turn (every ~3 seconds of driving) ──────
+            if patrol_step >= 20:
+                patrol_step = 0
+                turn_direction *= -1
+                turn_pwm = max(motion.turn_min_pwm, 35.0)
+                if turn_direction > 0:
+                    self.hardware.set_motors(turn_pwm, -turn_pwm)
+                else:
+                    self.hardware.set_motors(-turn_pwm, turn_pwm)
+                time.sleep(0.3)
+                self.hardware.stop_motors()
+                time.sleep(0.1)
+                logging.info("Patrol turning %s.", "right" if turn_direction > 0 else "left")
+
+            # ── Clear path — drive forward ───────────────────────
             self.hardware.set_motors(motion.drive_pwm, motion.drive_pwm)
             time.sleep(0.15)
 
-            # Log position for route history (every ~3 iterations)
+            # Log position for route history
             if len(self.patrol_route_log) % 3 == 0:
                 heading = self.last_heading
-                # Compute approximate position from heading + distance
                 dist = self.distance_traveled_cm
                 self.patrol_route_log.append({
                     "x": 400 + dist * 0.5, "y": 400 + dist * 0.3,
                     "heading": heading, "type": "normal"
                 })
 
-        self.hardware.stop_motors()
+        if not self.movement_cancel.is_set():
+            self.hardware.stop_motors()
 
         # Auto-save patrol path as a route if enough waypoints
         if len(self.patrol_route_log) >= 5:

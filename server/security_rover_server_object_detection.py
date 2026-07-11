@@ -118,6 +118,7 @@ COCO_LABELS = [
 ]
 
 ANIMAL_LABELS = {
+    "animal",
     "bird",
     "cat",
     "dog",
@@ -182,12 +183,11 @@ ULTRALYTICS_MODEL_NAME = os.getenv(
     "STASIS_ULTRALYTICS_MODEL", "yoloe-26s-seg.pt"
 ).strip()
 ULTRALYTICS_TARGET_CLASSES = [
-    str(item).strip().lower().replace("_", " ")
-    for item in os.getenv(
+    c.strip()
+    for c in os.getenv(
         "STASIS_ULTRALYTICS_TARGET_CLASSES",
-        "person,mouse,magnet,magnets,plastic cover,plastic covers",
+        "person",
     ).split(",")
-    if item.strip()
 ]
 ULTRALYTICS_DEVICE = os.getenv("STASIS_ULTRALYTICS_DEVICE", "cuda:0").strip()
 ULTRALYTICS_IMGSZ = int(os.getenv("STASIS_ULTRALYTICS_IMGSZ", "640"))
@@ -1094,12 +1094,15 @@ def process_detections(frame: np.ndarray, detections: list[dict[str, Any]]) -> N
     emit_dashboard_alert(result)
     base.send_rover_command(result)
 
-    # Auto-follow: when human detected, immediately send follow command
-    # so the rover switches to follow mode instead of staying stopped
+    # Auto-follow: when human detected, send follow command
+    # but with a 3-second cooldown so manual commands aren't instantly overridden
     if result.get("category") == "human":
-        cat = result.get("category", "event")
-        logging.info("Auto-follow triggered for %s detection", cat)
-        base.send_rover_command({"cmd": "follow"})
+        now = time.time()
+        last_auto_follow = getattr(windows_object_detection_loop, '_last_auto_follow', 0.0)
+        if now - last_auto_follow >= 3.0:
+            windows_object_detection_loop._last_auto_follow = now
+            logging.info("Auto-follow triggered for human detection")
+            base.send_rover_command({"cmd": "follow"})
 
 
 def windows_object_detection_loop() -> None:
@@ -1202,9 +1205,9 @@ def windows_object_detection_loop() -> None:
                 ],
             )
             emit_object_detections_for_dashboard(visible_detections)
-            if DRAW_OVERLAY and visible_detections:
-                base.latest_frame = draw_detections(working_frame, visible_detections)
-                ok_enc, encoded = cv2.imencode(".jpg", base.latest_frame)
+            if DRAW_OVERLAY:
+                overlay = draw_detections(working_frame, visible_detections)
+                ok_enc, encoded = cv2.imencode(".jpg", overlay)
                 if ok_enc:
                     base.latest_frame_jpeg = encoded.tobytes()
             process_detections(working_frame, alertable_detections)

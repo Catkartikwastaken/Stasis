@@ -45,9 +45,33 @@ def detect(frame: Any) -> List[Dict[str, Any]]:
             import os
             sys.path.append(os.path.dirname(__file__))
 
-            from security_rover_server_object_detection import (
-                YoloOnnxDetector, CUSTOM_ONNX_MODEL_PATH, CUSTOM_ONNX_INPUT_SIZE
-            )
+            # Use Ultralytics/YOLOE if runtime is set
+            runtime = os.getenv("STASIS_WINDOWS_DETECTOR_RUNTIME", "").strip().lower()
+            if runtime in {"ultralytics", "yoloe", "yolo"}:
+                from security_rover_server_object_detection import UltralyticsDetector
+                model_path = os.getenv("STASIS_YOLOE_MODEL_PATH", "yoloe-26s-seg.pt")
+                if not os.path.isabs(model_path):
+                    model_path = os.path.join(os.path.dirname(__file__), model_path)
+                labels = ["person", "animal", "dog", "cat", "bird", "bear", "toy"]
+                conf = float(os.getenv("STASIS_ULTRALYTICS_CONFIDENCE", "0.15"))
+                _custom_model = UltralyticsDetector(model_path, labels, conf)
+                if _custom_model.setup():
+                    if hasattr(_custom_model, "model") and hasattr(_custom_model.model, "set_classes"):
+                        try:
+                            _custom_model.model.set_classes(labels)
+                        except Exception:
+                            pass
+                    logging.info("YOLOE detector initialized with model: %s, classes: %s",
+                                 model_path, labels)
+                    return []
+                else:
+                    logging.warning("Failed to setup UltralyticsDetector.")
+                    _custom_model = False
+                    return []
+            else:
+                from security_rover_server_object_detection import (
+                    YoloOnnxDetector, CUSTOM_ONNX_MODEL_PATH, CUSTOM_ONNX_INPUT_SIZE
+                )
 
             labels_path = os.path.join(os.path.dirname(__file__), "models", "stasis_custom.labels.txt")
             if not os.path.exists(labels_path):
@@ -106,7 +130,19 @@ def normalize_detection(raw: Any) -> Optional[Dict[str, Any]]:
     try:
         label = str(raw.get("label", "")).strip()
         confidence = float(raw.get("confidence", 0.0))
+        # Support both "bbox" (list) and "box" (dict with x,y,width,height)
         bbox = raw.get("bbox")
+        if bbox is None:
+            box = raw.get("box")
+            if isinstance(box, dict):
+                bbox = [box.get("x", 0), box.get("y", 0),
+                        box.get("x", 0) + box.get("width", 0),
+                        box.get("y", 0) + box.get("height", 0)]
+        if isinstance(bbox, dict):
+            box = bbox
+            bbox = [box.get("x", 0), box.get("y", 0),
+                    box.get("x", 0) + box.get("width", 0),
+                    box.get("y", 0) + box.get("height", 0)]
         if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
             return None
 
@@ -1828,6 +1864,7 @@ def rover_websocket() -> str:
     ws.send(json.dumps({"status": "registered", "id": client_id}))
     logging.info("Rover client register successful: websocket ID=%s", client_id)
     append_event_log("rover_connected", {"client_id": client_id})
+    socketio.emit("rover_registered", {"id": client_id})
 
     if initial_payload is not None:
         handle_rover_report(initial_payload)
@@ -1841,6 +1878,7 @@ def rover_websocket() -> str:
     except ConnectionClosed:
         logging.warning("Rover client WebSocket connection lost.")
         append_event_log("rover_disconnected", {"client_id": client_id})
+        socketio.emit("rover_disconnected", {"id": client_id})
     finally:
         if rover_ws is ws:
             rover_ws = None
@@ -1980,7 +2018,7 @@ def on_stop_rover() -> None:
 @socketio.on("manual_move")
 def on_manual_move(payload: Optional[Dict[str, Any]] = None) -> None:
     """
-    Converts dashboard manual direction taps into existing rover goto commands.
+    Converts dashboard manual direction taps into direct motor commands.
     """
     direction = ""
     if isinstance(payload, dict):
@@ -1990,13 +2028,13 @@ def on_manual_move(payload: Optional[Dict[str, Any]] = None) -> None:
     command: Optional[Dict[str, Any]] = None
 
     if direction == "forward":
-        command = {"cmd": "goto", "angle": heading, "distance": 20.0}
+        command = {"cmd": "direct_move", "left": 65, "right": 65, "duration": 1.0}
     elif direction == "back":
-        command = {"cmd": "goto", "angle": normalize_heading_degrees(heading + 180.0), "distance": 20.0}
+        command = {"cmd": "direct_move", "left": -65, "right": -65, "duration": 1.0}
     elif direction == "left":
-        command = {"cmd": "goto", "angle": normalize_heading_degrees(heading - 20.0), "distance": 0.0}
+        command = {"cmd": "direct_move", "left": -65, "right": 65, "duration": 0.6}
     elif direction == "right":
-        command = {"cmd": "goto", "angle": normalize_heading_degrees(heading + 20.0), "distance": 0.0}
+        command = {"cmd": "direct_move", "left": 65, "right": -65, "duration": 0.6}
 
     if command is None:
         emit("manual_move_sent", {"sent": False, "direction": direction})
@@ -2168,6 +2206,29 @@ def custom_detector_loop() -> None:
 
             if valid_detections:
                 socketio.emit("object_detections", {"detections": valid_detections})
+
+                # Trigger auto-follow on human detection
+                has_human = any(d.get("category") == "human" for d in valid_detections)
+                if has_human:
+                    send_rover_command({"cmd": "follow"})
+                    # Send vision result for follow guidance
+                    best = max(valid_detections, key=lambda d: d.get("confidence", 0))
+                    if best and best.get("category") == "human":
+                        box = best.get("box", {})
+                        guidance = {
+                            "direction": "center", "forward_cm": -1,
+                            "side": "center", "side_cm": 0,
+                            "distance_source": "pending_ultrasonic",
+                            "image_x": box.get("x", 0) + box.get("width", 0) / 2,
+                            "image_y": box.get("y", 0) + box.get("height", 0) / 2,
+                            "image_horizontal_ratio": 0.0,
+                        }
+                        send_rover_command({
+                            "type": "vision_result", "detected": True,
+                            "category": "human", "label": best.get("label", "person"),
+                            "confidence": best.get("confidence", 0),
+                            "box": box, "guidance": guidance,
+                        })
 
                 # Log summary safely (avoid dumping massive payloads)
                 summary = [f"{d['label']} ({int(d['confidence']*100)}%)" for d in valid_detections[:5]]

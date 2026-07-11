@@ -119,6 +119,15 @@
         filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.18));
       }
 
+      .brand-logo {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid var(--line);
+        object-fit: cover;
+        filter: drop-shadow(0 0 12px rgba(255, 255, 255, 0.18));
+      }
+
       .brand-caption {
         display: grid;
         gap: 2px;
@@ -462,6 +471,32 @@
         background:
           radial-gradient(circle at 50% 50%, rgba(139, 214, 255, 0.08), transparent 35%),
           #020303;
+      }
+
+      #detectionOverlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 10;
+        overflow: hidden;
+      }
+      .detection-box {
+        position: absolute;
+        border: 2px solid #00dcff;
+        box-sizing: border-box;
+      }
+      .detection-label {
+        position: absolute;
+        top: 0;
+        left: 0;
+        background: rgba(0, 220, 255, 0.85);
+        color: #020303;
+        font-size: 11px;
+        font-weight: bold;
+        font-family: var(--stasis-mono);
+        padding: 2px 6px;
+        white-space: nowrap;
+        text-transform: uppercase;
       }
 
       /* Corner bracket overlay */
@@ -962,7 +997,7 @@
 
       .status-row {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 8px;
         padding: 12px;
       }
@@ -1226,6 +1261,151 @@
         color: var(--text);
       }
 
+      /* Detection Feed (Live Tab) */
+      .detection-feed {
+        display: grid;
+        gap: 6px;
+        padding: 12px;
+        max-height: 320px;
+        overflow-y: auto;
+      }
+
+      .detection-empty {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        text-align: center;
+        padding: 24px 12px;
+        border: 1px dashed var(--line-soft);
+        border-radius: 12px;
+      }
+
+      .detection-card {
+        display: grid;
+        grid-template-columns: 56px 1fr;
+        gap: 10px;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 10px;
+        background: linear-gradient(135deg, rgba(255,255,255,0.04), transparent 42%), rgba(0,0,0,0.25);
+        transition: border-color 180ms ease, background 180ms ease;
+        animation: detect-slide 240ms ease-out;
+      }
+
+      @keyframes detect-slide {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .detection-card.cat-human {
+        border-left: 3px solid var(--red);
+      }
+      .detection-card.cat-animal {
+        border-left: 3px solid var(--amber);
+      }
+      .detection-card.cat-object {
+        border-left: 3px solid var(--cyan);
+      }
+      .detection-card.cat-marker {
+        border-left: 3px solid var(--green);
+      }
+      .detection-card.cat-fire {
+        border-left: 3px solid var(--red);
+      }
+      .detection-card.cat-track {
+        border-left: 3px solid var(--violet);
+      }
+
+      .detection-card:hover {
+        border-color: rgba(255,255,255,0.25);
+        background: linear-gradient(135deg, rgba(255,255,255,0.07), transparent 42%), rgba(0,0,0,0.3);
+      }
+
+      .detection-thumb {
+        width: 56px;
+        height: 56px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        object-fit: cover;
+        background: var(--bg);
+      }
+
+      .detection-body {
+        display: grid;
+        gap: 3px;
+        min-width: 0;
+      }
+
+      .detection-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .detection-cat-tag {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 0.6rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        padding: 2px 7px;
+        border-radius: 6px;
+        background: rgba(255,255,255,0.06);
+        color: var(--soft);
+      }
+
+      .detection-card.cat-human .detection-cat-tag {
+        background: rgba(255, 180, 171, 0.15);
+        color: var(--red);
+      }
+      .detection-card.cat-animal .detection-cat-tag {
+        background: rgba(255, 211, 109, 0.15);
+        color: var(--amber);
+      }
+      .detection-card.cat-object .detection-cat-tag {
+        background: rgba(139, 214, 255, 0.15);
+        color: var(--cyan);
+      }
+      .detection-card.cat-marker .detection-cat-tag {
+        background: rgba(140, 255, 189, 0.15);
+        color: var(--green);
+      }
+
+      .detection-msg {
+        color: var(--muted);
+        font-size: 0.82rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .detection-action {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 2px;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--cyan);
+      }
+
+      .detection-action .material-symbols-outlined {
+        font-size: 0.9rem;
+      }
+
+      .detection-action.human {
+        color: var(--red);
+      }
+
+      .detection-time {
+        color: var(--soft);
+        font-family: var(--mono);
+        font-size: 0.62rem;
+        margin-left: auto;
+      }
+
       /* Scan results */
       .scan-panel table {
         width: 100%;
@@ -1329,9 +1509,9 @@
            ========================================== -->
       <aside class="sidebar" aria-label="Mission navigation">
         <div class="brand-mark">
-          <span class="brand-icon" aria-label="Mission Control Unit">satellite_alt</span>
+          <img class="brand-logo" src="/static/stasis-logo.gif" alt="STASIS" width="44" height="44" />
           <div class="brand-caption">
-            <strong>CONTROL</strong>
+            <strong>STASIS</strong>
             <span>V-0.9.4</span>
           </div>
         </div>
@@ -1405,6 +1585,7 @@
                 </div>
                 <div class="camera-feed">
                   <img id="cameraFeed" src="" alt="Raspberry Pi webcam feed" />
+                  <div id="detectionOverlay"></div>
                   <!-- HUD: Top Left -->
                   <div class="sensor-stack">
                     <span>CAM_FRONT_MAIN</span>
@@ -1413,8 +1594,8 @@
                   </div>
                   <!-- HUD: Top Right -->
                   <div class="sensor-right">
-                    <span>TEMP: -42°C</span>
-                    <span>RAD: 0.14 µSv/h</span>
+                    <span id="tempVal">TEMP: ---</span>
+                    <span id="radVal">RAD: ---</span>
                   </div>
                   <!-- HUD: Bottom -->
                   <div class="hud-bottom">
@@ -1468,6 +1649,26 @@
                     <span class="metric-label">Marker</span>
                     <div class="metric-value">green strip</div>
                   </div>
+                  <div class="guidance-box">
+                    <span class="metric-label">Heading</span>
+                    <div class="metric-value"><span id="headingVal">0</span>°</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- Detection Feed Panel -->
+              <section class="panel" aria-label="Detection feed">
+                <div class="panel-header">
+                  <div>
+                    <p class="panel-kicker">Perception</p>
+                    <h2 class="panel-title">
+                      <span class="material-symbols-outlined">radar</span>
+                      Detection Feed
+                    </h2>
+                  </div>
+                </div>
+                <div id="detectionFeed" class="detection-feed">
+                  <div class="detection-empty">Waiting for detections...</div>
                 </div>
               </section>
 
@@ -1488,6 +1689,18 @@
                   </button>
                   <button id="stopRover" class="cmd-btn stop" type="button">
                     <span class="material-symbols-outlined">stop</span> Stop
+                  </button>
+                  <button id="moveForward" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_upward</span> Forward
+                  </button>
+                  <button id="moveBack" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_downward</span> Back
+                  </button>
+                  <button id="moveLeft" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_back</span> Left
+                  </button>
+                  <button id="moveRight" class="cmd-btn" type="button">
+                    <span class="material-symbols-outlined">arrow_forward</span> Right
                   </button>
                   <button id="returnHome" class="cmd-btn" type="button">
                     <span class="material-symbols-outlined">home</span> Return
@@ -1719,13 +1932,43 @@
       const mapAlertDots = [];
 
       /* =============================================
-         CAMERA FEED
+         CAMERA FEED — Socket.IO Binary (low latency)
          ============================================= */
-      const cameraUrl = isStandalone
-        ? `${serverBase}/camera.mjpg`
-        : "/camera.mjpg";
-      if (!WINDOWS_LAPTOP_IP.includes("<") || !isStandalone) {
-        cameraFeed.src = cameraUrl;
+      let cameraFrameTimer = null;
+      let cameraFrameCount = 0;
+      const USE_SOCKET_STREAM = true;
+
+      // Socket.IO binary frame handler — lower latency than MJPEG
+      if (USE_SOCKET_STREAM) {
+        socket.on("camera_frame", (blob) => {
+          if (!blob || !blob.byteLength) return;
+          cameraFrameCount++;
+          const url = URL.createObjectURL(new Blob([blob], { type: "image/jpeg" }));
+          cameraFeed.src = url;
+          setTimeout(() => URL.revokeObjectURL(url), 200);
+          if (cameraFrameTimer) {
+            clearTimeout(cameraFrameTimer);
+            cameraFrameTimer = null;
+          }
+        });
+
+        // Fallback to MJPEG if no binary frame arrives within 5 seconds
+        cameraFrameTimer = setTimeout(() => {
+          if (cameraFrameCount === 0) {
+            const fallbackUrl = isStandalone
+              ? `${serverBase}/camera.mjpg`
+              : "/camera.mjpg";
+            console.warn("No Socket.IO frames received — falling back to MJPEG");
+            cameraFeed.src = fallbackUrl;
+          }
+        }, 5000);
+      } else {
+        const fallbackUrl = isStandalone
+          ? `${serverBase}/camera.mjpg`
+          : "/camera.mjpg";
+        if (!WINDOWS_LAPTOP_IP.includes("<") || !isStandalone) {
+          cameraFeed.src = fallbackUrl;
+        }
       }
 
       /* =============================================
@@ -1753,10 +1996,15 @@
         marker.style.top = `${(y / mapSize) * 100}%`;
       }
 
+      const headingValEl = document.getElementById("headingVal");
+
       function renderPose() {
         positionMarker(roverEl, roverPose.x, roverPose.y);
         roverEl.style.setProperty("--yaw", `${roverPose.yaw || 0}deg`);
         homeDistanceEl.textContent = Math.round(roverPose.distance_from_home || 0);
+        if (headingValEl && roverPose.heading !== undefined) {
+          headingValEl.textContent = Math.round(roverPose.heading);
+        }
         if (roverPose.mode) {
           roverStatusEl.textContent = `mode: ${roverPose.mode}`;
         }
@@ -1995,6 +2243,89 @@
       }
 
       /* =============================================
+         LIVE DETECTION FEED
+         ============================================= */
+      function renderDetectionFeed(alert) {
+        const feed = document.getElementById("detectionFeed");
+        if (!feed) return;
+
+        // Clear empty state
+        const empty = feed.querySelector(".detection-empty");
+        if (empty) empty.remove();
+
+        const cat = (alert.category || "event").toLowerCase();
+        const guidance = alert.guidance || {};
+
+        const card = document.createElement("div");
+        card.className = `detection-card cat-${cat.replace(/[^a-z0-9]/g, "") || "event"}`;
+
+        // Thumbnail
+        const thumb = document.createElement("img");
+        thumb.className = "detection-thumb";
+        thumb.src = isStandalone
+          ? (alert.image_path && alert.image_path.startsWith("http") ? alert.image_path : `${serverBase}/${alert.image_path || ""}`)
+          : `/${alert.image_path || ""}`;
+        thumb.alt = "Detection snapshot";
+        thumb.loading = "lazy";
+
+        // Body
+        const body = document.createElement("div");
+        body.className = "detection-body";
+
+        const head = document.createElement("div");
+        head.className = "detection-head";
+
+        const tag = document.createElement("span");
+        tag.className = "detection-cat-tag";
+        tag.textContent = cat;
+        head.append(tag);
+
+        // Only add label if it's different from category
+        if (alert.label && alert.label.toLowerCase() !== cat) {
+          const labelSpan = document.createElement("span");
+          labelSpan.style.cssText = "color:var(--muted);font-size:0.78rem;font-weight:600;";
+          labelSpan.textContent = alert.label;
+          head.append(labelSpan);
+        }
+
+        const time = document.createElement("span");
+        time.className = "detection-time";
+        time.textContent = new Date().toLocaleTimeString("en-US", { hour12: false, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+        head.append(time);
+
+        body.append(head);
+
+        // Message
+        if (alert.message) {
+          const msg = document.createElement("div");
+          msg.className = "detection-msg";
+          msg.textContent = alert.message;
+          body.append(msg);
+        }
+
+        // Action/Guidance
+        const action = document.createElement("div");
+        action.className = `detection-action${cat === "human" ? " human" : ""}`;
+        if (guidance.direction) {
+          action.innerHTML = `<span class="material-symbols-outlined">near_me</span> ${guidance.direction}`;
+        } else if (cat === "human") {
+          const label = alert.label || "person";
+          action.innerHTML = `<span class="material-symbols-outlined">warning</span> STOP — ${label} detected, choose action`;
+        } else if (alert.message) {
+          action.innerHTML = `<span class="material-symbols-outlined">chevron_right</span> logged`;
+        }
+        body.append(action);
+
+        card.append(thumb, body);
+        feed.prepend(card);
+
+        // Keep at most 8
+        while (feed.children.length > 8) {
+          feed.lastChild.remove();
+        }
+      }
+
+      /* =============================================
          SOCKET.IO EVENT HANDLERS
          ============================================= */
       socket.on("connect", () => {
@@ -2009,6 +2340,21 @@
         addLogEntry("CONNECTION LOST.", true);
       });
 
+      function handleCommandAck(payload) {
+        if (payload && payload.sent === false) {
+          addLogEntry("COMMAND DROPPED: ROVER OFFLINE", true);
+          statusEl.textContent = "offline";
+          statusDot.classList.remove("online");
+        }
+      }
+
+      socket.on("manual_move_sent", handleCommandAck);
+      socket.on("stop_requested", handleCommandAck);
+      socket.on("scan_requested", handleCommandAck);
+      socket.on("marker_goal_commanded", handleCommandAck);
+      socket.on("human_decision_sent", handleCommandAck);
+      socket.on("goal_commanded", handleCommandAck);
+
       socket.on("rover_position", (pose) => {
         roverPose = pose;
         renderPose();
@@ -2017,7 +2363,87 @@
       socket.on("scan_data", renderScan);
       socket.on("detection_debug", renderDetectionDebug);
 
+      let detectionTimeout = null;
+
+      socket.on("object_detections", (payload) => {
+        if (!payload || !Array.isArray(payload.detections)) return;
+        
+        // Log to console/terminal
+        const names = payload.detections
+          .map((d) => `${d.label} (${Math.round((d.confidence || 0) * 100)}%)`)
+          .join(", ");
+        if (names) {
+          addLogEntry(`[VISION] Detected: ${names}`);
+        }
+
+        // Setup Box Drawing
+        const overlay = document.getElementById("detectionOverlay");
+        const img = document.getElementById("cameraFeed");
+        
+        // Safety guard: if elements missing or image hasn't loaded natural dimensions
+        if (!overlay || !img || !img.naturalWidth || !img.naturalHeight) return;
+        
+        // Clear previous boxes
+        overlay.innerHTML = "";
+        
+        // Calculate scaling
+        const nw = img.naturalWidth;
+        const nh = img.naturalHeight;
+        const cw = img.clientWidth;
+        const ch = img.clientHeight;
+        
+        if (nw <= 0 || nh <= 0 || cw <= 0 || ch <= 0) return;
+        
+        const scaleX = cw / nw;
+        const scaleY = ch / nh;
+        
+        payload.detections.forEach(d => {
+          if (!d.bbox || d.bbox.length !== 4) return;
+          const [x1, y1, x2, y2] = d.bbox;
+          
+          if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) return;
+          
+          let bx = x1 * scaleX;
+          let by = y1 * scaleY;
+          let bw = (x2 - x1) * scaleX;
+          let bh = (y2 - y1) * scaleY;
+          
+          // Basic validation
+          if (bw <= 0 || bh <= 0) return;
+          
+          // Clamp to display bounds
+          if (bx < 0) { bw += bx; bx = 0; }
+          if (by < 0) { bh += by; by = 0; }
+          if (bx + bw > cw) { bw = cw - bx; }
+          if (by + bh > ch) { bh = ch - by; }
+          
+          if (bw <= 0 || bh <= 0) return;
+          
+          const box = document.createElement("div");
+          box.className = "detection-box";
+          box.style.left = `${bx}px`;
+          box.style.top = `${by}px`;
+          box.style.width = `${bw}px`;
+          box.style.height = `${bh}px`;
+          
+          const lbl = document.createElement("div");
+          lbl.className = "detection-label";
+          lbl.textContent = `${d.label} ${Math.round((d.confidence || 0) * 100)}%`;
+          
+          box.appendChild(lbl);
+          overlay.appendChild(box);
+        });
+        
+        // Auto-clear if no new detections arrive for 2 seconds
+        if (detectionTimeout) clearTimeout(detectionTimeout);
+        detectionTimeout = setTimeout(() => {
+          if (overlay) overlay.innerHTML = "";
+        }, 2000);
+      });
+
+
       socket.on("rover_status", (payload) => {
+        if (!payload) return;
         roverStatusEl.textContent = payload.message
           ? `${payload.status}: ${payload.message}`
           : payload.status || "waiting";
@@ -2038,6 +2464,9 @@
       });
 
       socket.on("new_alert", (alert) => {
+        // === Live Detection Feed (main page) ===
+        renderDetectionFeed(alert);
+
         // === Full Alert Card (Alerts Tab) ===
         const item = document.createElement("article");
         item.className = "alert-card";
@@ -2117,6 +2546,36 @@
 
       stopRoverBtn.addEventListener("click", stopRover);
       stopRoverSideBtn.addEventListener("click", stopRover);
+
+      const moveForwardBtn = document.getElementById("moveForward");
+      const moveBackBtn = document.getElementById("moveBack");
+      const moveLeftBtn = document.getElementById("moveLeft");
+      const moveRightBtn = document.getElementById("moveRight");
+
+      if (moveForwardBtn) {
+        moveForwardBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "forward" });
+          addLogEntry("COMMAND: MOVE FORWARD");
+        });
+      }
+      if (moveBackBtn) {
+        moveBackBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "back" });
+          addLogEntry("COMMAND: MOVE BACK");
+        });
+      }
+      if (moveLeftBtn) {
+        moveLeftBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "left" });
+          addLogEntry("COMMAND: MOVE LEFT");
+        });
+      }
+      if (moveRightBtn) {
+        moveRightBtn.addEventListener("click", () => {
+          socket.emit("manual_move", { direction: "right" });
+          addLogEntry("COMMAND: MOVE RIGHT");
+        });
+      }
 
       returnHomeBtn.addEventListener("click", () => {
         socket.emit("return_home");

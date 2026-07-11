@@ -4,16 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>STASIS — Field Robotics Platform</title>
-  <meta name="description" content="STASIS is a competition-grade Raspberry Pi rover for field monitoring, real-time YOLO object detection, local AI reasoning, and operator-guided alert response." />
+  <meta name="description" content="STASIS is a competition-grade Raspberry Pi rover for field monitoring, real-time YOLO object detection, and operator-guided alert response." />
   <!-- Social / OG metadata -->
   <meta property="og:title" content="STASIS — Field Robotics Platform" />
-  <meta property="og:description" content="A competition-grade Raspberry Pi rover for field monitoring, real-time YOLO detection, local AI reasoning, and operator-guided alert response." />
+  <meta property="og:description" content="A competition-grade Raspberry Pi rover for field monitoring, real-time YOLO detection, and operator-guided alert response." />
   <meta property="og:url" content="https://catkartikwastaken.github.io/Stasis/" />
   <meta property="og:type" content="website" />
   <meta property="og:image" content="https://catkartikwastaken.github.io/Stasis/assets/stasis-logo.png" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="STASIS — Field Robotics Platform" />
-  <meta name="twitter:description" content="Raspberry Pi rover for field monitoring, YOLO detection, and local AI reasoning." />
+  <meta name="twitter:description" content="Raspberry Pi rover for field monitoring, YOLO detection, and automated response." />
   <!-- Inline SVG favicon (no external file needed) -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%230e0e0e' stroke='%238bd6ff' stroke-width='2'/%3E%3Ctext x='16' y='21' text-anchor='middle' fill='%23ffffff' font-family='monospace' font-size='14' font-weight='700'%3ES%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -1698,7 +1698,7 @@
       <a href="#setup">Setup</a>
       <a href="#docs">Docs</a>
     </div>
-    <a class="nav-action" href="https://github.com/Catkartikwastaken/Stasis">
+    <a class="nav-action" href="https://github.com/TeamEdgecase/Stasis">
       GitHub
     </a>
   </nav>
@@ -1709,7 +1709,7 @@
         <div class="hero-card">
           <span class="sub">Field Intelligence Platform</span>
           <h1>Build field<br />intelligence.</h1>
-          <p>A competition-grade Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic, and local LLM reasoning help turn raw field footage into useful action.</p>
+          <p>A competition-grade Raspberry Pi rover streams camera frames and telemetry to a local dashboard, where YOLO-style detection, alert logic help turn raw field footage into useful action.</p>
           <div class="actions">
             <a class="button primary" href="README_ROVER_SYSTEM.html">Read Rover Guide</a>
             <a class="button" href="#setup">Start Setup</a>
@@ -1736,7 +1736,7 @@
           <article class="work-card compact reveal" style="--reveal-delay: 120ms">
             <span class="caption">Tactile field terminal</span>
             <h3><span class="material-symbols-outlined card-icon amber" aria-hidden="true">settings_remote</span>Local decision loop</h3>
-            <p>STASIS processes camera feeds and sensors dynamically. Use the console below to simulate real-time sensor streams and trigger local model reasoning loops.</p>
+            <p>STASIS processes camera feeds and sensors dynamically. Use the console below to simulate real-time sensor streams and trigger detection loops.</p>
 
             <div class="field-console">
               <div class="hud-screen">
@@ -1828,9 +1828,8 @@
             <article class="pipeline-card reveal" style="--reveal-delay: 240ms" data-step="3">
               <span class="flow-number">04</span>
               <h3><span class="material-symbols-outlined card-icon violet" aria-hidden="true">smart_toy</span>Act (Local LLM &amp; Dashboard)</h3>
-              <p>Dashboard records warnings, alerts operators, and pings Qwen/Ollama for automated text observations.</p>
+              <p>Dashboard records warnings, alerts operators, and runs detection alerts.</p>
               <div class="step-details">
-                <code>Reasoning: local qwen2.5-coder</code>
               </div>
             </article>
           </div>
@@ -2088,7 +2087,7 @@ python rover.py --camera 0 --server ws://laptop.local:8765
 <b># windows detection server</b>
 python windows_yolo_server.py --provider onnx
 
-<b># optional local model reasoning</b>
+<b># optional local AI</b>
 ollama run qwen2.5
 # or connect LM Studio's local OpenAI-compatible endpoint</code></pre>
           </div>
@@ -2164,8 +2163,8 @@ ollama run qwen2.5
         </div>
       </div>
       <div style="text-align:right;">
-        <a href="https://github.com/Catkartikwastaken/Stasis" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);">
-          <span class="material-symbols-outlined" style="font-size:1rem;">open_in_new</span>Catkartikwastaken/Stasis
+        <a href="https://github.com/TeamEdgecase/Stasis" style="display:inline-flex;align-items:center;gap:6px;color:var(--muted);">
+          <span class="material-symbols-outlined" style="font-size:1rem;">open_in_new</span>TeamEdgecase/Stasis
         </a>
       </div>
     </div>
@@ -2238,7 +2237,7 @@ ollama run qwen2.5
       },
       {
         header: "[DECISION ENGINE LOGS]",
-        data: "Server: Ollama (Local)\nEndpoint: /api/generate\nModel: qwen2.5-coder:7b\nOutput size: 120 tokens max"
+        data: "Server: AI (Local\nEndpoint: /api/generate\nModel: qwen2.5-coder:7b\nOutput size: 120 tokens max"
       }
     ];
 
